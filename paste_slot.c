@@ -220,46 +220,12 @@ void paste_slot_display(void)
 /* Insert paste slot content into document without auto-indent - UTF-8 compatible */
 int paste_slot_insert(void)
 {
-    extern int linsert_byte(int n, int c);
-    extern int lnewline(void);
+    extern int linsert_block(char *block, int len);
     
     if (paste_slot_buffer == NULL || paste_slot_size == 0)
         return 1;
 
     mlwrite("Pasting...");
     
-    /* Insert content with UTF-8 awareness */
-    int byte_pos = 0;
-    while (byte_pos < paste_slot_size) {
-        char c = paste_slot_buffer[byte_pos];
-        
-        if (c == '\r') {
-            if (lnewline() == 0)
-                return 0;
-            byte_pos++;
-            /* Skip \n if present */
-            if (byte_pos < paste_slot_size && paste_slot_buffer[byte_pos] == '\n')
-                byte_pos++;
-        } else if (c == '\n') {
-            if (lnewline() == 0)
-                return 0;
-            byte_pos++;
-        } else {
-            /* Insert UTF-8 character byte by byte using linsert_byte 
-               to avoid double-encoding issues with linsert() */
-            unicode_t uc;
-            int bytes = utf8_to_unicode((unsigned char *)paste_slot_buffer, byte_pos, paste_slot_size, &uc);
-            
-            /* Insert each byte of the UTF-8 sequence directly */
-            for (int b = 0; b < bytes; b++) {
-                /* Pass 1 as the first argument for a single insertion */
-                if (linsert_byte(1, (unsigned char)paste_slot_buffer[byte_pos + b]) == 0)
-                    return 0;
-            }
-            
-            byte_pos += bytes;
-        }
-    }
-    
-    return 1;
+    return linsert_block(paste_slot_buffer, paste_slot_size);
 }

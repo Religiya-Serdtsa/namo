@@ -123,6 +123,12 @@ static int is_closing_block(struct line *lp) {
         if (strcmp(buffer, "until") == 0) return TRUE;
     }
 
+    /* Check for C preprocessor dedents */
+    if (curbp->b_mode & MDCMOD) {
+        if (strcmp(buffer, "#else") == 0 || strcmp(buffer, "#elif") == 0 || 
+            strcmp(buffer, "#endif") == 0) return TRUE;
+    }
+
     return FALSE;
 }
 
@@ -226,6 +232,46 @@ static void check_indent_dedent(void) {
                 }
                 curwp->w_dotp = oldlp;
                 curwp->w_doto = oldoff;
+            }
+        } else if (curbp->b_mode & MDCMOD) {
+            /* Handle C preprocessor dedenting (#else, #elif, #endif) */
+            char word[32];
+            int idx = 0;
+            for (int k = i; k < len && idx < 31; k++) {
+                int c = lgetc(lp, k);
+                if (isspace(c)) break;
+                word[idx++] = (char)c;
+            }
+            word[idx] = '\0';
+
+            if (strcmp(word, "#else") == 0 || strcmp(word, "#elif") == 0 || strcmp(word, "#endif") == 0) {
+                int count = 1;
+                struct line *scan = lback(lp);
+                while (scan != curbp->b_linep) {
+                    int slen = llength(scan);
+                    int si = 0;
+                    while (si < slen && isspace(lgetc(scan, si))) si++;
+                    if (si < slen) {
+                        char sword[32];
+                        int sidx = 0;
+                        for (int k = si; k < slen && sidx < 31; k++) {
+                            int sc = lgetc(scan, k);
+                            if (isspace(sc)) break;
+                            sword[sidx++] = (char)sc;
+                        }
+                        sword[sidx] = '\0';
+
+                        if (strcmp(sword, "#if") == 0 || strcmp(sword, "#ifdef") == 0 || strcmp(sword, "#ifndef") == 0) {
+                            if (--count == 0) {
+                                target_indent = get_indent(scan);
+                                break;
+                            }
+                        } else if (strcmp(sword, "#endif") == 0) {
+                            count++;
+                        }
+                    }
+                    scan = lback(scan);
+                }
             }
         }
     }
@@ -805,6 +851,25 @@ int cinsert(void)
     lp = curwp->w_dotp;
     target_indent = get_indent(lp);
 
+    /* check for preprocessor macros that should increase indentation */
+    int ppf = 0;
+    if (curbp->b_mode & MDCMOD) {
+        int i = 0;
+        while (i < llength(lp) && isspace(lgetc(lp, i))) i++;
+        if (i < llength(lp) && lgetc(lp, i) == '#') {
+            char word[32];
+            int idx = 0;
+            while (i < llength(lp) && !isspace(lgetc(lp, i)) && idx < 31) {
+                word[idx++] = (char)lgetc(lp, i);
+                i++;
+            }
+            word[idx] = '\0';
+            if (strcmp(word, "#if") == 0 || strcmp(word, "#ifdef") == 0 || 
+                strcmp(word, "#ifndef") == 0 || strcmp(word, "#else") == 0 || 
+                strcmp(word, "#elif") == 0) ppf = 1;
+        }
+    }
+
     /* put in the newline */
     if (lnewline() == FALSE)
         return FALSE;
@@ -812,8 +877,8 @@ int cinsert(void)
     /* and the saved indentation */
     set_indent(target_indent);
 
-    /* and one level of indentation for an open brace */
-    if (bracef) {
+    /* and one level of indentation for an open brace or preprocessor block */
+    if (bracef || ppf) {
         int step = (curbp->b_tabsize ? curbp->b_tabsize : (tab_width + 1));
         if (step == 8 && !nanox_cfg.soft_tab) linsert(1, '\t');
         else {
@@ -959,6 +1024,10 @@ int inspound(void)
             return linsert(1, '#');
     }
 
+    /* if in C mode, we allow indentation for # */
+    if (curbp->b_mode & MDCMOD)
+        return linsert(1, '#');
+
     /* delete back first */
     while (getccol(FALSE) >= 1)
         backdel(FALSE, 1);
@@ -1016,15 +1085,37 @@ int indent(int f, int n)
         if (curbp->b_mode & MDCMOD)
             check_indent_dedent();
 
-        int target_indent = get_indent(curwp->w_dotp);
+        struct line *lp = curwp->w_dotp;
+        int target_indent = get_indent(lp);
         
         /* check if we are on a line that just opened a brace */
-        int doto = llength(curwp->w_dotp);
+        int doto = llength(lp);
         int tptr = doto - 1;
-        while (tptr >= 0 && (lgetc(curwp->w_dotp, tptr) == ' ' || lgetc(curwp->w_dotp, tptr) == '\t'))
+        while (tptr >= 0 && (lgetc(lp, tptr) == ' ' || lgetc(lp, tptr) == '\t'))
             tptr--;
         
-        if (tptr >= 0 && lgetc(curwp->w_dotp, tptr) == '{') {
+        int bracef = (tptr >= 0 && lgetc(lp, tptr) == '{');
+
+        /* check for preprocessor block opening */
+        int ppf = 0;
+        if (curbp->b_mode & MDCMOD) {
+            int i = 0;
+            while (i < llength(lp) && isspace(lgetc(lp, i))) i++;
+            if (i < llength(lp) && lgetc(lp, i) == '#') {
+                char word[32];
+                int idx = 0;
+                while (i < llength(lp) && !isspace(lgetc(lp, i)) && idx < 31) {
+                    word[idx++] = (char)lgetc(lp, i);
+                    i++;
+                }
+                word[idx] = '\0';
+                if (strcmp(word, "#if") == 0 || strcmp(word, "#ifdef") == 0 || 
+                    strcmp(word, "#ifndef") == 0 || strcmp(word, "#else") == 0 || 
+                    strcmp(word, "#elif") == 0) ppf = 1;
+            }
+        }
+
+        if (bracef || ppf) {
             target_indent += (curbp->b_tabsize ? curbp->b_tabsize : (tab_width + 1));
         }
 

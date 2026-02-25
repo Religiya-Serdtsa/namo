@@ -305,21 +305,21 @@ int main(int argc, char **argv)
     lastflag = saveflag;
 
             if (typahead()) {
-                newc = getcmd();
+                while ((newc = getcmd()) == 0);
                 nanox_refresh_ui();
                 do {
                     fn_t execfunc;
 
                     if (c == newc && (execfunc = getbind(c)) != NULL
                         && execfunc != insert_newline && execfunc != insert_tab)
-                        newc = getcmd();
+                        while ((newc = getcmd()) == 0);
                     else
                         break;
                 } while (typahead());
                 c = newc;
             } else {
                 nanox_refresh_ui();
-                c = getcmd();
+                while ((c = getcmd()) == 0);
             }    /* if there is something on the command line, clear it */
     if (mpresf != FALSE) {
         mlerase();
@@ -363,7 +363,7 @@ int main(int argc, char **argv)
             else
                 mlwrite("Arg: %d", n * mflag);
 
-            c = getcmd();        /* get the next key */
+            while ((c = getcmd()) == 0);        /* get the next key */
         }
         n = n * mflag;            /* figure in the sign */
     }
@@ -375,7 +375,11 @@ int main(int argc, char **argv)
         n = 4;                /* with argument of 4 */
         mflag = 0;            /* that can be discarded. */
         mlwrite("Arg: 4");
-        while (((c = getcmd()) >= '0' && c <= '9') || c == reptc || c == '-') {
+        for (;;) {
+            c = getcmd();
+            if (c == 0) continue;
+            if (!((c >= '0' && c <= '9') || c == reptc || c == '-')) break;
+            
             if (c == reptc)
                 if ((n > 0) == ((n * 4) > 0))
                     n = n * 4;
@@ -489,8 +493,7 @@ int execute(int c, int f, int n)
         n >= 0 && getccol(FALSE) > fillcol && (curwp->w_bufp->b_mode & MDVIEW) == FALSE)
         execute(META | SPEC | 'W', FALSE, 1);
 
-    if ((c >= 0x20 && c <= 0x7E)        /* Self inserting.      */
-        ||(c >= 0xA0 && c <= 0x10FFFF)) {
+    if (c >= 0 && c <= 0x10FFFF) {
         if (n <= 0) {            /* Fenceposts.          */
             lastflag = 0;
             return n < 0 ? FALSE : TRUE;
@@ -511,7 +514,7 @@ int execute(int c, int f, int n)
         else if (c == '#' && (curbp->b_mode & MDCMOD) != 0)
             status = inspound();
         else
-            status = linsert(n, c);
+            status = sanitize_and_insert(n, c);
 
         /* check for CMODE fence matching */
         if ((c == '}' || c == ')' || c == ']') && (curbp->b_mode & MDCMOD) != 0)

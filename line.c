@@ -262,6 +262,32 @@ int linsert(int n, int c)
 }
 
 /*
+ * nanox: UTF-8 safe control character filter.
+ * 1. Allow essential control characters: \n, \t, \r.
+ * 2. Block system control characters (0x00-0x1F except above, 0x7F).
+ * 3. Allow everything else including UTF-8 multibyte sequences.
+ */
+int sanitize_and_insert(int n, int c)
+{
+    if (c == '\n' || c == '\t' || c == '\r') {
+        if (c == '\n') {
+            while (n--) {
+                if (lnewline() == FALSE) return FALSE;
+            }
+            return TRUE;
+        }
+        return linsert(n, c);
+    }
+    else if ((c < 32 && c >= 0) || c == 127) {
+        /* Silently drop raw control codes/junk */
+        return TRUE;
+    }
+    else {
+        return linsert(n, c);
+    }
+}
+
+/*
  * Overwrite a character into the current line at the current position
  *
  * int c;   character to overwrite on current position
@@ -729,5 +755,91 @@ int yank(int f, int n)
             kp = kp->d_next;
         }
     }
+    return TRUE;
+}
+
+/*
+ * linsert_block -- Insert a block of text into the current line at dot.
+ * This is a high-performance version of linstr for large pastes.
+ * It minimizes window updates and buffer change notifications.
+ */
+int linsert_block(char *block, int len)
+{
+    int i, j;
+    int start = 0;
+
+    if (curbp->b_mode & MDVIEW)
+        return rdonly();
+
+    for (i = 0; i <= len; i++) {
+        /* If we hit a newline or the end of the block */
+        if (i == len || block[i] == '\n' || block[i] == '\r') {
+            int segment_len = i - start;
+            if (segment_len > 0) {
+                /* Insert the segment into the current line */
+                struct line *lp1 = curwp->w_dotp;
+                int doto = curwp->w_doto;
+                struct line *lp2;
+
+                if (lp1 == curbp->b_linep) {
+                    /* Special case: end of buffer */
+                    if ((lp2 = lalloc(segment_len)) == NULL) return FALSE;
+                    struct line *lp3 = lp1->l_bp;
+                    lp3->l_fp = lp2;
+                    lp2->l_fp = lp1;
+                    lp1->l_bp = lp2;
+                    lp2->l_bp = lp3;
+                    for (j = 0; j < segment_len; j++)
+                        lp2->l_text[j] = block[start + j];
+                    curwp->w_dotp = lp2;
+                    curwp->w_doto = segment_len;
+                } else {
+                    /* Normal case: insert into line */
+                    if (lp1->l_used + segment_len > lp1->l_size) {
+                        /* Reallocate */
+                        if ((lp2 = lalloc(lp1->l_used + segment_len)) == NULL) return FALSE;
+                        unsigned char *cp1 = &lp1->l_text[0];
+                        unsigned char *cp2 = &lp2->l_text[0];
+                        for (j = 0; j < doto; j++) *cp2++ = *cp1++;
+                        cp2 += segment_len;
+                        for (j = doto; j < lp1->l_used; j++) *cp2++ = *cp1++;
+                        
+                        lp1->l_bp->l_fp = lp2;
+                        lp2->l_fp = lp1->l_fp;
+                        lp1->l_fp->l_bp = lp2;
+                        lp2->l_bp = lp1->l_bp;
+                        free((char *)lp1);
+                        curwp->w_dotp = lp2;
+                    } else {
+                        /* In place */
+                        lp2 = lp1;
+                        unsigned char *cp1 = &lp2->l_text[lp2->l_used + segment_len - 1];
+                        unsigned char *cp2 = &lp2->l_text[lp2->l_used - 1];
+                        for (j = lp2->l_used - 1; j >= doto; j--) *cp1-- = *cp2--;
+                        lp2->l_used += segment_len;
+                    }
+                    /* Fill in the text */
+                    for (j = 0; j < segment_len; j++)
+                        lp2->l_text[doto + j] = block[start + j];
+                    curwp->w_doto += segment_len;
+                    
+                    /* Update windows */
+                    if (curwp->w_linep == lp1) curwp->w_linep = lp2;
+                    if (curwp->w_dotp == lp1) curwp->w_dotp = lp2;
+                    if (curwp->w_markp == lp1) curwp->w_markp = lp2;
+                }
+            }
+
+            if (i < len) {
+                /* Handle newline */
+                if (lnewline() == FALSE) return FALSE;
+                if (block[i] == '\r' && i + 1 < len && block[i+1] == '\n')
+                    i++;
+                start = i + 1;
+            }
+        }
+    }
+
+    lchange(WFHARD);
     return TRUE;
 }

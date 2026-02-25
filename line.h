@@ -33,6 +33,8 @@ extern void lchange(int flag);
 extern int insspace(int f, int n);
 extern int linstr(char *instr);
 extern int linsert(int n, int c);
+extern int sanitize_and_insert(int n, int c);
+extern int linsert_block(char *block, int len);
 extern int lowrite(int c);
 extern int lover(char *ostr);
 extern int lnewline(void);

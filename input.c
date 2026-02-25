@@ -444,7 +444,8 @@ proc_metac:
             int code = decode_csi_sequence(cmask);
             if (code)
                 return code;
-            c = get1key();
+            /* If code is 0, sequence was aborted or unrecognized - drop it */
+            return 0;
         }
         if (c == 'O') {
             int code = get1key();

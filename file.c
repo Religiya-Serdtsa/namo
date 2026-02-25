@@ -538,7 +538,25 @@ int writeout(char *fn)
     lp = lforw(curbp->b_linep);     /* First line.          */
     nline = 0;              /* Number of lines.     */
     while (lp != curbp->b_linep) {
-        if ((s = ffputline(&lp->l_text[0], llength(lp))) != FIOSUC)
+        int len = llength(lp);
+        unsigned char clean_buf[NLINE];
+        int clean_idx = 0;
+
+        /* Normalize line: 1. Filter non-essential control codes. 2. Remove trailing whitespace. */
+        for (int i = 0; i < len && clean_idx < (NLINE - 1); i++) {
+            unsigned char c = lp->l_text[i];
+            /* Drop dangerous control codes but preserve UTF-8 and tabs/newlines */
+            if (c >= 32 || c == '\t' || c >= 0x80) {
+                clean_buf[clean_idx++] = c;
+            }
+        }
+        
+        /* Remove trailing whitespace from the cleaned buffer */
+        while (clean_idx > 0 && (clean_buf[clean_idx - 1] == ' ' || clean_buf[clean_idx - 1] == '\t')) {
+            clean_idx--;
+        }
+
+        if ((s = ffputline((char *)clean_buf, clean_idx)) != FIOSUC)
             break;
         ++nline;
         lp = lforw(lp);
