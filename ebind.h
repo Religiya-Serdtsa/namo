@@ -50,10 +50,19 @@ struct key_tab keytab[NBINDS] = {
     { SPEC | 'U', nanox_search_engine },  /* F5 */
     { CONTROL | 'F', nanox_search_engine },
 
-    /* DATA DELETION (CUT) */
-    { SPEC | 'X', cutln_trigger },        /* F7 */
-    { CONTROL | 'X', cutln_trigger },
-    { CONTROL | 'K', cutln_trigger },
+    /* DATA DELETION & COPY (CUT/COPY) */
+    { SPEC | SHIFT | 'W', cutln_start_copy },    /* Shift+F6: Start Copy */
+    { SPEC | 'W', cutln_end_copy },              /* F6: End Copy */
+    { CONTROL | SHIFT | 'W', cutln_start_copy }, /* Ctrl+Shift+W: Start Copy */
+    { CONTROL | 'W', cutln_end_copy },           /* Ctrl+W: End Copy */
+    
+    { SPEC | SHIFT | 'X', cutln_start_cut },     /* Shift+F7: Start Cut */
+    { SPEC | 'X', cutln_end_cut },               /* F7: End Cut */
+    { CONTROL | SHIFT | 'X', cutln_start_cut },  /* Ctrl+Shift+X: Start Cut */
+    { CONTROL | 'X', cutln_end_cut },            /* Ctrl+X: End Cut */
+    
+    { CONTROL | SHIFT | 'K', cutln_start_cut },  /* Ctrl+Shift+K: Start Cut */
+    { CONTROL | 'K', cutln_end_cut },            /* Ctrl+K: End Cut */
 
     /* DATA INSERTION (PASTE) */
     { SPEC | 'Y', yank },                 /* F8 */

@@ -12,43 +12,63 @@
 #include "paste_slot.h"
 
 /*
- * F7: CutLn Trigger
- * First press: Sets mark (Cut Start)
- * Second press: Kills region (Cut End)
+ * F7: CutLn End (Perform Cut)
+ * Only works if selection (mark) is active.
  */
-int cutln_trigger(int f, int n)
+int cutln_end_cut(int f, int n)
 {
     if (cutln_active) {
-        /* Second press: Perform Cut */
         int s = killregion(f, n);
         cutln_active = FALSE;
+        mlwrite("Region cut.");
         return s;
     } else {
-        /* First press: Set Mark */
-        int s = setmark(f, n);
-        if (s == TRUE) {
-            cutln_active = TRUE;
-            mlwrite("CutLn start set. Press F7 to cut, Shift+F7 to copy.");
-        }
-        return s;
+        mlwrite("No selection active. Press Shift+F7 to start cut.");
+        return FALSE;
     }
 }
 
 /*
- * Shift+F7: CutLn Copy
- * Only works if CutLn is active (start point set via F7)
+ * Shift+F7: CutLn Start (Set Mark)
  */
-int cutln_copy(int f, int n)
+int cutln_start_cut(int f, int n)
+{
+    int s = setmark(f, n);
+    if (s == TRUE) {
+        cutln_active = TRUE;
+        mlwrite("Cut selection started. Press F7 to cut.");
+    }
+    return s;
+}
+
+/*
+ * F6: CutLn End (Perform Copy)
+ * Only works if selection (mark) is active.
+ */
+int cutln_end_copy(int f, int n)
 {
     if (cutln_active) {
-        /* Perform Copy */
         int s = copyregion(f, n);
         cutln_active = FALSE;
+        mlwrite("Region copied.");
         return s;
     } else {
-        mlwrite("No CutLn start set. Press F7 first.");
+        mlwrite("No selection active. Press Shift+F6 to start copy.");
         return FALSE;
     }
+}
+
+/*
+ * Shift+F6: CutLn Start (Set Mark)
+ */
+int cutln_start_copy(int f, int n)
+{
+    int s = setmark(f, n);
+    if (s == TRUE) {
+        cutln_active = TRUE;
+        mlwrite("Copy selection started. Press F6 to copy.");
+    }
+    return s;
 }
 
 /*

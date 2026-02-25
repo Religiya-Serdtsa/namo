@@ -32,11 +32,49 @@
 extern struct terminal *term;
 
 struct video **vscreen;          /* Virtual screen. */
+
+static int get_gutter_width(void)
+{
+    return !nanox_cfg.nonr ? 6 : 0;
+}
+
+static void render_gutter(int row, int lnum)
+{
+    if (nanox_cfg.nonr) return;
+
+    char buf[10];
+    if (lnum > 0) {
+        snprintf(buf, sizeof(buf), "%5d", lnum);
+    } else {
+        snprintf(buf, sizeof(buf), "     ");
+    }
+
+    HighlightStyle num_style = colorscheme_get(HL_LINENUM);
+    
+    video_cell *vcp = vscreen[row]->v_text;
+    for (int i = 0; i < 5; i++) {
+        vcp[i].ch = buf[i];
+        vcp[i].fg = num_style.fg;
+        vcp[i].bg = num_style.bg;
+        vcp[i].bold = num_style.bold;
+        vcp[i].underline = num_style.underline;
+        vcp[i].italic = num_style.italic;
+    }
+    vcp[5].ch = 0x2502; // Vertical bar │
+    vcp[5].fg = num_style.fg;
+    vcp[5].bg = num_style.bg;
+    vcp[5].bold = num_style.bold;
+    vcp[5].underline = num_style.underline;
+    vcp[5].italic = num_style.italic;
+}
+
 static int current_color_fg = -1;
 static int current_color_bg = -1;
 static bool current_color_bold = false;
 static bool current_color_underline = false;
 static bool current_color_italic = false;
+
+static int vt_margin_left = 0;
 
 static int displaying = TRUE;
 #include <signal.h>
@@ -55,7 +93,8 @@ static void show_line_wrapped(struct window *wp, struct line *lp);
 static int get_char_width(unicode_t c, int col)
 {
     if (c == '\t') {
-        return (tab_width + 1) - ((col + taboff) & tab_width);
+        int rel_col = col - vt_margin_left;
+        return (tab_width + 1) - ((rel_col + taboff) & tab_width);
     }
     if (c < 0x20 || c == 0x7f)
         return 2;
@@ -75,7 +114,7 @@ static int get_line_height(struct line *lp)
         unicode_t c;
         int bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, len, &c);
         int w = get_char_width(c, col);
-        if (col + w > term->t_ncol) {
+        if (col + w > nanox_text_cols()) {
             height++;
             col = 4;
             w = get_char_width(c, col);
@@ -303,7 +342,7 @@ void vttidy(void)
 void vtmove(int row, int col)
 {
     vtrow = row;
-    vtcol = col;
+    vtcol = col + vt_margin_left;
 }
 
 /*
@@ -322,7 +361,7 @@ void vtputc(int c)
     if (c == '\t') {
         do {
             vtputc(' ');
-        } while (((vtcol + taboff) & tab_width) != 0);
+        } while ((((vtcol - vt_margin_left) + taboff) & tab_width) != 0);
         return;
     }
 
@@ -343,16 +382,9 @@ void vtputc(int c)
     if (vtcol + char_width > term->t_ncol) {
         if (vtrow < nanox_text_rows() - 1) {
             vtrow++;
-            vtcol = !nanox_cfg.nonr ? 6 : 0;
+            vtcol = vt_margin_left;
             vscreen[vtrow]->v_flag |= VFCHG;
-            if (!nanox_cfg.nonr) {
-                // Clear the number area for wrapped lines
-                for (int i = 0; i < 6; i++) {
-                    vscreen[vtrow]->v_text[i].ch = ' ';
-                    vscreen[vtrow]->v_text[i].fg = colorscheme_get(HL_NORMAL).fg;
-                    vscreen[vtrow]->v_text[i].bg = colorscheme_get(HL_NORMAL).bg;
-                }
-            }
+            render_gutter(vtrow, 0); // 0 indicates empty gutter for wrapped lines
             for (int i = 0; i < 4; i++)
                 vtputc(' ');
         } else {
@@ -510,7 +542,7 @@ int update(int force)
     updupd(force);
 
     /* update the cursor and flush the buffers */
-    movecursor(currow, curcol - lbound);
+    movecursor(currow, curcol + get_gutter_width() - lbound);
     TTflush();
     displaying = FALSE;
     while (chg_width || chg_height)
@@ -543,7 +575,7 @@ static int reframe(struct window *wp)
                     unicode_t c;
                     int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, wp->w_doto, &c);
                     int w = get_char_width(c, col);
-                    if (col + w > term->t_ncol) {
+                    if (col + w > nanox_text_cols()) {
                         dot_vrow++;
                         col = 4;
                         w = get_char_width(c, col);
@@ -779,16 +811,9 @@ render_segment:
             if(vtrow >= nanox_text_rows()) {
                 break;
             }
-            vtcol = !nanox_cfg.nonr ? 6 : 0;
+            vtcol = vt_margin_left;
             vscreen[vtrow]->v_flag |= VFCHG;
-            if (!nanox_cfg.nonr) {
-                // Clear the number area for wrapped lines
-                for (int i = 0; i < 6; i++) {
-                    vscreen[vtrow]->v_text[i].ch = ' ';
-                    vscreen[vtrow]->v_text[i].fg = colorscheme_get(HL_NORMAL).fg;
-                    vscreen[vtrow]->v_text[i].bg = colorscheme_get(HL_NORMAL).bg;
-                }
-            }
+            render_gutter(vtrow, 0);
             for (int i = 0; i < 4; i++) vtputc(' ');
         }
     }
@@ -826,12 +851,18 @@ static void updone(struct window *wp)
     if (sline < rows) {
         vscreen[sline]->v_flag |= VFCHG;
         vscreen[sline]->v_flag &= ~VFREQ;
+        
+        int lnum = get_line_num(wp->w_bufp, lp);
+        render_gutter(sline, lnum);
+        vt_margin_left = get_gutter_width();
+        
         vtmove(sline, 0);
         if (wp->w_bufp->b_mode & MDSOFTWRAP)
             show_line_wrapped(wp, lp);
         else
             show_line(wp, lp);
         vteeol();
+        vt_margin_left = 0;
         if (vtrow != sline)
             updall(wp);
     }
@@ -853,33 +884,16 @@ static void updall(struct window *wp)
     /* search down the lines, updating them */
     lp = wp->w_linep;
     sline = 0;
+    vt_margin_left = get_gutter_width();
     while (sline < rows && sline < term->t_mrow) {
 
         /* and update the virtual line */
         vscreen[sline]->v_flag |= VFCHG;
         vscreen[sline]->v_flag &= ~VFREQ;
         
-                int col = 0;
-                if (!nanox_cfg.nonr) {
-                    char buf[10];
-                    if (lp != wp->w_bufp->b_linep) {
-                        snprintf(buf, sizeof(buf), "%5d ", lnum);
-                    } else {
-                        snprintf(buf, sizeof(buf), "      ");
-                    }
-                    vtmove(sline, 0);            
-            HighlightStyle num_style = colorscheme_get(HL_NORMAL);
-            current_color_fg = num_style.fg;
-            current_color_bg = num_style.bg;
-            current_color_bold = false;
-            
-            for (int i = 0; buf[i]; i++) {
-                vtputc(buf[i]);
-            }
-            col = 6;
-        }
+        render_gutter(sline, (lp != wp->w_bufp->b_linep) ? lnum : -1);
 
-        vtmove(sline, col);
+        vtmove(sline, 0);
         if (lp != wp->w_bufp->b_linep) {
             /* if we are not at the end */
             if (wp->w_bufp->b_mode & MDSOFTWRAP)
@@ -895,7 +909,7 @@ static void updall(struct window *wp)
         vteeol();
         ++sline;
     }
-
+    vt_margin_left = 0;
 }
 
 /*
@@ -918,7 +932,7 @@ void updpos(void)
     }
 
     /* find the current column and subrow */
-    curcol = !nanox_cfg.nonr ? 6 : 0;
+    curcol = 0;
     i = 0;
     lp = curwp->w_dotp;
     while (i < curwp->w_doto) {
@@ -927,9 +941,9 @@ void updpos(void)
 
         bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, curwp->w_doto, &c);
         int w = get_char_width(c, curcol);
-        if (curcol + w > term->t_ncol) {
+        if (curcol + w > nanox_text_cols()) {
             currow++;
-            curcol = (!nanox_cfg.nonr ? 6 : 0) + 4;
+            curcol = 4;
             w = get_char_width(c, curcol);
         }
         curcol += w;
@@ -956,7 +970,7 @@ void upddex(void)
     while (i < nanox_text_rows()) {
         if (vscreen[i]->v_flag & VFEXT) {
             if ((wp != curwp) || (lp != wp->w_dotp) ||
-                (curcol < term->t_ncol - 1)) {
+                (curcol < nanox_text_cols() - 1)) {
                 vtmove(i, 0);
                 show_line(wp, lp);
                 vteeol();
@@ -1255,8 +1269,8 @@ static int updateline(int row, struct video *vp)
 static void modeline(struct window *wp)
 {
     struct buffer *bp = wp->w_bufp;
-    const char *row1 = nanox_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search(&nx/&pr)" : "";
-    const char *row2 = nanox_cfg.hint_bar ? "F7/^X Cut F8/^V Paste F9/^1-F12/^4 Slot1-4" : "";
+    const char *row1 = nanox_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search" : "";
+    const char *row2 = nanox_cfg.hint_bar ? "F6/^W Copy(S:Start) F7/^X Cut(S:Start) F8/^V Paste F9-12 Slot" : "";
     char status[MAXCOL + 1];
     const char *fname = bp->b_fname[0] ? bp->b_fname : bp->b_bname;
     const char *lamp = nanox_lamp_label();

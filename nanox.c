@@ -104,22 +104,20 @@ static void load_help_file(void)
     static char localized_name[32];
     char *path = NULL;
 
-    if (nanox_cfg.help_language[0]) {
+    /* Check User Config Directory First */
+    static char config_path[PATH_MAX];
+    char dir[512];
+    nanox_get_user_config_dir(dir, sizeof(dir));
+    nanox_path_join(config_path, sizeof(config_path), dir, "emacs.hlp");
+    if (nanox_file_exists(config_path))
+        path = config_path;
+
+    if (!path && nanox_cfg.help_language[0]) {
         snprintf(localized_name, sizeof(localized_name), "emacs-%s.hlp", nanox_cfg.help_language);
         path = flook(localized_name, TRUE);
     }
     if (!path)
         path = flook("emacs.hlp", TRUE);
-
-    /* Fallback: Check User Config Directory */
-    static char config_path[PATH_MAX];
-    if (!path) {
-        char dir[512];
-        nanox_get_user_config_dir(dir, sizeof(dir));
-        nanox_path_join(config_path, sizeof(config_path), dir, "emacs.hlp");
-        if (nanox_file_exists(config_path))
-            path = config_path;
-    }
 
     if (!path) return;
 
@@ -435,6 +433,16 @@ int nanox_text_rows(void)
     return rows;
 }
 
+int nanox_text_cols(void)
+{
+    int cols = term->t_ncol;
+    if (!nanox_cfg.nonr)
+        cols -= 6;
+    if (cols < 1)
+        cols = 1;
+    return cols;
+}
+
 int nanox_hint_top_row(void)
 {
     int row = term->t_nrow - 2;
@@ -524,12 +532,12 @@ static const char *nanox_help_sheet[] = {
     "===============================================================================",
     "=>                      NANOX SYSTEM BINDINGS & SEARCH SPEC",
     "-------------------------------------------------------------------------------",
-    "FILE & SLOT CONTROL      EDITING & SEARCH        SEARCH SUFFIX LOGIC",
-    "F2 / ^S : Save File      F7 / ^X / ^K : Cut      keyword&nx : Search Forward",
-    "F3 / ^O : Open File      F8 / ^V / ^Y : Paste    keyword&pr : Search Backward",
-    "F4 / ^Q : Quit nanox     F5 / ^F      : Search   ---------------------------",
-    "F1 / ^H : Help Menu                                * Interactive (y/n) prompt",
-    "F9-F12 / ^1-^4 : Slot    ----------------------    appears after each match.",
+    "FILE & SLOT CONTROL     EDITING & SEARCH        SEARCH SUFFIX LOGIC",
+    "F2 / ^S : Save File     F7 / ^X : Cut(S:Start)  keyword&nx : Search Forward",
+    "F3 / ^O : Open File     F6 / ^W : Copy(S:Start) keyword&pr : Search Backward",
+    "F4 / ^Q : Quit nanox    F8 / ^V : Paste         ---------------------------",
+    "F1 / ^H : Help Menu     F5 / ^F : Search        * Interactive (y/n) prompt",
+    "F9-F12 / ^1-^4 : Slot   ----------------------    appears after each match.",
     "===============================================================================",
     NULL
 };
@@ -552,9 +560,22 @@ void nanox_help_render(void)
     movecursor(0, 0);
     help_puts(" [ Nanox Help Sheet ]");
 
-    for (int i = 0; nanox_help_sheet[i] != NULL && i + 2 < max_r; ++i) {
-        movecursor(i + 2, 2);
-        help_puts(nanox_help_sheet[i]);
+    /* Prefer dynamic topics if loaded */
+    if (dynamic_topics && dynamic_topic_count > 0) {
+        int r = 2;
+        for (size_t t = 0; t < dynamic_topic_count && r < max_r; t++) {
+            movecursor(r++, 2);
+            help_puts(dynamic_topics[t].title);
+            for (size_t l = 0; l < dynamic_topics[t].line_count && r < max_r; l++) {
+                movecursor(r++, 2);
+                help_puts(dynamic_topics[t].lines[l]);
+            }
+        }
+    } else {
+        for (int i = 0; nanox_help_sheet[i] != NULL && i + 2 < max_r; ++i) {
+            movecursor(i + 2, 2);
+            help_puts(nanox_help_sheet[i]);
+        }
     }
 
     /* Footer */
@@ -568,6 +589,7 @@ void nanox_help_render(void)
 }
 int nanox_help_command(int f, int n)
 {
+    load_help_file();
     help_active = true;
     sgarbf = TRUE;
     nanox_help_render();

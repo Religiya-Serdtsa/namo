@@ -58,6 +58,8 @@ static void set_default_scheme(void) {
     styles[HL_MD_ITALIC] = (HighlightStyle){6, -1, false, false, true};
     /* HTML Underline: Underlined text */
     styles[HL_MD_UNDERLINE] = (HighlightStyle){-1, -1, false, true, false};
+    /* Line Number Gutter: Bright Black (Gray) on Default */
+    styles[HL_LINENUM] = (HighlightStyle){8, -1, false, false, false};
 }
 
 static int parse_color(const char *val) {
@@ -169,6 +171,7 @@ static void load_scheme_file(const char *path) {
             else if (strcmp(key, "md_bold") == 0) id = HL_MD_BOLD;
             else if (strcmp(key, "md_italic") == 0) id = HL_MD_ITALIC;
             else if (strcmp(key, "md_underline") == 0) id = HL_MD_UNDERLINE;
+            else if (strcmp(key, "linenum") == 0) id = HL_LINENUM;
             
                     if (id != HL_COUNT) {                parse_attributes(val, &styles[id]);
             }

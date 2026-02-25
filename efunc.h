@@ -218,8 +218,10 @@ extern void nanox_cleanup(void);
 extern void nanox_message_prefix(const char *input, char *output, size_t outsz);
 
 /* cutln.c */
-extern int cutln_trigger(int f, int n);
-extern int cutln_copy(int f, int n);
+extern int cutln_end_cut(int f, int n);
+extern int cutln_start_cut(int f, int n);
+extern int cutln_end_copy(int f, int n);
+extern int cutln_start_copy(int f, int n);
 extern int cutln_paste_menu(int f, int n);
 
 /* command_mode.c */

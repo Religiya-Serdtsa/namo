@@ -41,6 +41,7 @@ enum nanox_lamp_state nanox_current_lamp(void);
 const char *nanox_lamp_label(void);
 
 int nanox_text_rows(void);
+int nanox_text_cols(void);
 int nanox_hint_top_row(void);
 int nanox_hint_bottom_row(void);
 
