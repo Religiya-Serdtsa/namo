@@ -22,7 +22,7 @@ bracket  = fg=#6a737d
 operator = fg=#a6a598
 
 ; WOOD: Declarative birth (Functions, Preprocessors)
-function = fg=#3aa39a
+function = fg=#3a93ca
 preproc  = fg=#3abf86
 
 ; FIRE: Operational heat (Control flow, Keywords)

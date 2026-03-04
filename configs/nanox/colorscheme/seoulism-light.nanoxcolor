@@ -22,8 +22,8 @@ operator = fg=#111111
 type     = fg=#111111 bold=true
 
 ; WOOD: Jade (cuts into the metal lattice)
-function = fg=#147a72
-preproc  = fg=#2b4cc2
+function = fg=#145aa2
+preproc  = fg=#2b9c72
 
 ; FIRE: Vermilion (ignites before ink records)
 keyword  = fg=#b0231b bold=true

@@ -160,7 +160,7 @@ Nanox now ships with first-class syntax rules for **32 widely used languages** (
 You can extend or override the built-ins without recompiling:
 
 1. Create `~/.config/nanox/langs` (or `~/.local/share/nanox/langs`).
-2. Drop one or more `.ini` files there. Each file can hold a single language section using the same keys found in `syntax.ini`.
+2. Drop one or more `.ini` files there. Each file can hold a single language section using the same keys found in `syntax.ini`. Use `file_matches = ^regex$` when you need to match basenames without reliable extensions (e.g., `Makefile`, `Kconfig`); patterns follow POSIX extended regular expressions and are matched case-insensitively against the filename.
 3. Restart Nanox. The editor will automatically merge everything under the `langs/` directory after loading the base profiles.
 
 Example (`~/.config/nanox/langs/futhark.ini`):

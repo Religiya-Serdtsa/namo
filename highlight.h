@@ -11,6 +11,8 @@
 #define MAX_PROFILES 512
 #define MAX_EXTS 1232
 #define MAX_EXT_LEN 64
+#define MAX_FILE_MATCHES 16
+#define MAX_FILE_MATCH_PATTERN 128
 
 typedef struct {
     char start[MAX_TOKEN_LEN];
@@ -21,6 +23,8 @@ typedef struct {
     char name[1232];
     char extensions[MAX_EXTS][MAX_EXT_LEN];
     int ext_count;
+    char file_match_patterns[MAX_FILE_MATCHES][MAX_FILE_MATCH_PATTERN];
+    int file_match_count;
 
     char line_comments[MAX_TOKENS][MAX_TOKEN_LEN];
     int line_comment_count;

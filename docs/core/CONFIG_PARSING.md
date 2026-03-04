@@ -53,6 +53,7 @@ Nanox searches for configuration files in the following order:
 
 Syntax rules are more complex and involve lists of keywords. `highlight.c` uses `strtok(val, ",")` to parse comma-separated lists for:
 - `extensions`: File extensions mapped to the profile.
+- `file_matches`: Optional comma-separated POSIX extended regular expressions matched against the basename (case-insensitive). Useful for files like `Makefile` or `Kconfig` that lack conventional extensions.
 - `keywords`: Language-specific reserved words.
 - `line_comment_tokens`: Tokens like `//` or `#`.
 - `block_comment_pairs`: Start and end tokens for blocks (e.g., `/* */`).

@@ -8,6 +8,7 @@
 #include <ctype.h>
 #include <strings.h>
 #include <limits.h>
+#include <regex.h>
 
 #ifdef USE_WINDOWS
 #include <windows.h>
@@ -25,8 +26,80 @@ static HighlightProfile profiles[MAX_PROFILES];
 static int profile_count = 0;
 static bool initialized = false;
 
+typedef struct {
+    bool compiled;
+    regex_t regex;
+} CompiledFileMatch;
+
+static CompiledFileMatch profile_file_matches[MAX_PROFILES][MAX_FILE_MATCHES];
+
+static int profile_index_from_ptr(const HighlightProfile *p)
+{
+    if (!p)
+        return -1;
+    ptrdiff_t idx = p - profiles;
+    if (idx < 0 || idx >= MAX_PROFILES)
+        return -1;
+    return (int)idx;
+}
+
+static void clear_profile_file_matches(int profile_index)
+{
+    if (profile_index < 0 || profile_index >= MAX_PROFILES)
+        return;
+    for (int i = 0; i < MAX_FILE_MATCHES; i++) {
+        if (profile_file_matches[profile_index][i].compiled) {
+            regfree(&profile_file_matches[profile_index][i].regex);
+            profile_file_matches[profile_index][i].compiled = false;
+        }
+    }
+}
+
+static void clear_all_profile_file_matches(void)
+{
+    for (int i = 0; i < MAX_PROFILES; i++)
+        clear_profile_file_matches(i);
+}
+
+static bool compile_profile_file_match(int profile_index, int slot, const char *pattern, const char *profile_name)
+{
+    if (profile_index < 0 || profile_index >= MAX_PROFILES || slot < 0 || slot >= MAX_FILE_MATCHES)
+        return false;
+
+    CompiledFileMatch *entry = &profile_file_matches[profile_index][slot];
+    int ret = regcomp(&entry->regex, pattern, REG_EXTENDED | REG_NOSUB | REG_ICASE);
+    if (ret != 0) {
+        char errbuf[128];
+        regerror(ret, &entry->regex, errbuf, sizeof(errbuf));
+        fprintf(stderr, "nanox: invalid file_matches regex '%s' for profile '%s': %s\n",
+                pattern, profile_name ? profile_name : "(unknown)", errbuf);
+        entry->compiled = false;
+        return false;
+    }
+    entry->compiled = true;
+    return true;
+}
+
+static bool profile_matches_filename(int profile_index, const char *basename)
+{
+    if (profile_index < 0 || profile_index >= profile_count || !basename || !*basename)
+        return false;
+
+    for (int i = 0; i < profiles[profile_index].file_match_count; i++) {
+        if (!profile_file_matches[profile_index][i].compiled)
+            continue;
+        if (regexec(&profile_file_matches[profile_index][i].regex, basename, 0, NULL, 0) == 0)
+            return true;
+    }
+    return false;
+}
+
 static void profile_init(HighlightProfile *p, const char *name)
 {
+    int profile_index = profile_index_from_ptr(p);
+    if (profile_index >= 0)
+        clear_profile_file_matches(profile_index);
+
     memset(p, 0, sizeof(*p));
     mystrscpy(p->name, name, sizeof(p->name));
     p->enable_number_highlight = true;
@@ -136,6 +209,29 @@ static bool load_config_file(const char *path, bool allow_global)
             curr->ext_count = 0;
             while (tok && curr->ext_count < MAX_EXTS) {
                 mystrscpy(curr->extensions[curr->ext_count++], trim(tok), MAX_EXT_LEN);
+                tok = strtok(NULL, ",");
+            }
+        } else if (strcmp(key, "file_matches") == 0) {
+            int profile_index = profile_index_from_ptr(curr);
+            if (profile_index >= 0)
+                clear_profile_file_matches(profile_index);
+            curr->file_match_count = 0;
+            char *tok = strtok(val, ",");
+            while (tok && curr->file_match_count < MAX_FILE_MATCHES) {
+                char *pattern = trim(tok);
+                if (!*pattern) {
+                    tok = strtok(NULL, ",");
+                    continue;
+                }
+                char pattern_buf[MAX_FILE_MATCH_PATTERN];
+                mystrscpy(pattern_buf, pattern, sizeof(pattern_buf));
+                bool compiled = true;
+                if (profile_index >= 0)
+                    compiled = compile_profile_file_match(profile_index, curr->file_match_count, pattern_buf, curr->name);
+                if (compiled) {
+                    mystrscpy(curr->file_match_patterns[curr->file_match_count], pattern_buf, MAX_FILE_MATCH_PATTERN);
+                    curr->file_match_count++;
+                }
                 tok = strtok(NULL, ",");
             }
         } else if (strcmp(key, "line_comment_tokens") == 0) {
@@ -309,6 +405,7 @@ static bool load_external_langs(const char *rule_config_path)
 
 void highlight_init(const char *rule_config_path)
 {
+    clear_all_profile_file_matches();
     profile_count = 0;
     global_config.enable_colorscheme = true;
     mystrscpy(global_config.colorscheme_name, "nanox-dark", sizeof(global_config.colorscheme_name));
@@ -335,13 +432,29 @@ const HighlightProfile *highlight_get_profile(const char *filename)
 {
     if (!filename || !*filename)
         return NULL;
-    const char *ext = strrchr(filename, '.');
+
+    const char *base = filename;
+    const char *slash = strrchr(base, '/');
+#ifdef USE_WINDOWS
+    const char *bslash = strrchr(base, '\\');
+    if (!slash || (bslash && bslash > slash))
+        slash = bslash;
+#endif
+    if (slash && *(slash + 1))
+        base = slash + 1;
+
+    const char *ext = strrchr(base, '.');
+    if (ext)
+        ext++; /* Skip dot */
+
+    for (int i = 0; i < profile_count; i++) {
+        if (profile_matches_filename(i, base))
+            return &profiles[i];
+    }
+
     if (!ext)
-        return NULL; /* Or check for exact filename matches like Makefile? */
-    ext++; /* Skip dot */
-    
-    /* Special handling for no-extension files? */
-    
+        return NULL;
+
     for (int i = 0; i < profile_count; i++) {
         for (int j = 0; j < profiles[i].ext_count; j++) {
             if (strcasecmp(ext, profiles[i].extensions[j]) == 0)

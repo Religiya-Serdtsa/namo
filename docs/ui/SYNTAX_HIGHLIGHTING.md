@@ -25,6 +25,6 @@ The engine loads rules from `.ini` files. Key categories include:
 
 ## 5. Adding a New Language
 1. Create a `.ini` file in `configs/nanox/langs/`.
-2. Define `extensions = .ext`.
+2. Define `extensions = .ext` for normal extension-based detection, and optionally `file_matches = ^regex$` for basename regexes (POSIX extended, case-insensitive) when extensions aren't sufficient (e.g., `Makefile`).
 3. Define keyword lists and comment pairs.
 4. Nanox will automatically detect and load it on the next startup or file load.
