@@ -22,6 +22,7 @@
 #include "platform.h"
 #include "colorscheme.h"
 #include "paste_slot.h"
+#include "scraper.h"
 
 extern struct terminal *term;
 
@@ -417,6 +418,7 @@ void nanox_init(void)
         path[0] = 0;
 
     highlight_init(path[0] ? path : NULL);
+    scraper_init();
 }
 
 void nanox_set_lamp(enum nanox_lamp_state state)

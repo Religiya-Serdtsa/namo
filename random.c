@@ -16,6 +16,7 @@
 #include "utf8.h"
 #include "util.h"
 #include "nanox.h"
+#include "completion.h"
 
 int tabsize;                    /* Tab size (0: use real tabs) */
 
@@ -619,6 +620,10 @@ int insert_tab(int f, int n)
             set_indent(target);
             return TRUE;
         }
+    }
+
+    if (n == 1 && completion_try_at_cursor()) {
+        return TRUE;
     }
 
     if (n == 0 || n > 1) {

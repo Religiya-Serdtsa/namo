@@ -1,17 +1,68 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <wctype.h>
+#include <strings.h>
+#ifdef USE_WINDOWS
+#include <windows.h>
+#else
+#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#endif
+
 #include "estruct.h"
+#include "edef.h"
 #include "efunc.h"
+#include "line.h"
+#include "highlight.h"
 #include "completion.h"
 #include "util.h"
 #include "utf8.h"
+#include "scraper.h"
 
 completion_state_t completion_state;
 
-static char **all_words = NULL;
-static int all_words_count = 0;
-static int all_words_capacity = 0;
+static char completion_storage[MAX_COMPLETIONS][MAX_COMPLETION_LEN];
+
+typedef struct {
+    char **items;
+    int count;
+    int capacity;
+    int max_items;
+} completion_pool_t;
+
+typedef struct {
+    char *class_name;
+    completion_pool_t members;
+    int loaded;
+} java_member_entry_t;
+
+#define MAX_C_SYMBOLS 4096
+#define MAX_JAVA_SYMBOLS 4096
+#define MAX_JAVA_MEMBERS 512
+#define MAX_C_SCAN_FILES 2048
+#define MAX_C_SCAN_DEPTH 3
+#define MAX_C_FILE_BYTES 32768
+#define MAX_JAVA_SCAN_FILES 4096
+#define MAX_JAVA_SCAN_DEPTH 6
+
+static completion_pool_t c_symbol_cache = { NULL, 0, 0, MAX_C_SYMBOLS };
+static completion_pool_t c_include_paths = { NULL, 0, 0, 0 };
+static int c_symbols_loaded = 0;
+static int c_files_scanned = 0;
+
+static completion_pool_t java_class_cache = { NULL, 0, 0, MAX_JAVA_SYMBOLS };
+static completion_pool_t java_classpath_entries = { NULL, 0, 0, 0 };
+static int java_classpath_loaded = 0;
+static int java_symbols_loaded = 0;
+static int java_files_scanned = 0;
+static char java_classpath_string[4096];
+
+static java_member_entry_t *java_member_cache = NULL;
+static int java_member_cache_count = 0;
+static int java_member_cache_capacity = 0;
 
 static const char *common_keywords[] = {
     "if", "else", "while", "for", "do", "return", "break", "continue", "switch", "case", "default",
@@ -23,87 +74,1088 @@ static const char *common_keywords[] = {
     "sizeof", "alignas", "alignof", "bool", "static_assert", "thread_local", "template", "typename", "mutable", "virtual", "override"
 };
 
-void add_word(const char *word) {
-    if (word == NULL || *word == '\0') return;
-    
-    /* Check for duplicates */
-    for (int i = 0; i < all_words_count; i++) {
-        if (strcmp(all_words[i], word) == 0) return;
-    }
+static int file_exists(const char *path);
+static void add_path_entry(completion_pool_t *paths, const char *entry);
+static void parse_path_list(const char *value, completion_pool_t *paths);
+static int has_extension(const char *name, const char **exts, size_t count);
+static int prev_char_start(struct line *lp, int pos);
 
-    if (all_words_count >= all_words_capacity) {
-        all_words_capacity = all_words_capacity == 0 ? 256 : all_words_capacity * 2;
-        all_words = realloc(all_words, sizeof(char *) * (size_t)all_words_capacity);
+static void completion_consider_candidate(const char *candidate, const char *prefix);
+
+static void pool_add(completion_pool_t *pool, const char *value)
+{
+    if (pool == NULL || value == NULL || *value == '\0')
+        return;
+    if (pool->max_items > 0 && pool->count >= pool->max_items)
+        return;
+    for (int i = 0; i < pool->count; i++) {
+        if (strcmp(pool->items[i], value) == 0)
+            return;
     }
-    all_words[all_words_count++] = strdup(word);
+    if (pool->count == pool->capacity) {
+        int new_capacity = pool->capacity ? pool->capacity * 2 : 64;
+        char **tmp = realloc(pool->items, (size_t)new_capacity * sizeof(char *));
+        if (!tmp)
+            return;
+        pool->items = tmp;
+        pool->capacity = new_capacity;
+    }
+    pool->items[pool->count++] = strdup(value);
 }
 
-static int initialized = 0;
-
-void completion_init(void) {
-    if (initialized) {
-        completion_state.count = 0;
-        completion_state.selected_index = 0;
-        completion_state.is_visible = 0;
+static void add_matches_from_pool(const completion_pool_t *pool, const char *prefix)
+{
+    if (pool == NULL || prefix == NULL)
         return;
+    for (int i = 0; i < pool->count; i++) {
+        completion_consider_candidate(pool->items[i], prefix);
+        if (completion_state.count >= MAX_COMPLETIONS)
+            break;
     }
+}
 
+static void completion_reset_state(void)
+{
     completion_state.count = 0;
     completion_state.selected_index = 0;
     completion_state.is_visible = 0;
-
-    /* Add common keywords */
-    for (size_t i = 0; i < sizeof(common_keywords) / sizeof(common_keywords[0]); i++) {
-        add_word(common_keywords[i]);
-    }
-
-    /* Try to load system libraries */
-    FILE *fp = popen("/sbin/ldconfig -p", "r");
-    if (fp) {
-        char line[256];
-        while (fgets(line, sizeof(line), fp)) {
-            /* Format: \tlibname.so.X (libc6,x86-64) => /path/to/libname.so.X */
-            char *p = line;
-            while (*p == ' ' || *p == '\t') p++;
-            char *end = p;
-            while (*end && *end != ' ' && *end != '\t' && *end != '(') end++;
-            if (end > p) {
-                char temp = *end;
-                *end = '\0';
-                /* Extract base name if it starts with lib */
-                if (strncmp(p, "lib", 3) == 0) {
-                    add_word(p);
-                    /* Also add name without lib and without .so... */
-                    char *name = strdup(p + 3);
-                    char *dot = strchr(name, '.');
-                    if (dot) {
-                        *dot = '\0';
-                    }
-                    add_word(name);
-                    free(name);
-                }
-                *end = temp;
-            }
-        }
-        pclose(fp);
-    }
-    initialized = 1;
 }
 
-void completion_update(const char *prefix) {
-    if (prefix == NULL || *prefix == '\0') {
-        completion_state.count = 0;
-        completion_state.is_visible = 0;
+static int completion_word_exists(const char *word)
+{
+    for (int i = 0; i < completion_state.count; i++) {
+        if (strcmp(completion_state.matches[i], word) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void completion_add_match(const char *word)
+{
+    if (word == NULL || *word == '\0')
+        return;
+    if (completion_state.count >= MAX_COMPLETIONS)
+        return;
+    if (completion_word_exists(word))
+        return;
+
+    mystrscpy(completion_storage[completion_state.count], word, MAX_COMPLETION_LEN);
+    completion_state.matches[completion_state.count] = completion_storage[completion_state.count];
+    completion_state.count++;
+}
+
+static int is_identifier_char(unicode_t uc)
+{
+    if (uc == '_')
+        return TRUE;
+    if (uc >= 0x80)
+        return TRUE;
+    if (iswalnum((wint_t)uc))
+        return TRUE;
+    return FALSE;
+}
+
+static int is_path_char(unicode_t uc)
+{
+    if (uc >= 0x80)
+        return TRUE;
+    if (iswalnum((wint_t)uc))
+        return TRUE;
+    switch (uc) {
+    case '_':
+    case '-':
+    case '.':
+    case '/':
+    case '~':
+    case '+':
+    case ':':
+        return TRUE;
+    default:
+        return FALSE;
+    }
+}
+
+static void completion_consider_candidate(const char *candidate, const char *prefix)
+{
+    if (candidate == NULL || prefix == NULL)
+        return;
+    size_t prefix_len = strlen(prefix);
+    if (prefix_len == 0)
+        return;
+    if (strncmp(candidate, prefix, prefix_len) != 0)
+        return;
+    if (strcmp(candidate, prefix) == 0)
+        return;
+    completion_add_match(candidate);
+}
+
+static void collect_keyword_array(const char entries[][MAX_TOKEN_LEN], int count, const char *prefix)
+{
+    for (int i = 0; i < count && completion_state.count < MAX_COMPLETIONS; i++) {
+        completion_consider_candidate(entries[i], prefix);
+        if (completion_state.count >= MAX_COMPLETIONS)
+            break;
+    }
+}
+
+static void collect_language_keywords(const char *prefix)
+{
+    if (curbp == NULL)
+        return;
+
+    const HighlightProfile *profile = highlight_get_profile(curbp->b_fname);
+    if (profile == NULL)
+        return;
+
+    collect_keyword_array(profile->keywords, profile->keyword_count, prefix);
+    collect_keyword_array(profile->type_keywords, profile->type_keyword_count, prefix);
+    collect_keyword_array(profile->flow_keywords, profile->flow_keyword_count, prefix);
+    collect_keyword_array(profile->preproc_keywords, profile->preproc_keyword_count, prefix);
+    collect_keyword_array(profile->return_keywords, profile->return_keyword_count, prefix);
+}
+
+static void collect_common_keywords(const char *prefix)
+{
+    size_t prefix_len = strlen(prefix);
+    for (size_t i = 0; i < sizeof(common_keywords) / sizeof(common_keywords[0]); i++) {
+        const char *word = common_keywords[i];
+        if (strncmp(word, prefix, prefix_len) == 0 && strcmp(word, prefix) != 0)
+            completion_add_match(word);
+    }
+}
+
+static void collect_buffer_words(const char *prefix)
+{
+    if (curbp == NULL)
+        return;
+
+    size_t prefix_len = strlen(prefix);
+    if (prefix_len == 0)
+        return;
+
+    struct line *lp = lforw(curbp->b_linep);
+    while (lp != curbp->b_linep && completion_state.count < MAX_COMPLETIONS) {
+        int len = llength(lp);
+        int i = 0;
+        while (i < len && completion_state.count < MAX_COMPLETIONS) {
+            unicode_t uc;
+            int bytes = utf8_to_unicode(lp->l_text, (unsigned)i, (unsigned)len, &uc);
+            if (bytes <= 0)
+                bytes = 1;
+
+            if (is_identifier_char(uc)) {
+                int start = i;
+                i += bytes;
+                while (i < len) {
+                    unicode_t next;
+                    int consumed = utf8_to_unicode(lp->l_text, (unsigned)i, (unsigned)len, &next);
+                    if (consumed <= 0)
+                        consumed = 1;
+                    if (!is_identifier_char(next))
+                        break;
+                    i += consumed;
+                }
+                int word_len = i - start;
+                if (word_len >= MAX_COMPLETION_LEN)
+                    word_len = MAX_COMPLETION_LEN - 1;
+
+                char tmp[MAX_COMPLETION_LEN];
+                memcpy(tmp, &lp->l_text[start], (size_t)word_len);
+                tmp[word_len] = '\0';
+
+                if ((size_t)word_len >= prefix_len)
+                    completion_consider_candidate(tmp, prefix);
+            } else {
+                i += bytes;
+            }
+        }
+        lp = lforw(lp);
+    }
+}
+
+static void add_env_paths(const char *env_name, completion_pool_t *paths)
+{
+    const char *value = getenv(env_name);
+    if (value && *value)
+        parse_path_list(value, paths);
+}
+
+static void ensure_c_include_paths(void)
+{
+    static const char *defaults[] = {
+        "/usr/include",
+        "/usr/local/include",
+        "/opt/homebrew/include",
+        "/opt/local/include"
+    };
+
+    if (c_include_paths.count > 0)
+        return;
+
+    add_env_paths("C_INCLUDE_PATH", &c_include_paths);
+    add_env_paths("CPLUS_INCLUDE_PATH", &c_include_paths);
+    add_env_paths("CXX_INCLUDE_PATH", &c_include_paths);
+    add_env_paths("CPATH", &c_include_paths);
+    add_env_paths("INCLUDE", &c_include_paths);
+
+    for (size_t i = 0; i < sizeof(defaults) / sizeof(defaults[0]); i++) {
+        if (file_exists(defaults[i]))
+            add_path_entry(&c_include_paths, defaults[i]);
+    }
+}
+
+static void add_symbol_token(completion_pool_t *pool, const char *token, size_t len)
+{
+    char tmp[MAX_COMPLETION_LEN];
+    if (pool == NULL || token == NULL)
+        return;
+    if (len < 3)
+        return;
+    if (len >= MAX_COMPLETION_LEN)
+        len = MAX_COMPLETION_LEN - 1;
+    memcpy(tmp, token, len);
+    tmp[len] = '\0';
+    pool_add(pool, tmp);
+}
+
+static void scan_c_header_file(const char *path)
+{
+    FILE *fp;
+    char buf[4096];
+    size_t total = 0;
+    size_t nread;
+    char token[MAX_COMPLETION_LEN];
+    size_t token_len = 0;
+
+    if (path == NULL || c_files_scanned >= MAX_C_SCAN_FILES)
+        return;
+
+    fp = fopen(path, "r");
+    if (!fp)
+        return;
+
+    c_files_scanned++;
+
+    while ((nread = fread(buf, 1, sizeof(buf), fp)) > 0) {
+        for (size_t i = 0; i < nread; i++) {
+            unsigned char ch = (unsigned char)buf[i];
+            if (isalnum(ch) || ch == '_') {
+                if (token_len < sizeof(token) - 1)
+                    token[token_len++] = (char)ch;
+            } else if (token_len > 0) {
+                add_symbol_token(&c_symbol_cache, token, token_len);
+                token_len = 0;
+                if (c_symbol_cache.max_items > 0 && c_symbol_cache.count >= c_symbol_cache.max_items)
+                    break;
+            }
+        }
+        total += nread;
+        if ((c_symbol_cache.max_items > 0 && c_symbol_cache.count >= c_symbol_cache.max_items) ||
+            total >= MAX_C_FILE_BYTES)
+            break;
+    }
+
+    if (token_len > 0)
+        add_symbol_token(&c_symbol_cache, token, token_len);
+
+    fclose(fp);
+}
+
+static void scan_c_include_dir(const char *path, int depth)
+{
+#ifndef USE_WINDOWS
+    struct stat st;
+#endif
+    DIR *dp;
+    struct dirent *dent;
+    char child[NFILEN];
+    static const char *header_exts[] = { ".h", ".hpp", ".hh", ".hxx", ".hp", ".inc" };
+
+    if (path == NULL || *path == '\0' || depth > MAX_C_SCAN_DEPTH)
+        return;
+    if (c_files_scanned >= MAX_C_SCAN_FILES ||
+        (c_symbol_cache.max_items > 0 && c_symbol_cache.count >= c_symbol_cache.max_items))
+        return;
+
+    dp = opendir(path);
+    if (!dp)
+        return;
+
+    while ((dent = readdir(dp)) != NULL) {
+        if (strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0)
+            continue;
+        snprintf(child, sizeof(child), "%s/%s", path, dent->d_name);
+#ifdef USE_WINDOWS
+        struct stat wst;
+        if (stat(child, &wst) != 0)
+            continue;
+        if (S_ISDIR(wst.st_mode)) {
+            if (depth + 1 <= MAX_C_SCAN_DEPTH)
+                scan_c_include_dir(child, depth + 1);
+        } else if (S_ISREG(wst.st_mode)) {
+            if (has_extension(dent->d_name, header_exts, sizeof(header_exts) / sizeof(header_exts[0])))
+                scan_c_header_file(child);
+        }
+#else
+        if (stat(child, &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode)) {
+            if (depth + 1 <= MAX_C_SCAN_DEPTH)
+                scan_c_include_dir(child, depth + 1);
+        } else if (S_ISREG(st.st_mode)) {
+            if (has_extension(dent->d_name, header_exts, sizeof(header_exts) / sizeof(header_exts[0])))
+                scan_c_header_file(child);
+        }
+#endif
+
+        if (c_files_scanned >= MAX_C_SCAN_FILES ||
+            (c_symbol_cache.max_items > 0 && c_symbol_cache.count >= c_symbol_cache.max_items))
+            break;
+    }
+
+    closedir(dp);
+}
+
+static void ensure_c_symbols_loaded(void)
+{
+    if (c_symbols_loaded)
+        return;
+
+    ensure_c_include_paths();
+    for (int i = 0; i < c_include_paths.count; i++) {
+        scan_c_include_dir(c_include_paths.items[i], 0);
+        if (c_symbol_cache.max_items > 0 && c_symbol_cache.count >= c_symbol_cache.max_items)
+            break;
+    }
+    c_symbols_loaded = 1;
+}
+
+static int class_name_from_relative(const char *relative_path, char *out, size_t outsz)
+{
+    size_t len;
+    const char *dot;
+    if (relative_path == NULL || out == NULL || outsz == 0)
+        return FALSE;
+    dot = strrchr(relative_path, '.');
+    if (dot == NULL || dot == relative_path)
+        return FALSE;
+    len = (size_t)(dot - relative_path);
+    if (len >= outsz)
+        len = outsz - 1;
+    for (size_t i = 0; i < len; i++) {
+        char ch = relative_path[i];
+        if (ch == '/' || ch == '\\')
+            ch = '.';
+        out[i] = ch;
+    }
+    out[len] = '\0';
+    if (out[0] == '\0' || strstr(out, "module-info") != NULL)
+        return FALSE;
+    return TRUE;
+}
+
+static void scan_java_dir(const char *root, size_t root_len, const char *path, int depth);
+
+static void add_java_dir_entry(const char *root, size_t root_len, const char *path)
+{
+    const char *rel;
+    char class_name[MAX_COMPLETION_LEN];
+    if (root == NULL || path == NULL)
+        return;
+    if (strlen(path) <= root_len)
+        return;
+    rel = path + root_len;
+    while (*rel == '/' || *rel == '\\')
+        rel++;
+    if (*rel == '\0')
+        return;
+    if (!class_name_from_relative(rel, class_name, sizeof(class_name)))
+        return;
+    pool_add(&java_class_cache, class_name);
+}
+
+static void scan_java_dir(const char *root, size_t root_len, const char *path, int depth)
+{
+    DIR *dp;
+    struct dirent *dent;
+    char child[NFILEN];
+    struct stat st;
+    static const char *class_exts[] = { ".class", ".java" };
+
+    if (path == NULL || *path == '\0' || depth > MAX_JAVA_SCAN_DEPTH)
+        return;
+    if (java_files_scanned >= MAX_JAVA_SCAN_FILES ||
+        (java_class_cache.max_items > 0 && java_class_cache.count >= java_class_cache.max_items))
+        return;
+
+    dp = opendir(path);
+    if (!dp)
+        return;
+
+    while ((dent = readdir(dp)) != NULL) {
+        if (strcmp(dent->d_name, ".") == 0 || strcmp(dent->d_name, "..") == 0)
+            continue;
+        snprintf(child, sizeof(child), "%s/%s", path, dent->d_name);
+        if (stat(child, &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode)) {
+            if (depth + 1 <= MAX_JAVA_SCAN_DEPTH)
+                scan_java_dir(root, root_len, child, depth + 1);
+        } else if (S_ISREG(st.st_mode)) {
+            if (has_extension(dent->d_name, class_exts, sizeof(class_exts) / sizeof(class_exts[0]))) {
+                java_files_scanned++;
+                add_java_dir_entry(root, root_len, child);
+            }
+        }
+        if (java_files_scanned >= MAX_JAVA_SCAN_FILES ||
+            (java_class_cache.max_items > 0 && java_class_cache.count >= java_class_cache.max_items))
+            break;
+    }
+
+    closedir(dp);
+}
+
+static int build_shell_quoted(const char *input, char *output, size_t outsz)
+{
+    size_t pos = 0;
+    if (input == NULL || output == NULL || outsz < 3)
+        return FALSE;
+    output[pos++] = '\'';
+    for (const char *p = input; *p; p++) {
+        if (pos + 4 >= outsz)
+            return FALSE;
+        if (*p == '\'') {
+            output[pos++] = '\'';
+            output[pos++] = '\\';
+            output[pos++] = '\'';
+            output[pos++] = '\'';
+        } else {
+            output[pos++] = *p;
+        }
+    }
+    if (pos + 2 > outsz)
+        return FALSE;
+    output[pos++] = '\'';
+    output[pos] = '\0';
+    return TRUE;
+}
+
+static void process_java_jar(const char *path)
+{
+    char quoted[NFILEN * 2];
+    char cmd[NFILEN * 2 + 16];
+    FILE *fp;
+    char line[512];
+
+    if (!path || !*path)
+        return;
+    if (!build_shell_quoted(path, quoted, sizeof(quoted)))
+        return;
+    snprintf(cmd, sizeof(cmd), "jar tf %s", quoted);
+    fp = popen(cmd, "r");
+    if (!fp)
+        return;
+
+    while (fgets(line, sizeof(line), fp)) {
+        size_t len = strlen(line);
+        if (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r'))
+            line[--len] = '\0';
+        if (len == 0)
+            continue;
+        if (strstr(line, "module-info") != NULL)
+            continue;
+        if (class_name_from_relative(line, line, sizeof(line)))
+            pool_add(&java_class_cache, line);
+        if (java_class_cache.max_items > 0 && java_class_cache.count >= java_class_cache.max_items)
+            break;
+    }
+
+    pclose(fp);
+}
+
+static void ensure_java_classpath_entries(void)
+{
+    const char *java_home;
+    char buf[NFILEN];
+
+    if (java_classpath_loaded)
+        return;
+
+    add_env_paths("CLASSPATH", &java_classpath_entries);
+    add_path_entry(&java_classpath_entries, ".");
+    add_path_entry(&java_classpath_entries, "./lib");
+    add_path_entry(&java_classpath_entries, "./build/classes");
+    add_path_entry(&java_classpath_entries, "./out/production");
+    add_path_entry(&java_classpath_entries, "~/.m2/repository");
+
+    java_home = getenv("JAVA_HOME");
+    if (java_home && *java_home) {
+        snprintf(buf, sizeof(buf), "%s/lib", java_home);
+        if (file_exists(buf))
+            add_path_entry(&java_classpath_entries, buf);
+        snprintf(buf, sizeof(buf), "%s/lib/rt.jar", java_home);
+        if (file_exists(buf))
+            add_path_entry(&java_classpath_entries, buf);
+        snprintf(buf, sizeof(buf), "%s/lib/src.zip", java_home);
+        if (file_exists(buf))
+            add_path_entry(&java_classpath_entries, buf);
+    }
+
+    java_classpath_loaded = 1;
+}
+
+static void ensure_java_class_symbols(void)
+{
+    struct stat st;
+
+    if (java_symbols_loaded)
+        return;
+
+    ensure_java_classpath_entries();
+    for (int i = 0; i < java_classpath_entries.count; i++) {
+        const char *entry = java_classpath_entries.items[i];
+        if (stat(entry, &st) != 0)
+            continue;
+        if (S_ISDIR(st.st_mode)) {
+            size_t root_len = strlen(entry);
+            scan_java_dir(entry, root_len, entry, 0);
+        } else if (S_ISREG(st.st_mode)) {
+            const char *exts[] = { ".jar", ".zip" };
+            if (has_extension(entry, exts, sizeof(exts) / sizeof(exts[0])))
+                process_java_jar(entry);
+        }
+        if (java_class_cache.max_items > 0 && java_class_cache.count >= java_class_cache.max_items)
+            break;
+    }
+    java_symbols_loaded = 1;
+}
+
+static const char *get_java_classpath_string(void)
+{
+    size_t used = 0;
+    if (java_classpath_string[0] != '\0')
+        return java_classpath_string;
+
+    ensure_java_classpath_entries();
+    for (int i = 0; i < java_classpath_entries.count; i++) {
+        const char *entry = java_classpath_entries.items[i];
+        size_t len = strlen(entry);
+        if (used + len + 2 >= sizeof(java_classpath_string))
+            break;
+        if (used > 0)
+            java_classpath_string[used++] = ':';
+        memcpy(java_classpath_string + used, entry, len);
+        used += len;
+    }
+    java_classpath_string[used] = '\0';
+    if (java_classpath_string[0] == '\0')
+        strcpy(java_classpath_string, ".");
+    return java_classpath_string;
+}
+
+static int is_c_like_file(const char *fname)
+{
+    static const char *exts[] = {
+        ".c", ".h", ".hpp", ".hh", ".hxx", ".cxx", ".cc", ".cpp", ".ino"
+    };
+    if (fname == NULL || *fname == '\0')
+        return FALSE;
+    return has_extension(fname, exts, sizeof(exts) / sizeof(exts[0]));
+}
+
+static int is_java_file(const char *fname)
+{
+    static const char *exts[] = { ".java" };
+    if (fname == NULL || *fname == '\0')
+        return FALSE;
+    return has_extension(fname, exts, sizeof(exts) / sizeof(exts[0]));
+}
+
+static int is_python_file(const char *fname)
+{
+    static const char *exts[] = { ".py" };
+    if (fname == NULL || *fname == '\0')
+        return FALSE;
+    return has_extension(fname, exts, sizeof(exts) / sizeof(exts[0]));
+}
+
+static int is_node_file(const char *fname)
+{
+    static const char *exts[] = { ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs" };
+    if (fname == NULL || *fname == '\0')
+        return FALSE;
+    return has_extension(fname, exts, sizeof(exts) / sizeof(exts[0]));
+}
+
+static void add_language_specific_matches(const char *prefix, completion_context_t ctx)
+{
+    if (ctx == COMPLETION_CONTEXT_PATH)
+        return;
+    if (curbp == NULL || prefix == NULL || *prefix == '\0')
+        return;
+    if (is_c_like_file(curbp->b_fname)) {
+        ensure_c_symbols_loaded();
+        add_matches_from_pool(&c_symbol_cache, prefix);
+    } else if (is_java_file(curbp->b_fname)) {
+        ensure_java_class_symbols();
+        add_matches_from_pool(&java_class_cache, prefix);
+    }
+    if (completion_state.count > 0)
+        completion_state.is_visible = 1;
+}
+
+typedef struct {
+    const char *prefix;
+} runtime_completion_ctx_t;
+
+static void runtime_completion_callback(const char *symbol, void *data)
+{
+    runtime_completion_ctx_t *ctx = data;
+    if (ctx && symbol)
+        completion_consider_candidate(symbol, ctx->prefix);
+}
+
+static void add_runtime_module_matches(scraper_lang_t lang, const char *module, const char *prefix)
+{
+    if (!module || !*module || !prefix)
+        return;
+    runtime_completion_ctx_t ctx = { prefix };
+    scraper_iterate_symbols(lang, module, runtime_completion_callback, &ctx);
+}
+
+static int get_owner_symbol_near_cursor(struct line *lp, int prefix_start, char *out, size_t outsz)
+{
+    int len;
+    int dot_pos;
+    unicode_t uc;
+    int owner_start;
+    int owner_end;
+    if (lp == NULL || prefix_start <= 0 || out == NULL || outsz == 0)
+        return FALSE;
+    len = llength(lp);
+    dot_pos = prev_char_start(lp, prefix_start);
+    if (dot_pos <= 0)
+        return FALSE;
+    if (utf8_to_unicode(lp->l_text, (unsigned)dot_pos, (unsigned)len, &uc) <= 0)
+        return FALSE;
+    if (uc != '.')
+        return FALSE;
+    owner_end = dot_pos;
+    owner_start = owner_end;
+    while (owner_start > 0) {
+        int candidate = prev_char_start(lp, owner_start);
+        if (candidate == owner_start)
+            break;
+        if (utf8_to_unicode(lp->l_text, (unsigned)candidate, (unsigned)len, &uc) <= 0)
+            break;
+        if (!is_identifier_char(uc))
+            break;
+        owner_start = candidate;
+    }
+    if (owner_start == owner_end)
+        return FALSE;
+    int copy_len = owner_end - owner_start;
+    if (copy_len >= (int)outsz)
+        copy_len = (int)outsz - 1;
+    memcpy(out, &lp->l_text[owner_start], (size_t)copy_len);
+    out[copy_len] = '\0';
+    return TRUE;
+}
+
+static int resolve_java_class_name(const char *owner, char *out, size_t outsz)
+{
+    struct line *lp;
+    char linebuf[256];
+
+    if (owner == NULL || out == NULL || outsz == 0)
+        return FALSE;
+
+    if (strchr(owner, '.')) {
+        mystrscpy(out, owner, outsz);
+        return TRUE;
+    }
+
+    if (curbp == NULL)
+        return FALSE;
+
+    lp = lforw(curbp->b_linep);
+    while (lp != curbp->b_linep) {
+        int len = llength(lp);
+        if (len >= (int)sizeof(linebuf))
+            len = sizeof(linebuf) - 1;
+        memcpy(linebuf, lp->l_text, (size_t)len);
+        linebuf[len] = '\0';
+        char *p = linebuf;
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (strncmp(p, "import ", 7) == 0) {
+            p += 7;
+            while (*p == ' ' || *p == '\t')
+                p++;
+            char *semi = strchr(p, ';');
+            if (semi)
+                *semi = '\0';
+            char *star = strstr(p, ".*");
+            if (star) {
+                *star = '\0';
+                snprintf(out, outsz, "%s.%s", p, owner);
+                return TRUE;
+            } else {
+                char *simple = strrchr(p, '.');
+                if (simple && strcmp(simple + 1, owner) == 0) {
+                    mystrscpy(out, p, outsz);
+                    return TRUE;
+                }
+            }
+        }
+        lp = lforw(lp);
+    }
+
+    snprintf(out, outsz, "java.lang.%s", owner);
+    return TRUE;
+}
+
+static java_member_entry_t *find_java_member_entry(const char *class_name)
+{
+    if (class_name == NULL)
+        return NULL;
+    for (int i = 0; i < java_member_cache_count; i++) {
+        if (strcmp(java_member_cache[i].class_name, class_name) == 0)
+            return &java_member_cache[i];
+    }
+    return NULL;
+}
+
+static java_member_entry_t *get_java_member_entry(const char *class_name)
+{
+    java_member_entry_t *entry = find_java_member_entry(class_name);
+    if (entry)
+        return entry;
+    if (class_name == NULL || *class_name == '\0')
+        return NULL;
+    if (java_member_cache_count == java_member_cache_capacity) {
+        int new_capacity = java_member_cache_capacity ? java_member_cache_capacity * 2 : 16;
+        java_member_entry_t *tmp = realloc(java_member_cache, (size_t)new_capacity * sizeof(java_member_entry_t));
+        if (!tmp)
+            return NULL;
+        java_member_cache = tmp;
+        java_member_cache_capacity = new_capacity;
+    }
+    entry = &java_member_cache[java_member_cache_count++];
+    entry->class_name = strdup(class_name);
+    entry->members.items = NULL;
+    entry->members.count = 0;
+    entry->members.capacity = 0;
+    entry->members.max_items = MAX_JAVA_MEMBERS;
+    entry->loaded = 0;
+    return entry;
+}
+
+static void load_javap_members(java_member_entry_t *entry)
+{
+    char quoted_cp[sizeof(java_classpath_string) * 2];
+    char quoted_class[512];
+    char cmd[sizeof(java_classpath_string) * 2 + 512];
+    FILE *fp;
+    char line[1024];
+
+    if (entry == NULL || entry->loaded)
+        return;
+
+    if (!build_shell_quoted(get_java_classpath_string(), quoted_cp, sizeof(quoted_cp))) {
+        entry->loaded = 1;
+        return;
+    }
+    if (!build_shell_quoted(entry->class_name, quoted_class, sizeof(quoted_class))) {
+        entry->loaded = 1;
+        return;
+    }
+    mystrscpy(cmd, "javap -classpath ", sizeof(cmd));
+    size_t pos = strlen(cmd);
+    if (pos + strlen(quoted_cp) + 1 >= sizeof(cmd)) {
+        entry->loaded = 1;
+        return;
+    }
+    memcpy(cmd + pos, quoted_cp, strlen(quoted_cp));
+    pos += strlen(quoted_cp);
+    if (pos + 1 >= sizeof(cmd)) {
+        entry->loaded = 1;
+        return;
+    }
+    cmd[pos++] = ' ';
+    if (pos + strlen(quoted_class) + 1 >= sizeof(cmd)) {
+        entry->loaded = 1;
+        return;
+    }
+    memcpy(cmd + pos, quoted_class, strlen(quoted_class));
+    pos += strlen(quoted_class);
+    cmd[pos] = '\0';
+    fp = popen(cmd, "r");
+    if (!fp) {
+        entry->loaded = 1;
         return;
     }
 
-    completion_state.count = 0;
-    completion_state.selected_index = 0;
-    
-    for (int i = 0; i < all_words_count && completion_state.count < MAX_COMPLETIONS; i++) {
-        if (strncmp(all_words[i], prefix, strlen(prefix)) == 0) {
-            completion_state.matches[completion_state.count++] = all_words[i];
+    while (fgets(line, sizeof(line), fp)) {
+        char *p = line;
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (*p == '\0' || *p == '{' || *p == '}' || strncmp(p, "Compiled from", 13) == 0)
+            continue;
+        char *paren = strchr(p, '(');
+        if (paren) {
+            char *name_start = paren;
+            while (name_start > p &&
+                   (isalnum((unsigned char)name_start[-1]) || name_start[-1] == '_' || name_start[-1] == '$'))
+                name_start--;
+            if (name_start < paren)
+                add_symbol_token(&entry->members, name_start, (size_t)(paren - name_start));
+        } else {
+            char *semi = strchr(p, ';');
+            if (semi) {
+                char *name_end = semi;
+                while (name_end > p && isspace((unsigned char)name_end[-1]))
+                    name_end--;
+                char *name_start = name_end;
+                while (name_start > p &&
+                       (isalnum((unsigned char)name_start[-1]) || name_start[-1] == '_' || name_start[-1] == '$'))
+                    name_start--;
+                if (name_start < name_end)
+                    add_symbol_token(&entry->members, name_start, (size_t)(name_end - name_start));
+            }
         }
+        if (entry->members.max_items > 0 && entry->members.count >= entry->members.max_items)
+            break;
+    }
+
+    pclose(fp);
+    entry->loaded = 1;
+}
+
+static void add_java_member_matches(const char *class_name, const char *prefix)
+{
+    java_member_entry_t *entry;
+    if (class_name == NULL || prefix == NULL || *prefix == '\0')
+        return;
+    entry = get_java_member_entry(class_name);
+    if (!entry)
+        return;
+    if (!entry->loaded)
+        load_javap_members(entry);
+    if (entry->members.count == 0)
+        return;
+    add_matches_from_pool(&entry->members, prefix);
+}
+
+
+static void expand_tilde(const char *input, char *output, size_t outsz)
+{
+    if (input && input[0] == '~') {
+        const char *home = getenv("HOME");
+        if (home && *home) {
+            snprintf(output, outsz, "%s%s", home, input + 1);
+            return;
+        }
+    }
+    mystrscpy(output, input ? input : "", outsz);
+}
+
+static int file_exists(const char *path)
+{
+    struct stat st;
+    if (path == NULL || *path == '\0')
+        return FALSE;
+    return stat(path, &st) == 0;
+}
+
+static void normalize_path(char *path)
+{
+    size_t len;
+    if (path == NULL)
+        return;
+    len = strlen(path);
+    while (len > 1 && (path[len - 1] == '/' || path[len - 1] == '\\')) {
+        path[len - 1] = '\0';
+        len--;
+    }
+}
+
+static int is_path_delim(char ch)
+{
+    return ch == ':' || ch == ';';
+}
+
+static void add_path_entry(completion_pool_t *paths, const char *entry)
+{
+    char expanded[NFILEN];
+    if (paths == NULL)
+        return;
+    if (entry == NULL || *entry == '\0')
+        entry = ".";
+    expand_tilde(entry, expanded, sizeof(expanded));
+    normalize_path(expanded);
+    if (expanded[0] == '\0')
+        return;
+    pool_add(paths, expanded);
+}
+
+static void parse_path_list(const char *value, completion_pool_t *paths)
+{
+    char *dup;
+    char *segment;
+    char *iter;
+
+    if (value == NULL || *value == '\0' || paths == NULL)
+        return;
+
+    dup = strdup(value);
+    if (dup == NULL)
+        return;
+
+    segment = dup;
+    while (*segment) {
+        iter = segment;
+        while (*iter && !is_path_delim(*iter))
+            iter++;
+        if (*iter) {
+            *iter = '\0';
+            add_path_entry(paths, segment);
+            segment = iter + 1;
+            if (*segment == '\0')
+                add_path_entry(paths, ".");
+        } else {
+            add_path_entry(paths, segment);
+            break;
+        }
+    }
+    free(dup);
+}
+
+static int has_extension(const char *name, const char **exts, size_t count)
+{
+    const char *dot;
+    if (name == NULL)
+        return FALSE;
+    dot = strrchr(name, '.');
+    if (dot == NULL || dot[1] == '\0')
+        return FALSE;
+    for (size_t i = 0; i < count; i++) {
+        if (strcasecmp(dot, exts[i]) == 0)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+#ifndef USE_WINDOWS
+static int is_dir_path(const char *path)
+{
+    struct stat st;
+    if (stat(path, &st) != 0)
+        return FALSE;
+    return S_ISDIR(st.st_mode);
+}
+#endif
+
+static void collect_path_completions(const char *prefix)
+{
+#ifdef USE_WINDOWS
+    (void)prefix;
+    /* Path completion is not yet implemented for Windows builds. */
+    return;
+#else
+    char expanded[NFILEN];
+    expand_tilde(prefix, expanded, sizeof(expanded));
+
+    const char *orig_slash = strrchr(prefix, '/');
+    size_t orig_dir_len = orig_slash ? (size_t)(orig_slash - prefix + 1) : 0;
+    char orig_dir[NFILEN];
+    if (orig_dir_len > 0) {
+        size_t copy_len = orig_dir_len < sizeof(orig_dir) - 1 ? orig_dir_len : sizeof(orig_dir) - 1;
+        memcpy(orig_dir, prefix, copy_len);
+        orig_dir[copy_len] = '\0';
+    } else {
+        orig_dir[0] = '\0';
+    }
+
+    const char *slash = strrchr(expanded, '/');
+    const char *base = slash ? slash + 1 : expanded;
+    size_t dir_len = slash ? (size_t)(slash - expanded + 1) : 0;
+    char dir[NFILEN];
+    if (dir_len > 0) {
+        size_t copy_len = dir_len < sizeof(dir) - 1 ? dir_len : sizeof(dir) - 1;
+        memcpy(dir, expanded, copy_len);
+        dir[copy_len] = '\0';
+    } else {
+        strcpy(dir, ".");
+    }
+
+    DIR *dp = opendir(dir);
+    if (dp == NULL)
+        return;
+
+    size_t base_len = strlen(base);
+    struct dirent *dent;
+    while ((dent = readdir(dp)) != NULL && completion_state.count < MAX_COMPLETIONS) {
+        if (dent->d_name[0] == '.' && base[0] != '.')
+            continue;
+        if (strncmp(dent->d_name, base, base_len) != 0)
+            continue;
+
+        char full_path[NFILEN];
+        if (dir_len > 0 && strcmp(dir, ".") != 0) {
+            mystrscpy(full_path, dir, sizeof(full_path));
+            size_t used = strlen(full_path);
+            if (used < sizeof(full_path) - 1)
+                mystrscpy(full_path + used, dent->d_name, sizeof(full_path) - used);
+        } else {
+            mystrscpy(full_path, dent->d_name, sizeof(full_path));
+        }
+
+        int is_dir = is_dir_path(full_path);
+
+        char display[MAX_COMPLETION_LEN];
+        if (orig_dir_len > 0) {
+            size_t copy = orig_dir_len;
+            if (copy > sizeof(display) - 1)
+                copy = sizeof(display) - 1;
+            memcpy(display, prefix, copy);
+            display[copy] = '\0';
+            if (copy < sizeof(display) - 1)
+                mystrscpy(display + copy, dent->d_name, sizeof(display) - copy);
+        } else {
+            mystrscpy(display, dent->d_name, sizeof(display));
+        }
+        size_t used = strlen(display);
+        if (is_dir && used < sizeof(display) - 1) {
+            display[used++] = '/';
+            display[used] = '\0';
+        }
+        completion_consider_candidate(display, prefix);
+    }
+    closedir(dp);
+#endif
+}
+
+void completion_init(void)
+{
+    completion_reset_state();
+}
+
+void completion_update(const char *prefix, completion_context_t ctx)
+{
+    if (prefix == NULL || *prefix == '\0') {
+        completion_reset_state();
+        return;
+    }
+
+    completion_reset_state();
+
+    if (ctx == COMPLETION_CONTEXT_PATH) {
+        collect_path_completions(prefix);
+    } else {
+        collect_buffer_words(prefix);
+        collect_language_keywords(prefix);
+        collect_common_keywords(prefix);
     }
 
     completion_state.is_visible = (completion_state.count > 0);
@@ -163,4 +1215,226 @@ void completion_prev(void) {
 
 void completion_hide(void) {
     completion_state.is_visible = 0;
+}
+
+static int prev_char_start(struct line *lp, int pos)
+{
+    if (lp == NULL || pos <= 0)
+        return 0;
+    do {
+        pos--;
+    } while (pos > 0 && !is_beginning_utf8(lp->l_text[pos]));
+    return pos;
+}
+
+static int extract_word_prefix(struct line *lp, int offset, char *dest, size_t dest_sz, int *start_out)
+{
+    if (lp == NULL || dest == NULL || dest_sz == 0)
+        return FALSE;
+    int len = llength(lp);
+    if (offset > len)
+        offset = len;
+
+    int start = offset;
+    while (start > 0) {
+        int candidate = prev_char_start(lp, start);
+        unicode_t uc;
+        int bytes = utf8_to_unicode(lp->l_text, (unsigned)candidate, (unsigned)len, &uc);
+        if (bytes <= 0)
+            bytes = 1;
+        if (!is_identifier_char(uc))
+            break;
+        start = candidate;
+    }
+
+    if (start == offset)
+        return FALSE;
+
+    int copy_len = offset - start;
+    if (copy_len >= (int)dest_sz)
+        copy_len = (int)dest_sz - 1;
+    memcpy(dest, &lp->l_text[start], (size_t)copy_len);
+    dest[copy_len] = '\0';
+    if (start_out)
+        *start_out = start;
+    return TRUE;
+}
+
+static int extract_path_prefix(struct line *lp, int offset, char *dest, size_t dest_sz, int *start_out)
+{
+    if (lp == NULL || dest == NULL || dest_sz == 0)
+        return FALSE;
+    int len = llength(lp);
+    if (offset > len)
+        offset = len;
+
+    int start = offset;
+    while (start > 0) {
+        int candidate = prev_char_start(lp, start);
+        unicode_t uc;
+        int bytes = utf8_to_unicode(lp->l_text, (unsigned)candidate, (unsigned)len, &uc);
+        if (bytes <= 0)
+            bytes = 1;
+        if (!is_path_char(uc))
+            break;
+        start = candidate;
+    }
+
+    if (start == offset)
+        return FALSE;
+
+    int copy_len = offset - start;
+    if (copy_len >= (int)dest_sz)
+        copy_len = (int)dest_sz - 1;
+    memcpy(dest, &lp->l_text[start], (size_t)copy_len);
+    dest[copy_len] = '\0';
+    if (start_out)
+        *start_out = start;
+
+    if (strchr(dest, '/') != NULL || dest[0] == '/' || dest[0] == '~' ||
+        (dest[0] == '.' && dest[1] != '\0')) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
+static int determine_completion_prefix(char *out, size_t out_sz,
+                                       completion_context_t *ctx,
+                                       struct line **line_out,
+                                       int *start_out,
+                                       int *end_out)
+{
+    if (curwp == NULL || out == NULL || out_sz == 0)
+        return FALSE;
+
+    struct line *lp = curwp->w_dotp;
+    if (lp == NULL || lp == curbp->b_linep)
+        return FALSE;
+
+    int offset = curwp->w_doto;
+    if (offset > llength(lp))
+        offset = llength(lp);
+
+    if (extract_path_prefix(lp, offset, out, out_sz, start_out)) {
+        if (ctx)
+            *ctx = COMPLETION_CONTEXT_PATH;
+        if (line_out)
+            *line_out = lp;
+        if (end_out)
+            *end_out = offset;
+        return TRUE;
+    }
+
+    if (extract_word_prefix(lp, offset, out, out_sz, start_out)) {
+        if (ctx)
+            *ctx = COMPLETION_CONTEXT_DEFAULT;
+        if (line_out)
+            *line_out = lp;
+        if (end_out)
+            *end_out = offset;
+        return TRUE;
+    }
+
+    return FALSE;
+}
+
+static void completion_insert_text(const char *text)
+{
+    if (text == NULL || *text == '\0')
+        return;
+    linsert_block((char *)text, (int)strlen(text));
+}
+
+static size_t completion_longest_common(char *out, size_t out_sz)
+{
+    if (completion_state.count == 0 || out == NULL || out_sz == 0) {
+        if (out && out_sz)
+            out[0] = '\0';
+        return 0;
+    }
+
+    mystrscpy(out, completion_state.matches[0], out_sz);
+    for (int i = 1; i < completion_state.count; i++) {
+        int j = 0;
+        while (out[j] && completion_state.matches[i][j] && j < (int)out_sz - 1) {
+            if (out[j] != completion_state.matches[i][j])
+                break;
+            j++;
+        }
+        out[j] = '\0';
+    }
+    return strlen(out);
+}
+
+static void report_matches(void)
+{
+    if (completion_state.count == 0)
+        return;
+    char message[128];
+    int shown = completion_state.count < 3 ? completion_state.count : 3;
+    int pos = snprintf(message, sizeof(message), "Matches:");
+    for (int i = 0; i < shown; i++) {
+        pos += snprintf(message + pos, sizeof(message) - (size_t)pos, " %s", completion_state.matches[i]);
+        if (pos >= (int)sizeof(message))
+            break;
+    }
+    if (completion_state.count > shown) {
+        snprintf(message + pos, sizeof(message) - (size_t)pos, " (+%d)", completion_state.count - shown);
+    }
+    mlwrite(message);
+}
+
+int completion_try_at_cursor(void)
+{
+    char prefix[MAX_COMPLETION_LEN];
+    completion_context_t ctx = COMPLETION_CONTEXT_DEFAULT;
+    struct line *line = NULL;
+    int prefix_start = 0;
+
+    if (!determine_completion_prefix(prefix, sizeof(prefix), &ctx, &line, &prefix_start, NULL))
+        return FALSE;
+
+    completion_update(prefix, ctx);
+    add_language_specific_matches(prefix, ctx);
+
+    if (line && ctx == COMPLETION_CONTEXT_DEFAULT) {
+        char owner[MAX_COMPLETION_LEN];
+        if (get_owner_symbol_near_cursor(line, prefix_start, owner, sizeof(owner))) {
+            if (is_java_file(curbp ? curbp->b_fname : NULL)) {
+                char resolved[256];
+                if (resolve_java_class_name(owner, resolved, sizeof(resolved)))
+                    add_java_member_matches(resolved, prefix);
+            } else if (is_python_file(curbp ? curbp->b_fname : NULL)) {
+                add_runtime_module_matches(SCRAPER_LANG_PYTHON, owner, prefix);
+            } else if (is_node_file(curbp ? curbp->b_fname : NULL)) {
+                add_runtime_module_matches(SCRAPER_LANG_NODE, owner, prefix);
+            }
+        }
+    }
+
+    if (completion_state.count == 0)
+        return FALSE;
+
+    size_t prefix_len = strlen(prefix);
+    char common[MAX_COMPLETION_LEN];
+    size_t common_len = completion_longest_common(common, sizeof(common));
+
+    if (common_len > prefix_len) {
+        completion_insert_text(common + prefix_len);
+        return TRUE;
+    }
+
+    if (completion_state.count == 1) {
+        const char *match = completion_state.matches[0];
+        const char *tail = match + prefix_len;
+        if (*tail) {
+            completion_insert_text(tail);
+        } else {
+            TTbeep();
+        }
+        return TRUE;
+    }
+
+    report_matches();
+    return TRUE;
 }

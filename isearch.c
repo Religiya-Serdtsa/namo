@@ -398,7 +398,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
             /* Backspace/Delete - remove last character */
             minibuf_delete_char(1);
             minibuf_get_text(current_text, NPAT);
-            completion_update(current_text);
+            completion_update(current_text, COMPLETION_CONTEXT_DEFAULT);
             minibuf_update(prompt);
             break;
             
@@ -442,7 +442,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
             if ((c >= 0x20 && c <= 0x7E) || (c >= 0xA0 && c <= 0x10FFFF)) {
                 minibuf_insert_char(c);
                 minibuf_get_text(current_text, NPAT);
-                completion_update(current_text);
+                completion_update(current_text, COMPLETION_CONTEXT_DEFAULT);
                 minibuf_update(prompt);
             }
             break;

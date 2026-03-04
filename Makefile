@@ -50,6 +50,10 @@ HDR=	command_mode.h completion.h ebind.h edef.h efunc.h epath.h estruct.h evar.h
 
 # DO NOT ADD OR MODIFY ANY LINES ABOVE THIS -- make source creates them
 
+SRC += scraper.c
+OBJ += scraper.o
+HDR += scraper.h
+
 CC=gcc
 WARNINGS=-Wall -Wstrict-prototypes -Wuninitialized
 
@@ -80,6 +84,7 @@ LIBDIR=$(HOME)/lib
 
 CFLAGS += $(shell pkg-config --cflags $(LIBS) 2>/dev/null || pkg-config --cflags hunspell ncurses) -I/usr/include/hunspell
 LDLIBS += $(shell pkg-config --libs $(LIBS) 2>/dev/null || pkg-config --libs hunspell ncurses) -lpcre2-8
+LDLIBS += -lpthread
 
 $(PROGRAM): $(OBJ)
 	$(E) "  LINK    " $@
