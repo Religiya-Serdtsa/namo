@@ -1,6 +1,6 @@
 # Language Support Matrix
 
-Nanox now ships with **75 built-in syntax profiles**. Each profile defines comment delimiters, flow/type/keyword sets, and highlighting toggles for triple quotes, brackets, and numerics. All built-ins are loaded from `syntax.ini`, and you can add more via the per-user `langs/` directory.
+Nanox now ships with **118 built-in syntax profiles**. Each profile defines comment delimiters, flow/type/keyword sets, and highlighting toggles for triple quotes, brackets, and numerics. All built-ins are loaded from `syntax.ini`, and you can add more via the per-user `langs/` directory.
 
 Profiles marked **regex** use `file_matches` (filename regex) instead of extension matching — these cover files like `Makefile`, `CMakeLists.txt`, `Dockerfile`, and systemd units that have no conventional extension.
 
@@ -81,6 +81,50 @@ Profiles marked **regex** use `file_matches` (filename regex) instead of extensi
 | 73 | ReScript | FULL | .res, .resi | OCaml-based JS compiler |
 | 74 | Fish Shell | FULL | .fish | Fish-specific control flow and builtins |
 | 75 | Nginx Config | FULL | **regex** `nginx.conf`, `*.nginx` | Server/location blocks, proxy directives |
+| 76 | JSX (React) | FULL | .jsx | All React hooks, context, portals, concurrent API; enhanced in this update |
+| 77 | Angular | FULL | **regex** `*.component.ts`, `*.service.ts`, `*.module.ts`, `*.directive.ts`, `*.pipe.ts`, `*.guard.ts`, `*.interceptor.ts`, `*.resolver.ts`, `*.component.html` | Angular decorators, RxJS, Signals API |
+| 78 | CoffeeScript | FULL | .coffee, .litcoffee | Indented syntax, `###` block comments |
+| 79 | Stylus | FULL | .styl | CSS preprocessor with JS-like syntax |
+| 80 | Pug/Jade | FULL | .pug, .jade | Indented HTML template engine |
+| 81 | Handlebars | FULL | .hbs, .handlebars, .mustache | Mustache-compatible templates |
+| 82 | EJS | FULL | .ejs | Embedded JavaScript templates |
+| 83 | Liquid | FULL | .liquid | Shopify/Jekyll template language |
+| 84 | Jinja | FULL | .jinja, .jinja2, .j2 | Python template engine (Flask/Ansible) |
+| 85 | GLSL | FULL | .glsl, .vert, .frag, .geom, .comp, .tesc, .tese, .rgen, .rmiss, .rchit, .rahit | OpenGL/Vulkan shader language |
+| 86 | HLSL | FULL | .hlsl, .fx, .fxh | DirectX shader language |
+| 87 | WGSL | FULL | .wgsl | WebGPU shader language |
+| 88 | CUDA | FULL | .cu, .cuh | NVIDIA GPU programming |
+| 89 | SystemVerilog | FULL | .sv, .svh | Hardware description / verification |
+| 90 | VHDL | FULL | .vhd, .vhdl | VHSIC hardware description language |
+| 91 | Assembly (NASM) | FULL | .asm, .nasm | x86/x64 assembly with NASM directives |
+| 92 | Tcl/Tk | FULL | .tcl, .tk | Scripting + GUI toolkit |
+| 93 | AutoHotkey | FULL | .ahk, .ahkl | Windows automation scripting |
+| 94 | AppleScript | FULL | .applescript, .scpt | macOS automation |
+| 95 | Batch/CMD | FULL | .bat, .cmd | Windows command shell scripts |
+| 96 | Racket | FULL | .rkt, .rktl, .rktd | `#\|...\|#` block comments, match |
+| 97 | Scheme | FULL | .scm, .ss, .sls, .sld | R7RS compatible |
+| 98 | Common Lisp | FULL | .lisp, .lsp, .cl, .fas, .fasl | CLOS, loop macro, conditions |
+| 99 | Standard ML | FULL | .sml, .sig | Functors, signatures, modules |
+| 100 | PureScript | FULL | .purs | Haskell-like for JS compilation |
+| 101 | Idris | FULL | .idr, .lidr, .ipkg | Dependent types, totality checking |
+| 102 | Lean 4 | FULL | .lean | Proof assistant + programming language |
+| 103 | Agda | FULL | .agda, .lagda | Dependently typed proof assistant |
+| 104 | SPARQL | FULL | .sparql, .rq | RDF query language |
+| 105 | WebAssembly Text | FULL | .wat, .wast | WAT/WAST text format |
+| 106 | Dhall | FULL | .dhall | Typed configuration language |
+| 107 | CUE | FULL | .cue | Data constraint language |
+| 108 | KDL | FULL | .kdl | Document language (kcl/kdl) |
+| 109 | Janet | FULL | .janet | Lisp-inspired scripting language |
+| 110 | Fennel | FULL | .fnl | Lua-targeting Lisp dialect |
+| 111 | Haxe | FULL | .hx, .hxml | Multi-target compiled language |
+| 112 | Wren | FULL | .wren | Scripting language for game engines |
+| 113 | LaTeX | FULL | .tex, .sty, .cls, .bib, .dtx, .ins | Document typesetting |
+| 114 | reStructuredText | FULL | .rst, .rest | Sphinx documentation markup |
+| 115 | AsciiDoc | FULL | .adoc, .asc, .asciidoc | Technical documentation markup |
+| 116 | Puppet | FULL | .epp + **regex** `manifests/*.pp` | Infrastructure-as-code DSL |
+| 117 | Wolfram Language | FULL | .wl, .nb, .wlt | Mathematica / Wolfram Engine |
+| 118 | ActionScript | FULL | .as, .mxml | Flash/AIR and Flex framework |
+| 119 | WebIDL | FULL | .webidl, .idl | Web API interface definitions |
 
 ## Extending Beyond Built-in Languages
 
