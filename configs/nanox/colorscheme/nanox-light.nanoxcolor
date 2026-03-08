@@ -1,12 +1,16 @@
 [styles]
-normal   = fg=#24292e bg=#f7f7f7
-keyword  = fg=#b91d1d bold=true
-flow     = fg=#b91d1d bold=true
-return   = fg=#b91d1d bold=true
-string   = fg=#926600
-number   = fg=#926600
-function = fg=#005ab5 bold=true
-type     = fg=#6346c1
-bracket  = fg=#6a737d
-operator = fg=#0074d9
-error = fg=#24292e bg=#e0e0e0 bold=true underline=true
+normal    = fg=#1c232c bg=#fffdf8
+comment   = fg=#6e7681 italic=true
+keyword   = fg=#b73a2f bold=true
+flow      = fg=#b73a2f bold=true
+return    = fg=#b73a2f bold=true underline=true
+string    = fg=#00836d
+number    = fg=#005a9c bold=true
+function  = fg=#7a3eb1 bold=true
+type      = fg=#005089
+bracket   = fg=#5b6574
+operator  = fg=#0c7da8
+notice    = fg=#005f73 bold=true
+selection = fg=#0a0d11 bg=#ffe59a
+linenum   = fg=#7f8c99 bg=#f4f0e4
+error     = fg=#290505 bg=#ffd6d4 bold=true underline=true

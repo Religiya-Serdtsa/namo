@@ -21,6 +21,36 @@
 extern struct name_bind names[];
 extern struct terminal  *term;
 
+static int erase_prev_glyph(char *buf, int *cpos)
+{
+    int start;
+    unicode_t uc = 0;
+    int width;
+
+    if (!buf || !cpos)
+        return 0;
+    if (*cpos <= 0)
+        return 0;
+
+    start = *cpos;
+    do {
+        start--;
+    } while (start > 0 && !is_beginning_utf8((unsigned char)buf[start]));
+
+    utf8_to_unicode((unsigned char *)buf, start, *cpos - start, &uc);
+    width = mystrnlen_raw_w(uc);
+    *cpos = start;
+
+    while (width-- > 0) {
+        TTputc('\b');
+        TTputc(' ');
+        TTputc('\b');
+        if (ttcol > 0)
+            --ttcol;
+    }
+    return 1;
+}
+
 /*
  * Ask a yes or no question in the message line. Return either TRUE, FALSE, or
  * ABORT. The ABORT status is returned if the user bumps out of the question
@@ -133,24 +163,12 @@ fn_t getname(void)
             /* and match it off */
             return fncmatch(&buf[0]);
         } else if (c == 0x7F || c == 0x08) {    /* rubout/erase */
-            if (cpos != 0) {
-                TTputc('\b');
-                TTputc(' ');
-                TTputc('\b');
-                --ttcol;
-                --cpos;
+            if (erase_prev_glyph(buf, &cpos))
                 TTflush();
-            }
 
         } else if (c == 0x15) {     /* C-U, kill */
-            while (cpos != 0) {
-                TTputc('\b');
-                TTputc(' ');
-                TTputc('\b');
-                --cpos;
-                --ttcol;
-            }
-
+            while (erase_prev_glyph(buf, &cpos))
+                ;
             TTflush();
 
         } else if (c == ' ' || c == 0x1b || c == 0x09) {
@@ -513,56 +531,12 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
         c = ectoc(c);
 
         if ((c == 0x7F || c == 0x08) && quotef == FALSE) {
-            /* rubout/erase */
-            if (cpos != 0) {
-                /* Find the start of the character to delete */
-                int start_pos = cpos;
-                do {
-                    start_pos--;
-                } while (start_pos > 0 && !is_beginning_utf8((unsigned char)buf[start_pos]));
-                
-                /* Calculate width of the character */
-                unicode_t uc;
-                utf8_to_unicode((unsigned char*)buf, start_pos, cpos - start_pos, &uc);
-                int width = unicode_width(uc);
-                
-                /* Backspace properly on screen */
-                for (int i = 0; i < width; i++) {
-                    --ttcol;
-                    movecursor(term->t_nrow, ttcol);
-                    TTputc(' ');
-                    movecursor(term->t_nrow, ttcol);
-                }
-                
-                /* Adjust cpos to new end */
-                cpos = start_pos;
-                
+            if (erase_prev_glyph(buf, &cpos))
                 TTflush();
-            }
-
         } else if (c == 0x15 && quotef == FALSE) {
             /* C-U, kill */
-            while (cpos != 0) {
-                /* Find the start of the character to delete */
-                int start_pos = cpos;
-                do {
-                    start_pos--;
-                } while (start_pos > 0 && !is_beginning_utf8((unsigned char)buf[start_pos]));
-                
-                /* Calculate width of the character */
-                unicode_t uc;
-                utf8_to_unicode((unsigned char*)buf, start_pos, cpos - start_pos, &uc);
-                int width = unicode_width(uc);
-                
-                /* Backspace properly on screen */
-                for (int i = 0; i < width; i++) {
-                    --ttcol;
-                    movecursor(term->t_nrow, ttcol);
-                    TTputc(' ');
-                    movecursor(term->t_nrow, ttcol);
-                }
-                cpos = start_pos;
-            }
+            while (erase_prev_glyph(buf, &cpos))
+                ;
             TTflush();
 
         } else if ((c == 0x09 || c == ' ') && quotef == FALSE && ffile) {
