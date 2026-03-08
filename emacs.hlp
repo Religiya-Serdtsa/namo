@@ -10,6 +10,7 @@ F9-F12 / ^1-^4 : Slot   ----------------------  ------------------
 ===============================================================================
 * ^S+J: Ctrl+Shift+J, ^S+H: Ctrl+Shift+H (End Range)
 * ^J: Ctrl+J, ^H: Ctrl+H (Start Range)
+* ^R: Sed Replace
 * gg: Apply the selected indent/outdent to the range
 * BS: Backspace (Cancels current range operation)
 * Interactive (y/n) prompt appears after each search match.
