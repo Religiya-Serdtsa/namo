@@ -763,7 +763,7 @@ int yank(int f, int n)
  * This is a high-performance version of linstr for large pastes.
  * It minimizes window updates and buffer change notifications.
  */
-int linsert_block(char *block, int len)
+int linsert_block(const char *block, int len)
 {
     int i, j;
     int start = 0;
