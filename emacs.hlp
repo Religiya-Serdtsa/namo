@@ -13,7 +13,7 @@ F8-F12 : File Slots     ^V / ^Y : Paste         ------------------
 * viblock-edit: start at the current cursor, move to the opposite corner, press Enter,
   then type the shared text to insert on every selected line.
 * viblock-replace: same rectangle workflow, but the selected block is replaced on every line.
-* Slots now use F8-F12 by default. Ctrl+Alt+8/9/0/-/= act as fallback slot keys.
+* Slots now use F8-F12 by default. Ctrl+Alt+8, 9, 0, -, = map to F8, F9, F10, F11, F12.
 * nx *.txt does not immediately open every file. Files are queued into F8-F12 slots and
   the first queued file opens through the F8 slot. When a slotted file is closed, the next
   queued file fills that empty slot.

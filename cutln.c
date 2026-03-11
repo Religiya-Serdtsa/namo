@@ -21,6 +21,7 @@ static void cutln_prime_kill_buffer(void)
 int cutln_cut_current_line(int f, int n)
 {
     struct line *lp = curwp->w_dotp;
+    int has_next_line;
     int len;
 
     if (curbp->b_mode & MDVIEW)
@@ -29,20 +30,21 @@ int cutln_cut_current_line(int f, int n)
         return FALSE;
 
     len = llength(lp);
+    has_next_line = (lforw(lp) != curbp->b_linep);
     cutln_prime_kill_buffer();
 
     for (int i = 0; i < len; ++i) {
         if (kinsert((unsigned char)lgetc(lp, i)) != TRUE)
             return FALSE;
     }
-    if (lforw(lp) != curbp->b_linep) {
+    if (has_next_line) {
         if (kinsert('\n') != TRUE)
             return FALSE;
     }
 
     curwp->w_dotp = lp;
     curwp->w_doto = 0;
-    if (ldelete(len + ((lforw(lp) != curbp->b_linep) ? 1 : 0), FALSE) != TRUE)
+    if (ldelete(len + (has_next_line ? 1 : 0), FALSE) != TRUE)
         return FALSE;
 
     curwp->w_flag |= WFHARD;

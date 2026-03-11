@@ -598,7 +598,7 @@ static const char *nanox_help_sheet[] = {
     "* Ctrl+Alt+C opens command mode (goto/help/viblock-edit/viblock-replace)",
     "* viblock-edit inserts the same text on each selected line",
     "* viblock-replace replaces the selected rectangle on each selected line",
-    "* F8-F12 are slot jumps; Ctrl+Alt+8/9/0/-/= are fallback slot keys",
+    "* F8-F12 are slot jumps; Ctrl+Alt+8, 9, 0, -, = map to F8-F12",
     "* nx *.txt queues files into slots instead of opening every file immediately",
     "* no_function_slot = true switches slots to Ctrl+Alt+number mode with 64 slots",
     "* Indent/Outdent: Ctrl+J (indent) or Ctrl+H (outdent) to mark start line",
@@ -724,6 +724,7 @@ static void seed_startup_slots(void)
 {
     int max_slots = slot_capacity();
 
+    /* Stop when we run out of visible slots or queued startup files. */
     for (int i = 0; i < max_slots && startup_slot_queue_next < startup_slot_queue_count; ++i) {
         if (file_reserve[i][0])
             continue;
@@ -740,7 +741,7 @@ void nanox_queue_startup_file(const char *path)
         return;
 
     if (startup_slot_queue_count == startup_slot_queue_cap) {
-        size_t new_cap = startup_slot_queue_cap ? startup_slot_queue_cap * 2 : 8;
+        size_t new_cap = startup_slot_queue_cap ? startup_slot_queue_cap * 2 : 32;
         new_queue = realloc(startup_slot_queue, sizeof(char *) * new_cap);
         if (!new_queue)
             return;
@@ -803,7 +804,7 @@ static int reserve_jump(int slot)
 
     if (!file_reserve[slot][0]) {
         nanox_set_lamp(NANOX_LAMP_WARN);
-        snprintf(msg, sizeof(msg), "%s is empty", slot_name(slot));
+        snprintf(msg, sizeof(msg), "%s is empty (load files with nx ... or reserve it first)", slot_name(slot));
         minibuf_show(msg);
         return FALSE;
     }
@@ -829,12 +830,14 @@ int nanox_open_startup_slot(void)
 int reserve_jump_numeric_mode(int f, int n)
 {
     char buf[16];
+    char prompt[32];
     int slot;
     int max_slots = slot_capacity();
 
     if (!nanox_cfg.no_function_slot)
         return FALSE;
-    if (minibuf_input("Open slot (1-64): ", buf, sizeof(buf)) != TRUE)
+    snprintf(prompt, sizeof(prompt), "Open slot (1-%d): ", max_slots);
+    if (minibuf_input(prompt, buf, sizeof(buf)) != TRUE)
         return FALSE;
     slot = atoi(buf);
     if (slot < 1 || slot > max_slots) {

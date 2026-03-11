@@ -220,7 +220,7 @@ void paste_slot_display(void)
 /* Insert paste slot content into document without auto-indent - UTF-8 compatible */
 int paste_slot_insert(void)
 {
-    extern int linsert_block(char *block, int len);
+    extern int linsert_block(const char *block, int len);
     
     if (paste_slot_buffer == NULL || paste_slot_size == 0)
         return 1;

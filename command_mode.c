@@ -234,7 +234,7 @@ int command_mode_handle_key(int c) {
     switch (c) {
         case 0x0D: /* Enter */
         case 0x0A: /* LF */
-        case CONTROL | 'M':
+        case CONTROL | 'M': /* Some terminals report Enter as Ctrl+M */
             execute_command();
             cmd_active = 0;
             return 1;
@@ -518,6 +518,15 @@ static void restore_cursor_to_index(int index, int offset)
     curwp->w_flag |= WFMOVE;
 }
 
+static void restore_saved_cursor(int index, int offset)
+{
+    if (index < 0) {
+        curwp->w_flag |= WFMOVE;
+        return;
+    }
+    restore_cursor_to_index(index, offset);
+}
+
 static int block_visual_column(struct line *lp, int offset)
 {
     int col = 0;
@@ -669,7 +678,7 @@ static int block_apply_text(const char *text, int replace_mode)
             }
 
             if (text && *text) {
-                if (linsert_block((char *)text, (int)strlen(text)) != TRUE)
+                if (linsert_block(text, (int)strlen(text)) != TRUE)
                     return FALSE;
             }
         }
@@ -677,7 +686,7 @@ static int block_apply_text(const char *text, int replace_mode)
         idx++;
     }
 
-    restore_cursor_to_index(original_index < 0 ? 0 : original_index, original_offset);
+    restore_saved_cursor(original_index, original_offset);
     curwp->w_flag |= WFHARD | WFMODE;
     return TRUE;
 }
@@ -864,7 +873,7 @@ int sed_replace_command(int f, int n)
         if (!apply_regex_to_line(lp, code, match_data, replacement, repl_len, is_global, &total)) {
             pcre2_match_data_free(match_data);
             pcre2_code_free(code);
-            restore_cursor_to_index(original_index < 0 ? 0 : original_index, original_offset);
+            restore_saved_cursor(original_index, original_offset);
             return FALSE;
         }
         lp = next;
@@ -873,7 +882,7 @@ int sed_replace_command(int f, int n)
     pcre2_match_data_free(match_data);
     pcre2_code_free(code);
 
-    restore_cursor_to_index(original_index < 0 ? 0 : original_index, original_offset);
+    restore_saved_cursor(original_index, original_offset);
 
     if (total == 0)
         mlwrite("No matches for pattern");
