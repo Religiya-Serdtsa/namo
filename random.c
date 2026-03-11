@@ -1493,7 +1493,7 @@ int g_prefix_handler(int f, int n)
     int c;
 
     while ((c = getcmd()) == 0)
-        ;
+        ttpause();
 
     if (c == 'g') {
         /* If selection is active (start set but end not set), finalize with cursor */
