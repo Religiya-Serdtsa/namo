@@ -835,15 +835,22 @@ int sed_replace_command(int f, int n)
     uint32_t options = PCRE2_UTF | PCRE2_UCP | PCRE2_MULTILINE;
     size_t repl_len;
 
-    if (curbp->b_mode & MDVIEW)
-        return rdonly();
+    if (curbp->b_mode & MDVIEW) {
+        int ro = rdonly();
+        nanox_request_underbar_redraw();
+        return ro;
+    }
 
     status = minibuf_input("sed replace: ", expr, sizeof(expr));
-    if (status != TRUE)
+    if (status != TRUE) {
+        nanox_request_underbar_redraw();
         return status;
+    }
 
-    if (!parse_sed_expression(expr, pattern, sizeof(pattern), replacement, sizeof(replacement), &is_global, &is_caseless))
+    if (!parse_sed_expression(expr, pattern, sizeof(pattern), replacement, sizeof(replacement), &is_global, &is_caseless)) {
+        nanox_request_underbar_redraw();
         return FALSE;
+    }
 
     if (is_caseless)
         options |= PCRE2_CASELESS;
@@ -853,6 +860,7 @@ int sed_replace_command(int f, int n)
         char errbuf[128];
         pcre2_get_error_message(errornumber, (PCRE2_UCHAR *)errbuf, sizeof(errbuf));
         mlwrite("Regex error at %d: %s", (int)erroffset, errbuf);
+        nanox_request_underbar_redraw();
         return FALSE;
     }
 
@@ -860,6 +868,7 @@ int sed_replace_command(int f, int n)
     if (match_data == NULL) {
         pcre2_code_free(code);
         mlwrite("%%Out of memory");
+        nanox_request_underbar_redraw();
         return FALSE;
     }
 
@@ -874,6 +883,7 @@ int sed_replace_command(int f, int n)
             pcre2_match_data_free(match_data);
             pcre2_code_free(code);
             restore_saved_cursor(original_index, original_offset);
+            nanox_request_underbar_redraw();
             return FALSE;
         }
         lp = next;
@@ -889,5 +899,6 @@ int sed_replace_command(int f, int n)
     else
         mlwrite("Replaced %d occurrence%s", total, total == 1 ? "" : "s");
 
+    nanox_request_underbar_redraw();
     return TRUE;
 }

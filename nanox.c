@@ -41,6 +41,8 @@ struct nanox_config nanox_cfg = {
 
 char file_reserve[NANOX_SLOT_MAX][PATH_MAX];
 
+bool should_redraw_underbar = false;
+
 static enum nanox_lamp_state lamp_state = NANOX_LAMP_OFF;
 static char **startup_slot_queue = NULL;
 static size_t startup_slot_queue_count = 0;
@@ -63,6 +65,11 @@ static int help_section_sub_scroll;
 
 static struct nanox_help_topic *dynamic_topics = NULL;
 static size_t dynamic_topic_count = 0;
+
+void nanox_request_underbar_redraw(void)
+{
+    should_redraw_underbar = true;
+}
 
 static int get_visual_row_count(const char *line, int width)
 {

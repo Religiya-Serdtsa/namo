@@ -35,6 +35,7 @@ struct nanox_config {
 
 extern struct nanox_config nanox_cfg;
 extern char file_reserve[NANOX_SLOT_MAX][PATH_MAX];
+extern bool should_redraw_underbar;
 
 void nanox_init(void);
 void nanox_apply_config(void);
@@ -71,6 +72,7 @@ int reserve_jump_numeric_mode(int f, int n);
 void nanox_queue_startup_file(const char *path);
 int nanox_open_startup_slot(void);
 void nanox_handle_closed_file(const char *path);
+void nanox_request_underbar_redraw(void);
 
 void nanox_message_prefix(const char *input, char *output, size_t outsz);
 void help_close(void);

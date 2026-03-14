@@ -144,13 +144,16 @@ int nanox_search_engine(int f, int n)
 
     /* Get search string using minibuffer */
     status = minibuf_input("Search: ", query, NPAT);
-    if (status != TRUE)
+    if (status != TRUE) {
+        nanox_request_underbar_redraw();
         return status;
+    }
 
     /* Handle empty query - use last pattern and last direction */
     if (status == FALSE || query[0] == '\0') {
         if (pat[0] == '\0') {
             mlwrite("No pattern set");
+            nanox_request_underbar_redraw();
             return FALSE;
         }
         dir = last_dir;
@@ -183,6 +186,7 @@ int nanox_search_engine(int f, int n)
             /* Suffix only - use previous pattern */
             if (pat[0] == '\0') {
                 mlwrite("No pattern set");
+                nanox_request_underbar_redraw();
                 return FALSE;
             }
         }
@@ -219,6 +223,7 @@ int nanox_search_engine(int f, int n)
         }
         /* Loop continues to find next match in same direction */
     }
+    nanox_request_underbar_redraw();
     return TRUE;
 }
 

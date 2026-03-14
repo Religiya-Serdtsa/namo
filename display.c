@@ -531,6 +531,11 @@ int update(int force)
         wp->w_force = 0;
     }
 
+    if (should_redraw_underbar && curwp != NULL) {
+        modeline(curwp);
+        should_redraw_underbar = false;
+    }
+
     /* recalc the current hardware cursor location */
     updpos();
 
