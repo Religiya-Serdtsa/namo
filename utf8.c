@@ -11,53 +11,77 @@
  * either use it as-is (ie as Latin1) or you can check for invalid UTF-8
  * by checking for a length of 1 and a result > 127.
  *
- * NOTE 2! This does *not* verify things like minimality. So overlong forms
- * are happily accepted and decoded, as are the various "invalid values".
+ * NOTE 2! Invalid and overlong UTF-8 is converted to U+FFFD while advancing
+ * by one byte so callers can recover safely.
  */
 unsigned utf8_to_unicode(unsigned char *line, unsigned index, unsigned len, unicode_t *res)
 {
-    unsigned value;
+    if (!line || !res || index >= len)
+        return 0;
+
     unsigned char c = line[index];
-    unsigned bytes, mask, i;
-
     *res = c;
-    line += index;
-    len -= index;
 
-    /*
-     * 0xxxxxxx is valid utf8
-     * 10xxxxxx is invalid UTF-8, we assume it is Latin1
-     */
-    if (c < 0xc0)
+    if (c < 0x80)
         return 1;
 
-    /* Ok, it's 11xxxxxx, do a stupid decode */
-    mask = 0x20;
-    bytes = 2;
-    while (c & mask) {
-        bytes++;
-        mask >>= 1;
-    }
-
-    /* Invalid? Do it as a single byte Latin1 */
-    if (bytes > 6)
+    /* Reject stray continuation */
+    if ((c & 0xC0) == 0x80)
         return 1;
-    if (bytes > len) {
-        *res = 0xFFFD; /* Replacement character for incomplete sequence */
-        return 1;
+
+    unsigned available = len - index;
+    if ((c & 0xE0) == 0xC0) { /* 2-byte */
+        if (available < 2)
+            goto invalid;
+        unsigned char c1 = line[index + 1];
+        if ((c1 & 0xC0) != 0x80)
+            goto invalid;
+        unsigned value = ((unsigned)(c & 0x1F) << 6) | (unsigned)(c1 & 0x3F);
+        if (value < 0x80) /* overlong */
+            goto invalid;
+        *res = value;
+        return 2;
     }
 
-    value = c & (mask - 1);
-
-    /* Ok, do the bytes */
-    for (i = 1; i < bytes; i++) {
-        c = line[i];
-        if ((c & 0xc0) != 0x80)
-            return 1;
-        value = (value << 6) | (c & 0x3f);
+    if ((c & 0xF0) == 0xE0) { /* 3-byte */
+        if (available < 3)
+            goto invalid;
+        unsigned char c1 = line[index + 1];
+        unsigned char c2 = line[index + 2];
+        if ((c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80)
+            goto invalid;
+        unsigned value = ((unsigned)(c & 0x0F) << 12) |
+                         ((unsigned)(c1 & 0x3F) << 6) |
+                         (unsigned)(c2 & 0x3F);
+        if (value < 0x800) /* overlong */
+            goto invalid;
+        if (value >= 0xD800 && value <= 0xDFFF) /* surrogate */
+            goto invalid;
+        *res = value;
+        return 3;
     }
-    *res = value;
-    return bytes;
+
+    if ((c & 0xF8) == 0xF0) { /* 4-byte */
+        if (available < 4)
+            goto invalid;
+        unsigned char c1 = line[index + 1];
+        unsigned char c2 = line[index + 2];
+        unsigned char c3 = line[index + 3];
+        if ((c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80)
+            goto invalid;
+        unsigned value = ((unsigned)(c & 0x07) << 18) |
+                         ((unsigned)(c1 & 0x3F) << 12) |
+                         ((unsigned)(c2 & 0x3F) << 6) |
+                         (unsigned)(c3 & 0x3F);
+        if (value < 0x10000 || value > 0x10FFFF)
+            goto invalid;
+        *res = value;
+        return 4;
+    }
+
+invalid:
+    *res = 0xFFFD;
+    return 1;
 }
 
 static void reverse_string(unsigned char *begin, unsigned char *end)

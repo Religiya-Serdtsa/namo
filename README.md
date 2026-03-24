@@ -146,12 +146,18 @@ help_language=en
 [edit]
 soft_tab=true
 soft_tab_width=4
+autocomplete=true
+use_lsp=false
 
 [search]
 case_sensitive_default=false
 ```
 
 Set `help_language` to a locale code (default `en`) to make Nanox look for `emacs-<code>.hlp` before falling back to the bundled `emacs.hlp`.
+
+Autocomplete defaults to `true` and now uses fuzzy matching with built-in language keywords and buffer words. Set `autocomplete=false` to disable it.
+
+Set `use_lsp=true` to enable extra completion sources when a language server binary is installed for the active file type (`clangd`, `pylsp`/`pyright-langserver`, `typescript-language-server`, `gopls`, `rust-analyzer`, `jdtls`).
 
 ### Syntax Highlighting Profiles
 
@@ -183,6 +189,9 @@ Sample profiles for rarer but still relevant languages (Ada, COBOL, Elixir, Erla
 
 Theme generator is available to handle accessibility issue with enough flexibility.
 Please run `python3 ./accessibility/cognitive_themegen.py` to generate.
+
+Bundled themes now include additional popular and classic presets such as:
+`one-dark`, `nord`, `gruvbox-dark`, `solarized-dark`, `solarized-light`, and `zenburn-classic`.
 
 ## Help & Documentation
 

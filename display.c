@@ -663,6 +663,8 @@ static void show_line(struct window *wp, struct line *lp)
 
         unicode_t c;
         int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
+        if (bytes <= 0)
+            bytes = 1;
         int next_col = next_column(text_col, c, tab_width);
 
         if (command_mode_block_selection_contains(lp, text_col, next_col))
@@ -769,6 +771,8 @@ static void show_line_wrapped(struct window *wp, struct line *lp)
             while(char_idx < len) {
                 unicode_t c;
                 int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
+                if (bytes <= 0)
+                    bytes = 1;
                 int char_width = get_char_width(c, current_col);
                 int next_text_col = next_column(text_col, c, tab_width);
 
@@ -813,6 +817,8 @@ render_segment:
 
             unicode_t c;
             int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
+            if (bytes <= 0)
+                bytes = 1;
             int next_text_col = next_column(text_col, c, tab_width);
             if (command_mode_block_selection_contains(lp, text_col, next_text_col))
                 style = HL_SELECTION;

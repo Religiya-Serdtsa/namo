@@ -29,6 +29,8 @@ struct nanox_config {
     bool soft_tab;
     int soft_tab_width;
     bool case_sensitive_default;
+    bool autocomplete;
+    bool use_lsp;
     bool nonr;
     bool no_function_slot;
 };

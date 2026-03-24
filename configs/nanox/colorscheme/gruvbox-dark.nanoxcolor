@@ -1,0 +1,17 @@
+[styles]
+normal  = fg=#ebdbb2 bg=#282828
+comment = fg=#928374
+string  = fg=#b8bb26
+number  = fg=#d3869b
+bracket = fg=#83a598
+operator= fg=#fe8019
+keyword = fg=#fb4934 bold=true
+type    = fg=#fabd2f
+function= fg=#8ec07c
+flow    = fg=#fb4934 bold=true
+preproc = fg=#fe8019
+return  = fg=#cc241d bold=true
+escape  = fg=#d3869b
+control = fg=#cc241d underline=true
+ternary = fg=#fe8019 bold=true
+error   = fg=#cc241d underline=true

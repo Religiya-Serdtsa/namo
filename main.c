@@ -54,8 +54,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/stat.h>
+#ifdef HAVE_HUNSPELL
 #include <hunspell.h>
+#endif
 
 /* Make global definitions not external. */
 // #define    maindef
@@ -99,21 +102,30 @@ void usage(int status)
     exit(status);
 }
 
+#ifdef HAVE_HUNSPELL
 static Hunhandle *hunhandle;
+#endif
 
 int spellcheck(const char *word)
 {
+#ifdef HAVE_HUNSPELL
     if (!hunhandle)
         return 1;
     return Hunspell_spell(hunhandle, word);
+#else
+    (void)word;
+    return 1;
+#endif
 }
 
+#ifdef HAVE_HUNSPELL
 static void local_dictionary(Hunhandle *handle, const char *filename)
 {
     struct stat st;
     if (!stat(filename, &st) && S_ISREG(st.st_mode))
         Hunspell_add_dic(handle, filename);
 }
+#endif
 
 static void select_terminal_driver(void)
 {
@@ -163,6 +175,7 @@ int main(int argc, char **argv)
 
     select_terminal_driver();
 
+#ifdef HAVE_HUNSPELL
     const char *aff_path = "/usr/share/hunspell/en_US.aff";
     const char *dic_path = "/usr/share/hunspell/en_US.dic";
     hunhandle = Hunspell_create(aff_path, dic_path);
@@ -175,6 +188,7 @@ int main(int argc, char **argv)
             local_dictionary(hunhandle, buf);
         }
     }
+#endif
 
     signal(SIGWINCH, sizesignal);
     if (argc == 2) {
@@ -558,6 +572,17 @@ int execute(int c, int f, int n)
         else
             status = sanitize_and_insert(n, c);
 
+        if (status == TRUE && nanox_cfg.autocomplete) {
+            int should_trigger = 0;
+            if (c == '_' || c > 0x7F)
+                should_trigger = 1;
+            else if (c >= 0 && c <= 0x7F && isalnum((unsigned char)c))
+                should_trigger = 1;
+
+            if (should_trigger)
+                completion_try_at_cursor();
+        }
+
         /* check for CMODE fence matching */
         if ((c == '}' || c == ')' || c == ']') && (curbp->b_mode & MDCMOD) != 0)
             fmatch(c);
@@ -637,10 +662,12 @@ int quit(int f, int n)
             exit(1);
         }
         vttidy();
+#ifdef HAVE_HUNSPELL
         if (hunhandle) {
             Hunspell_destroy(hunhandle);
             hunhandle = NULL;
         }
+#endif
         nanox_cleanup();
         struct buffer *bp = bheadp;
         while (bp != NULL) {
