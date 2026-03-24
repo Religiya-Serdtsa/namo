@@ -572,17 +572,6 @@ int execute(int c, int f, int n)
         else
             status = sanitize_and_insert(n, c);
 
-        if (status == TRUE && nanox_cfg.autocomplete) {
-            int should_trigger = 0;
-            if (c == '_' || c > 0x7F)
-                should_trigger = 1;
-            else if (c >= 0 && c <= 0x7F && isalnum((unsigned char)c))
-                should_trigger = 1;
-
-            if (should_trigger)
-                completion_try_at_cursor();
-        }
-
         /* check for CMODE fence matching */
         if ((c == '}' || c == ')' || c == ']') && (curbp->b_mode & MDCMOD) != 0)
             fmatch(c);
