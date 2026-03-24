@@ -103,8 +103,9 @@ static int java_member_cache_capacity = 0;
 
 #define COMPLETION_MINIBUFFER_MAX_VISIBLE 5
 #define COMPLETION_POPUP_MAX_VISIBLE 8
-#define COMPLETION_POPUP_MIN_CONTENT 12
-#define COMPLETION_POPUP_MAX_CONTENT 48
+#define COMPLETION_POPUP_MIN_CONTENT 28
+#define COMPLETION_POPUP_FIXED_CONTENT 40
+#define COMPLETION_POPUP_MAX_CONTENT 64
 
 static HighlightStyle completion_resolve_style(HighlightStyle style, HighlightStyle fallback)
 {
@@ -253,6 +254,49 @@ static void completion_write_utf8_clipped(const char *text, int max_width)
         TTputc(' ');
         used++;
     }
+}
+
+static int completion_write_utf8_ellipsized(const char *text, int max_width)
+{
+    int used = 0;
+    int len = (int)strlen(text ? text : "");
+    int idx = 0;
+    int truncated = 0;
+    int body_width = max_width;
+
+    if (max_width <= 0)
+        return 0;
+
+    if (completion_display_width(text) > max_width && max_width >= 3)
+        body_width = max_width - 3;
+
+    while (idx < len && used < body_width) {
+        unicode_t uc;
+        int bytes = utf8_to_unicode((unsigned char *)text, idx, len, &uc);
+        if (bytes <= 0)
+            break;
+        int char_width = mystrnlen_raw_w(uc);
+        if (used + char_width > body_width)
+            break;
+        TTputc(uc);
+        used += char_width;
+        idx += bytes;
+    }
+
+    if (idx < len && max_width >= 3) {
+        TTputc('.');
+        TTputc('.');
+        TTputc('.');
+        used += 3;
+        truncated = 1;
+    }
+
+    while (used < max_width) {
+        TTputc(' ');
+        used++;
+    }
+
+    return truncated;
 }
 
 static void pool_add(completion_pool_t *pool, const char *value)
@@ -1969,10 +2013,13 @@ static void completion_draw_minibuffer_list(int row, int col)
         if (idx == completion_state.selected_index)
             TTrev(TRUE);
 
-        char buf[MAX_COMPLETION_LEN];
-        snprintf(buf, sizeof(buf), " %-20s ", completion_state.matches[idx]);
-        for (int j = 0; buf[j]; j++)
-            TTputc(buf[j]);
+        int list_width = term->t_ncol - col;
+        if (list_width < 8)
+            list_width = 8;
+
+        TTputc(' ');
+        completion_write_utf8_ellipsized(completion_state.matches[idx] ? completion_state.matches[idx] : "", list_width - 2);
+        TTputc(' ');
         TTeeol();
 
         if (idx == completion_state.selected_index)
@@ -2205,30 +2252,23 @@ static void completion_dropdown_refresh_geometry(void)
         visible = 1;
     completion_dropdown_state.popup_height = visible;
 
-    int content_width = COMPLETION_POPUP_MIN_CONTENT;
-    for (int i = 0; i < completion_state.count; i++) {
-        int w = completion_display_width(completion_state.matches[i]);
-        if (w > content_width)
-            content_width = w;
-        if (content_width >= COMPLETION_POPUP_MAX_CONTENT)
-            break;
-    }
+    int content_width = COMPLETION_POPUP_FIXED_CONTENT;
+    if (content_width < COMPLETION_POPUP_MIN_CONTENT)
+        content_width = COMPLETION_POPUP_MIN_CONTENT;
     if (content_width > COMPLETION_POPUP_MAX_CONTENT)
         content_width = COMPLETION_POPUP_MAX_CONTENT;
 
-    int inner_width = content_width + 2; /* padding inside */
-    int popup_width = inner_width + 2;   /* account for border */
+    int popup_width = content_width + 2; /* 1-char side padding */
 
     int safe_cols = term->t_ncol;
     if (popup_width > safe_cols) {
         popup_width = safe_cols;
-        if (popup_width < 4)
-            popup_width = 4;
-        inner_width = popup_width - 2;
+        if (popup_width < 8)
+            popup_width = 8;
     }
     completion_dropdown_state.popup_width = popup_width;
 
-    int total_height = completion_dropdown_state.popup_height + 2; /* borders */
+    int total_height = completion_dropdown_state.popup_height;
     int safe_bottom = term->t_nrow - 1; /* reserve last line for minibuffer */
     if (safe_bottom < 0)
         safe_bottom = 0;
@@ -2264,69 +2304,49 @@ static void completion_draw_popup_box(void)
     int box_col = completion_dropdown_state.popup_col;
     int popup_width = completion_dropdown_state.popup_width;
     int visible = completion_dropdown_state.popup_height;
-    if (popup_width < 4)
-        popup_width = 4;
+    if (popup_width < 8)
+        popup_width = 8;
     if (visible <= 0)
         return;
 
     int saved_row = ttrow;
     int saved_col = ttcol;
 
-    int inner_width = popup_width - 2;
-    if (inner_width < 0)
-        inner_width = 0;
-    int text_width = inner_width - 2;
-    if (text_width < 0)
-        text_width = 0;
+    int text_width = popup_width - 2;
+    if (text_width < 1)
+        text_width = 1;
 
     HighlightStyle normal = completion_resolve_style(colorscheme_get(HL_NORMAL), colorscheme_get(HL_NORMAL));
     HighlightStyle selection = completion_resolve_style(colorscheme_get(HL_SELECTION), normal);
     HighlightStyle notice = completion_resolve_style(colorscheme_get(HL_NOTICE), normal);
-    HighlightStyle border_style = notice;
-    if (border_style.bg == -1)
-        border_style.bg = normal.bg;
-    HighlightStyle row_style = normal;
+    HighlightStyle panel_style = notice;
+    if (panel_style.bg == -1)
+        panel_style.bg = normal.bg;
+    if (panel_style.fg == -1)
+        panel_style.fg = normal.fg;
+    HighlightStyle row_style = panel_style;
     HighlightStyle selected_style = selection;
-
-    int total_height = visible + 2;
-
-    /* Top border */
-    movecursor(box_row, box_col);
-    completion_apply_style(&border_style);
-    TTputc('+');
-    for (int i = 0; i < popup_width - 2; i++)
-        TTputc('-');
-    TTputc('+');
+    if (selected_style.bg == -1)
+        selected_style.bg = panel_style.bg;
+    if (selected_style.fg == -1)
+        selected_style.fg = panel_style.fg;
 
     /* Content rows */
     for (int i = 0; i < visible; i++) {
         int idx = completion_state.scroll_offset + i;
-        if (idx >= completion_state.count)
-            break;
-        int line_row = box_row + 1 + i;
-        const char *text = completion_state.matches[idx];
+        int line_row = box_row + i;
+        const char *text = (idx < completion_state.count) ? completion_state.matches[idx] : "";
         HighlightStyle *active_style = (idx == completion_state.selected_index) ? &selected_style : &row_style;
 
         movecursor(line_row, box_col);
-        completion_apply_style(&border_style);
-        TTputc('|');
-
         completion_apply_style(active_style);
         TTputc(' ');
-        completion_write_utf8_clipped(text ? text : "", text_width);
+        if (idx < completion_state.count)
+            completion_write_utf8_ellipsized(text ? text : "", text_width);
+        else
+            completion_write_utf8_clipped("", text_width);
         TTputc(' ');
-
-        completion_apply_style(&border_style);
-        TTputc('|');
     }
-
-    /* Bottom border */
-    movecursor(box_row + total_height - 1, box_col);
-    completion_apply_style(&border_style);
-    TTputc('+');
-    for (int i = 0; i < popup_width - 2; i++)
-        TTputc('-');
-    TTputc('+');
 
     TTsetcolors(-1, -1);
     TTsetattrs(0, 0, 0);
