@@ -107,6 +107,7 @@ CFLAGS = -std=c2x -Ofast \
               -fno-exceptions \
               -fdelete-null-pointer-checks \
               -MMD -MP
+CFLAGS += -I.
 LDFLAGS = \
 		-flto=auto -fuse-linker-plugin \
     -Wl,-Ofast \
@@ -126,7 +127,7 @@ LDFLAGS = \
     -Wl,-z,combreloc \
     -Wl,--build-id=none
 
-LIBS=hunspell
+LIBS=
 ifeq ($(USE_NCURSES),1)
 	LIBS += ncursesw
 endif
@@ -134,9 +135,19 @@ endif
 BINDIR=$(HOME)/bin
 LIBDIR=$(HOME)/lib
 
-CFLAGS += $(shell pkg-config --cflags $(LIBS) 2>/dev/null || pkg-config --cflags hunspell ncurses) -I/usr/include/hunspell
-LDLIBS += $(shell pkg-config --libs $(LIBS) 2>/dev/null || pkg-config --libs hunspell ncurses) -lpcre2-8
+CFLAGS += $(shell pkg-config --cflags $(LIBS) 2>/dev/null)
+LDLIBS += $(shell pkg-config --libs $(LIBS) 2>/dev/null)
+PCRE2_LIB := $(shell if [ -f /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0 ]; then echo /usr/lib/x86_64-linux-gnu/libpcre2-8.so.0; elif [ -f /lib/x86_64-linux-gnu/libpcre2-8.so.0 ]; then echo /lib/x86_64-linux-gnu/libpcre2-8.so.0; else echo -lpcre2-8; fi)
+LDLIBS += $(PCRE2_LIB)
 LDLIBS += -lpthread
+
+HUNSPELL_CFLAGS := $(shell pkg-config --cflags hunspell 2>/dev/null)
+HUNSPELL_LIBS := $(shell pkg-config --libs hunspell 2>/dev/null)
+ifneq ($(strip $(HUNSPELL_LIBS)),)
+	DEFINES += -DHAVE_HUNSPELL
+	CFLAGS += $(HUNSPELL_CFLAGS)
+	LDLIBS += $(HUNSPELL_LIBS)
+endif
 
 $(PROGRAM): $(OBJ)
 	$(E) "  LINK    " $@

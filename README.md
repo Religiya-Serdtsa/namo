@@ -190,6 +190,9 @@ Sample profiles for rarer but still relevant languages (Ada, COBOL, Elixir, Erla
 Theme generator is available to handle accessibility issue with enough flexibility.
 Please run `python3 ./accessibility/cognitive_themegen.py` to generate.
 
+Bundled themes now include additional popular and classic presets such as:
+`one-dark`, `nord`, `gruvbox-dark`, `solarized-dark`, `solarized-light`, and `zenburn-classic`.
+
 ## Help & Documentation
 
 Press **F1** inside the editor to open the interactive Nanox help system. You can browse keybindings, configuration options, and deep-dive into the MicroEmacs manual by pressing **Enter** on any function name.
