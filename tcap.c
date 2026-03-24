@@ -286,6 +286,9 @@ static void tcap_set_colors(int fg, int bg) {
     } else if (fg >= 8 && fg < 16) {
         snprintf(buf, sizeof(buf), "\033[%dm", 90 + (fg - 8));
         putpad(buf);
+    } else if (fg >= 16 && fg <= 255) {
+        snprintf(buf, sizeof(buf), "\033[38;5;%dm", fg);
+        putpad(buf);
     } else {
         snprintf(buf, sizeof(buf), "\033[%dm", 30 + fg);
         putpad(buf);
@@ -299,6 +302,9 @@ static void tcap_set_colors(int fg, int bg) {
         putpad(buf);
     } else if (bg >= 8 && bg < 16) {
         snprintf(buf, sizeof(buf), "\033[%dm", 100 + (bg - 8));
+        putpad(buf);
+    } else if (bg >= 16 && bg <= 255) {
+        snprintf(buf, sizeof(buf), "\033[48;5;%dm", bg);
         putpad(buf);
     } else {
         snprintf(buf, sizeof(buf), "\033[%dm", 40 + bg);

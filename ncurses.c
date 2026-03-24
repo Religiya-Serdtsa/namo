@@ -62,12 +62,37 @@ struct terminal ncurses_term = {
 static int current_pair = 0;
 static attr_t current_attr = A_NORMAL;
 
+static int is_true_color(int c) {
+    return (c & 0xFF000000) == 0x01000000;
+}
+
+static int rgb_to_xterm256(int color) {
+    int r = (color >> 16) & 0xFF;
+    int g = (color >> 8) & 0xFF;
+    int b = color & 0xFF;
+
+    /* Grayscale ramp (232-255) */
+    if (r == g && g == b) {
+        if (r < 8) return 16;
+        if (r > 248) return 231;
+        return 232 + ((r - 8) * 24) / 247;
+    }
+
+    int rc = (r * 5) / 255;
+    int gc = (g * 5) / 255;
+    int bc = (b * 5) / 255;
+    return 16 + (36 * rc) + (6 * gc) + bc;
+}
+
 /* Map color index to ncurses color */
 static int map_color(int c) {
     if (c == -1) return -1;
+    if (is_true_color(c))
+        c = rgb_to_xterm256(c);
     if (c < 8) return c;
-    if (c < 16) return c; 
-    return c; 
+    if (c < 16) return c;
+    if (c < COLORS) return c;
+    return c % COLORS;
 }
 
 /* Pair management */
@@ -175,9 +200,6 @@ void ncurses_italic(int state) {
 
 void ncurses_set_colors(int fg, int bg) {
     if (!has_colors()) return;
-    
-    if (fg & 0x01000000) fg = -1;
-    if (bg & 0x01000000) bg = -1;
 
     current_pair = get_pair(fg, bg);
     attr_set(current_attr, current_pair, NULL);

@@ -36,6 +36,8 @@ struct nanox_config nanox_cfg = {
     .soft_tab = false,
     .soft_tab_width = 8,
     .case_sensitive_default = false,
+    .autocomplete = true,
+    .use_lsp = false,
     .no_function_slot = false,
 };
 
@@ -212,6 +214,8 @@ static void config_defaults(void)
     nanox_cfg.soft_tab = false;
     nanox_cfg.soft_tab_width = 8;
     nanox_cfg.case_sensitive_default = false;
+    nanox_cfg.autocomplete = true;
+    nanox_cfg.use_lsp = false;
     nanox_cfg.nonr = false;
     nanox_cfg.no_function_slot = false;
 }
@@ -281,6 +285,12 @@ static void parse_edit_option(const char *key, const char *value)
             mark_config_error();
         else
             nanox_cfg.soft_tab_width = width;
+    } else if (strcasecmp(key, "autocomplete") == 0) {
+        if (!parse_bool(value, &nanox_cfg.autocomplete))
+            mark_config_error();
+    } else if (strcasecmp(key, "use_lsp") == 0) {
+        if (!parse_bool(value, &nanox_cfg.use_lsp))
+            mark_config_error();
     }
 }
 

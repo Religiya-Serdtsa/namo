@@ -146,12 +146,18 @@ help_language=en
 [edit]
 soft_tab=true
 soft_tab_width=4
+autocomplete=true
+use_lsp=false
 
 [search]
 case_sensitive_default=false
 ```
 
 Set `help_language` to a locale code (default `en`) to make Nanox look for `emacs-<code>.hlp` before falling back to the bundled `emacs.hlp`.
+
+Autocomplete defaults to `true` and now uses fuzzy matching with built-in language keywords and buffer words. Set `autocomplete=false` to disable it.
+
+Set `use_lsp=true` to enable extra completion sources when a language server binary is installed for the active file type (`clangd`, `pylsp`/`pyright-langserver`, `typescript-language-server`, `gopls`, `rust-analyzer`, `jdtls`).
 
 ### Syntax Highlighting Profiles
 
