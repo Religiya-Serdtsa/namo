@@ -2156,7 +2156,7 @@ static int determine_completion_prefix(char *out, size_t out_sz,
                                        int *start_out,
                                        int *end_out)
 {
-    if (curwp == NULL || out == NULL || out_sz == 0)
+    if (curwp == NULL || curbp == NULL || out == NULL || out_sz == 0)
         return FALSE;
 
     struct line *lp = curwp->w_dotp;
