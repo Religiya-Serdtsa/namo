@@ -28,3 +28,8 @@ The engine loads rules from `.ini` files. Key categories include:
 2. Define `extensions = .ext` for normal extension-based detection, and optionally `file_matches = ^regex$` for basename regexes (POSIX extended, case-insensitive) when extensions aren't sufficient (e.g., `Makefile`).
 3. Define keyword lists and comment pairs.
 4. Nanox will automatically detect and load it on the next startup or file load.
+
+## 6. Markdown fenced code language aliases
+- Markdown fenced code blocks (` ```lang `) now validate `lang` using `configs/nanox/markdown_lang_map.ini`.
+- The mapping file is `n:1` (`standard_name = nanox_profile_name`).
+- When a mapping is valid, lines inside the fence are highlighted with the mapped Nanox profile until the closing fence.
