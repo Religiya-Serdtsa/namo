@@ -68,7 +68,8 @@ typedef enum {
     HS_NORMAL = 0,
     HS_BLOCK_COMMENT,
     HS_STRING,
-    HS_TRIPLE_STRING
+    HS_TRIPLE_STRING,
+    HS_MD_FENCE
 } StateID;
 
 #define HL_STATE_STACK_MAX 8

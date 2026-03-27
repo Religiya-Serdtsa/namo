@@ -33,6 +33,16 @@ typedef struct {
 
 static CompiledFileMatch profile_file_matches[MAX_PROFILES][MAX_FILE_MATCHES];
 
+#define MAX_MD_LANG_ALIASES 256
+
+typedef struct {
+    char standard[MAX_TOKEN_LEN];
+    char nanox[MAX_TOKEN_LEN];
+} MarkdownLangAlias;
+
+static MarkdownLangAlias markdown_lang_aliases[MAX_MD_LANG_ALIASES];
+static int markdown_lang_alias_count = 0;
+
 static int profile_index_from_ptr(const HighlightProfile *p)
 {
     if (!p)
@@ -41,6 +51,17 @@ static int profile_index_from_ptr(const HighlightProfile *p)
     if (idx < 0 || idx >= MAX_PROFILES)
         return -1;
     return (int)idx;
+}
+
+static int profile_index_by_name(const char *name)
+{
+    if (!name || !*name)
+        return -1;
+    for (int i = 0; i < profile_count; i++) {
+        if (strcasecmp(profiles[i].name, name) == 0)
+            return i;
+    }
+    return -1;
 }
 
 static void clear_profile_file_matches(int profile_index)
@@ -363,6 +384,123 @@ static bool load_lang_dir(const char *dir)
     return loaded;
 }
 
+static bool add_markdown_lang_alias(const char *standard, const char *nanox)
+{
+    if (!standard || !*standard || !nanox || !*nanox)
+        return false;
+
+    for (int i = 0; i < markdown_lang_alias_count; i++) {
+        if (strcasecmp(markdown_lang_aliases[i].standard, standard) == 0) {
+            mystrscpy(markdown_lang_aliases[i].nanox, nanox, sizeof(markdown_lang_aliases[i].nanox));
+            return true;
+        }
+    }
+
+    if (markdown_lang_alias_count >= MAX_MD_LANG_ALIASES)
+        return false;
+
+    mystrscpy(markdown_lang_aliases[markdown_lang_alias_count].standard, standard,
+              sizeof(markdown_lang_aliases[markdown_lang_alias_count].standard));
+    mystrscpy(markdown_lang_aliases[markdown_lang_alias_count].nanox, nanox,
+              sizeof(markdown_lang_aliases[markdown_lang_alias_count].nanox));
+    markdown_lang_alias_count++;
+    return true;
+}
+
+static bool load_markdown_lang_alias_file(const char *path)
+{
+    if (!path || !*path)
+        return false;
+
+    FILE *f = fopen(path, "r");
+    if (!f)
+        return false;
+
+    char line[256];
+    bool in_alias_section = false;
+    bool loaded = false;
+
+    while (fgets(line, sizeof(line), f)) {
+        char *p = trim(line);
+        if (*p == 0 || *p == ';' || *p == '#')
+            continue;
+
+        if (*p == '[') {
+            char *end = strchr(p, ']');
+            if (!end)
+                continue;
+            *end = 0;
+            in_alias_section = (strcasecmp(p + 1, "aliases") == 0);
+            continue;
+        }
+
+        if (!in_alias_section)
+            continue;
+
+        char *eq = strchr(p, '=');
+        if (!eq)
+            continue;
+        *eq = 0;
+        char *standard = trim(p);
+        char *nanox = trim(eq + 1);
+        if (add_markdown_lang_alias(standard, nanox))
+            loaded = true;
+    }
+
+    fclose(f);
+    return loaded;
+}
+
+static void load_markdown_lang_aliases(const char *rule_config_path)
+{
+    markdown_lang_alias_count = 0;
+
+    char alias_path[PATH_MAX];
+    char dir[PATH_MAX];
+
+    if (rule_config_path && *rule_config_path) {
+        mystrscpy(dir, rule_config_path, sizeof(dir));
+        char *sep = strrchr(dir, '/');
+#ifdef USE_WINDOWS
+        char *bsep = strrchr(dir, '\\');
+        if (!sep || (bsep && bsep > sep))
+            sep = bsep;
+#endif
+        if (sep) {
+            *sep = 0;
+            nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+            load_markdown_lang_alias_file(alias_path);
+        }
+    }
+
+    nanox_get_user_config_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+        load_markdown_lang_alias_file(alias_path);
+    }
+
+    nanox_get_user_data_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+        load_markdown_lang_alias_file(alias_path);
+    }
+
+    load_markdown_lang_alias_file("configs/nanox/markdown_lang_map.ini");
+}
+
+static int resolve_markdown_fence_profile_index(const char *standard_name)
+{
+    if (!standard_name || !*standard_name)
+        return -1;
+
+    for (int i = 0; i < markdown_lang_alias_count; i++) {
+        if (strcasecmp(markdown_lang_aliases[i].standard, standard_name) == 0)
+            return profile_index_by_name(markdown_lang_aliases[i].nanox);
+    }
+
+    return -1;
+}
+
 static bool load_external_langs(const char *rule_config_path)
 {
     bool loaded = false;
@@ -420,6 +558,7 @@ void highlight_init(const char *rule_config_path)
         loaded_any |= load_config_file(rule_config_path, true);
 
     loaded_any |= load_external_langs(rule_config_path);
+    load_markdown_lang_aliases(rule_config_path);
 
     if (global_config.enable_colorscheme) {
         colorscheme_init(global_config.colorscheme_name);
@@ -905,6 +1044,33 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
 
     HighlightState state = start;
     normalize_state(&state);
+
+    if (is_md && current_state(&state) == HS_MD_FENCE) {
+        int first_non_ws = 0;
+        while (first_non_ws < len && (text[first_non_ws] == ' ' || text[first_non_ws] == '\t'))
+            first_non_ws++;
+
+        if (first_non_ws + 3 <= len && strncmp(text + first_non_ws, "```", 3) == 0) {
+            if (out)
+                add_span(out, first_non_ws, len, HL_PREPROC);
+            pop_state(&state);
+            *end = state;
+            return;
+        }
+
+        HighlightStackEntry *frame = state_top(&state);
+        if (frame && frame->sub_id >= 0 && frame->sub_id < profile_count &&
+            strcasecmp(profiles[frame->sub_id].name, "markdown") != 0) {
+            HighlightState inner_end = {0};
+            highlight_line(text, len, (HighlightState){0}, &profiles[frame->sub_id], out, &inner_end);
+            *end = state;
+            return;
+        }
+
+        *end = state;
+        return;
+    }
+
     int pos = 0;
 
     while (pos < len) {
@@ -948,6 +1114,49 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
             
             /* 0c-2. Markdown Headers */
             if (is_md && (pos == 0 || (pos < 3 && isspace((unsigned char)text[0])))) {
+                int first_non_ws = 0;
+                while (first_non_ws < len && (text[first_non_ws] == ' ' || text[first_non_ws] == '\t'))
+                    first_non_ws++;
+                if (first_non_ws + 3 <= len && strncmp(text + first_non_ws, "```", 3) == 0) {
+                    int fence_end = first_non_ws + 3;
+                    if (out)
+                        add_span(out, first_non_ws, fence_end, HL_PREPROC);
+
+                    int p = fence_end;
+                    while (p < len && isspace((unsigned char)text[p]))
+                        p++;
+                    int lang_start = p;
+                    while (p < len && !isspace((unsigned char)text[p]) && text[p] != '{')
+                        p++;
+                    int lang_end = p;
+                    int mapped_profile = -1;
+
+                    if (lang_end > lang_start) {
+                        char standard[MAX_TOKEN_LEN];
+                        int lang_len = lang_end - lang_start;
+                        if (lang_len >= MAX_TOKEN_LEN)
+                            lang_len = MAX_TOKEN_LEN - 1;
+                        memcpy(standard, text + lang_start, lang_len);
+                        standard[lang_len] = 0;
+
+                        mapped_profile = resolve_markdown_fence_profile_index(standard);
+                        if (out) {
+                            add_span(out, lang_start, lang_end,
+                                     (mapped_profile >= 0) ? HL_TYPE : HL_CONTROL);
+                        }
+                    }
+
+                    if (state.depth < HL_STATE_STACK_MAX) {
+                        state.stack[state.depth].state = HS_MD_FENCE;
+                        state.stack[state.depth].sub_id = mapped_profile;
+                        state.stack[state.depth].string_delim = 0;
+                        state.depth++;
+                    }
+
+                    pos = len;
+                    continue;
+                }
+
                 /* Check for #, ##, ###... followed by space */
                 int h = pos;
                 while (h < len && text[h] == '#') h++;
