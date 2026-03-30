@@ -1437,6 +1437,78 @@ static int block_apply_text(const char *text, int replace_mode)
 
     block_bounds(&top, &bottom, &left, &right);
 
+    if (replace_mode) {
+        int actual_col = 0;
+        int start_offset;
+        int end_actual_col = 0;
+        int end_offset;
+        struct line *start_lp = lforw(curbp->b_linep);
+        struct line *end_lp = lforw(curbp->b_linep);
+        int start_idx = 0;
+        int end_idx = 0;
+
+        while (start_lp != curbp->b_linep && start_idx < top) {
+            start_lp = lforw(start_lp);
+            start_idx++;
+        }
+        while (end_lp != curbp->b_linep && end_idx < bottom) {
+            end_lp = lforw(end_lp);
+            end_idx++;
+        }
+        if (start_lp == curbp->b_linep || end_lp == curbp->b_linep)
+            return FALSE;
+
+        curwp->w_dotp = start_lp;
+        curwp->w_doto = 0;
+        start_offset = line_offset_for_column(start_lp, left, &actual_col);
+        curwp->w_doto = start_offset;
+        while (actual_col < left) {
+            if (linsert(1, ' ') != TRUE)
+                return FALSE;
+            actual_col++;
+        }
+        start_offset = curwp->w_doto;
+
+        curwp->w_dotp = end_lp;
+        curwp->w_doto = 0;
+        end_offset = line_offset_for_column(end_lp, right, &end_actual_col);
+        curwp->w_doto = end_offset;
+        while (end_actual_col < right) {
+            if (linsert(1, ' ') != TRUE)
+                return FALSE;
+            end_actual_col++;
+        }
+        end_offset = line_offset_for_column(curwp->w_dotp, right, NULL);
+
+        curwp->w_dotp = start_lp;
+        curwp->w_doto = start_offset;
+        if (start_lp == end_lp) {
+            if (ldelete(end_offset - start_offset, FALSE) != TRUE)
+                return FALSE;
+        } else {
+            long delete_count = (llength(start_lp) - start_offset) + 1;
+            struct line *scan = lforw(start_lp);
+            while (scan != curbp->b_linep && scan != end_lp) {
+                delete_count += llength(scan) + 1;
+                scan = lforw(scan);
+            }
+            if (scan != end_lp)
+                return FALSE;
+            delete_count += end_offset;
+            if (ldelete(delete_count, FALSE) != TRUE)
+                return FALSE;
+        }
+
+        if (text && *text) {
+            if (linsert_block(text, (int)strlen(text)) != TRUE)
+                return FALSE;
+        }
+
+        restore_saved_cursor(original_index, original_offset);
+        curwp->w_flag |= WFHARD | WFMODE;
+        return TRUE;
+    }
+
     while (lp != curbp->b_linep) {
         struct line *next = lforw(lp);
         if (idx >= top && idx <= bottom) {
@@ -1455,22 +1527,7 @@ static int block_apply_text(const char *text, int replace_mode)
             }
             start_offset = curwp->w_doto;
 
-            if (replace_mode) {
-                int end_actual_col = 0;
-                int end_offset;
-                end_offset = line_offset_for_column(curwp->w_dotp, right, &end_actual_col);
-                curwp->w_doto = end_offset;
-                while (end_actual_col < right) {
-                    if (linsert(1, ' ') != TRUE)
-                        return FALSE;
-                    end_actual_col++;
-                }
-                curwp->w_doto = start_offset;
-                if (ldelete(line_offset_for_column(curwp->w_dotp, right, NULL) - start_offset, FALSE) != TRUE)
-                    return FALSE;
-            } else {
-                curwp->w_doto = start_offset;
-            }
+            curwp->w_doto = start_offset;
 
             if (text && *text) {
                 if (linsert_block(text, (int)strlen(text)) != TRUE)
