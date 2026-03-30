@@ -1,0 +1,116 @@
+@import "estruct.margo"
+
+int fillcol = 72
+string execstr = null
+char golabel[1024] // NPAT
+int execlevel = 0
+int eolexist = TRUE
+int revexist = FALSE
+int flickcode = FALSE
+
+string modename[] = [
+    "WRAP", "CMODE", "SPELL", "EXACT", "VIEW", "OVER",
+    "MAGIC", "ASAVE", "UTF-8"
+]
+
+string mode2name[] = [
+    "Wrap", "Cmode", "Spell", "Exact", "View", "Over",
+    "Magic", "Asave", "utf-8"
+]
+
+char modecode[] = "WCSEVOMYAU"
+int gmode = 0
+int gflags = GFREAD
+int gfcolor = 7
+int gbcolor = 0
+int gasave = 256
+int gacount = 256
+int sgarbf = TRUE
+int mpresf = FALSE
+int clexec = FALSE
+int mstore = FALSE
+int discmd = TRUE
+int disinp = TRUE
+
+weird(buffer, 1) bstore = null
+int vtrow = 0
+int vtcol = 0
+int ttrow = HUGE
+int ttcol = HUGE
+int lbound = 0
+int taboff = 0
+int metac = CONTROL | '['
+int ctlxc = CONTROL | 'X'
+int reptc = CONTROL | 'U'
+int abortc = 0x1F
+
+int quotec = 0x11
+int tab_width = 7
+weird(void, 1) kbufp = null // struct kill*
+weird(void, 1) kbufh = null // struct kill*
+weird(window, 1) swindow = null
+int kbdmode = STOP
+int kbdrep = 0
+int restflag = FALSE
+int lastkey = 0
+int seed = 0
+long envram = 0
+int macbug = FALSE
+int cmdstatus = TRUE
+char palstr[49] = ""
+int saveflag = 0
+string fline = null
+int flen = 0
+int rval = 0
+int nullflag = FALSE
+
+weird(terminal, 1) term = null
+
+int justflag = FALSE
+int overlap = 0
+int scrollcount = 1
+
+int currow = 0
+int curcol = 0
+int thisflag = 0
+int lastflag = 0
+int curgoal = 0
+weird(window, 1) curwp = null
+weird(buffer, 1) curbp = null
+weird(buffer, 1) bheadp = null
+weird(buffer, 1) blistp = null
+
+char pat[1024] // NPAT
+char tap[1024] // NPAT
+char rpat[1024] // NPAT
+
+string patmatch = null
+weird(line, 1) matchline = null
+int matchoff = 0
+int cutln_active = FALSE
+int confirmshell = TRUE
+int makebackup = TRUE
+int removebackup = FALSE
+
+weird(line, 1) indent_start_lp = null
+weird(line, 1) indent_end_lp = null
+int indent_range_type = 0
+int indent_selection_active = FALSE
+
+string dname[] = [
+    "if", "else", "endif",
+    "goto", "return", "endm",
+    "while", "endwhile", "break",
+    "force"
+]
+
+int kbdm[2048] // NKBDM
+weird(int, 1) kbdptr = null
+weird(int, 1) kbdend = null
+
+unsigned int matchlen = 0
+unsigned int mlenold = 0
+
+string errorm = "ERROR"
+string truem = "TRUE"
+string falsem = "FALSE"
