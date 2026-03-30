@@ -2,3 +2,4 @@ em
 *.o
 *.d
 /nanox
+/namo

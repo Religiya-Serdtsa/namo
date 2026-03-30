@@ -1,4 +1,4 @@
-# Nanox
+# namo
 
 ![Demo Video](./nanox.gif)
 
@@ -7,8 +7,8 @@
 ## Fast Guide
 
 ```bash
-nx
-# or nanox
+nm
+# or namo
 # Press F1 to see emacs guide
 ```
 *A terminal editor designed around two hands, physical keys, and explicit intent.*
@@ -123,8 +123,8 @@ Nanox is written in C and has minimal dependencies.
 
 ### Building from Source
 ```bash
-git clone https://github.com/gg582/nanox.git
-cd nanox
+git clone https://github.com/Religiya-Serdtsa/namo.git
+cd namo
 make
 make configs-install
 sudo make install
@@ -134,7 +134,7 @@ sudo make install
 
 ## ⚙️ Configuration
 
-Nanox looks for configuration in `~/.config/nanox/config` (or `~/.local/share/nanox/config`).
+namo looks for configuration in `~/.config/namo/config` (or `~/.local/share/namo/config`).
 
 ```ini
 [ui]
@@ -153,7 +153,7 @@ use_lsp=false
 case_sensitive_default=false
 ```
 
-Set `help_language` to a locale code (default `en`) to make Nanox look for `emacs-<code>.hlp` before falling back to the bundled `emacs.hlp`.
+Set `help_language` to a locale code (default `en`) to make namo look for `emacs-<code>.hlp` before falling back to the bundled `emacs.hlp`.
 
 Autocomplete defaults to `true` and now uses fuzzy matching with built-in language keywords and buffer words. Set `autocomplete=false` to disable it.
 
@@ -165,11 +165,11 @@ Nanox now ships with first-class syntax rules for **32 widely used languages** (
 
 You can extend or override the built-ins without recompiling:
 
-1. Create `~/.config/nanox/langs` (or `~/.local/share/nanox/langs`).
+1. Create `~/.config/namo/langs` (or `~/.local/share/namo/langs`).
 2. Drop one or more `.ini` files there. Each file can hold a single language section using the same keys found in `syntax.ini`. Use `file_matches = ^regex$` when you need to match basenames without reliable extensions (e.g., `Makefile`, `Kconfig`); patterns follow POSIX extended regular expressions and are matched case-insensitively against the filename.
 3. Restart Nanox. The editor will automatically merge everything under the `langs/` directory after loading the base profiles.
 
-Example (`~/.config/nanox/langs/futhark.ini`):
+Example (`~/.config/namo/langs/futhark.ini`):
 
 ```ini
 [futhark]
@@ -181,7 +181,7 @@ keywords = let,entry,fn,module,open,import,include
 return_keywords = in
 ```
 
-Sample profiles for rarer but still relevant languages (Ada, COBOL, Elixir, Erlang, Fortran) are bundled under `configs/nanox/langs` and installed alongside the default configuration via `make configs-install`.
+Sample profiles for rarer but still relevant languages (Ada, COBOL, Elixir, Erlang, Fortran) are bundled under `configs/namo/langs` and installed alongside the default configuration via `make configs-install`.
 
 ---
 

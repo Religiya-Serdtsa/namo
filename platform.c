@@ -25,24 +25,24 @@ void nanox_get_user_data_dir(char *out, size_t cap) {
 #ifdef USE_WINDOWS
     const char *local_app_data = getenv("LOCALAPPDATA");
     if (local_app_data) {
-        snprintf(out, cap, "%s\\nanox", local_app_data);
+        snprintf(out, cap, "%s\\namo", local_app_data);
     } else {
         const char *app_data = getenv("APPDATA");
         if (app_data) {
-            snprintf(out, cap, "%s\\nanox", app_data);
+            snprintf(out, cap, "%s\\namo", app_data);
         } else {
             const char *user_profile = getenv("USERPROFILE");
             if (user_profile) {
-                snprintf(out, cap, "%s\\.local\\share\\nanox", user_profile);
+                snprintf(out, cap, "%s\\.local\\share\\namo", user_profile);
             } else {
-                snprintf(out, cap, "C:\\nanox");
+                snprintf(out, cap, "C:\\namo");
             }
         }
     }
 #else
     const char *xdg_data = getenv("XDG_DATA_HOME");
     if (xdg_data && *xdg_data) {
-        snprintf(out, cap, "%s/nanox", xdg_data);
+        snprintf(out, cap, "%s/namo", xdg_data);
     } else {
         const char *home = getenv("HOME");
         if (!home) {
@@ -50,9 +50,9 @@ void nanox_get_user_data_dir(char *out, size_t cap) {
             if (pw) home = pw->pw_dir;
         }
         if (home) {
-            snprintf(out, cap, "%s/.local/share/nanox", home);
+            snprintf(out, cap, "%s/.local/share/namo", home);
         } else {
-            snprintf(out, cap, "/tmp/nanox");
+            snprintf(out, cap, "/tmp/namo");
         }
     }
 #endif
@@ -64,7 +64,7 @@ void nanox_get_user_config_dir(char *out, size_t cap) {
 #else
     const char *xdg_config = getenv("XDG_CONFIG_HOME");
     if (xdg_config && *xdg_config) {
-        snprintf(out, cap, "%s/nanox", xdg_config);
+        snprintf(out, cap, "%s/namo", xdg_config);
     } else {
         const char *home = getenv("HOME");
         if (!home) {
@@ -72,9 +72,9 @@ void nanox_get_user_config_dir(char *out, size_t cap) {
             if (pw) home = pw->pw_dir;
         }
         if (home) {
-            snprintf(out, cap, "%s/.config/nanox", home);
+            snprintf(out, cap, "%s/.config/namo", home);
         } else {
-            snprintf(out, cap, "/tmp/nanox");
+            snprintf(out, cap, "/tmp/namo");
         }
     }
 #endif

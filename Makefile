@@ -26,8 +26,8 @@ USE_NCURSES ?= 1
 
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 
-PROGRAM=nanox
-LINK_NAME=nx
+PROGRAM=namo
+LINK_NAME=nm
 
 SRC=	basic.c bind.c buffer.c colorscheme.c command_mode.c completion.c cutln.c display.c eval.c exec.c file.c \
 	fileio.c highlight.c input.c isearch.c line.c lock.c globals.c main.c \
@@ -183,7 +183,7 @@ INSTALL_BIN = $(DESTDIR)$(PREFIX)/bin
 
 # User config directory (XDG base directory spec fallback).
 XDG_CONFIG_HOME ?= $(HOME)/.config
-INSTALL_CONF = $(DESTDIR)$(XDG_CONFIG_HOME)/nanox
+INSTALL_CONF = $(DESTDIR)$(XDG_CONFIG_HOME)/namo
 
 PROG_EXT =
 
@@ -203,7 +203,7 @@ endif
 # Install targets
 #
 # - `install` installs only the binary to $(INSTALL_BIN).
-# - `configs-install` installs configs/nanox/* into $(INSTALL_CONF).
+# - `configs-install` installs configs/namo/* into $(INSTALL_CONF).
 # - `install-all` runs all install targets.
 # -----------------------------------------------------------------------------
 
@@ -215,10 +215,10 @@ install: $(PROGRAM)
 	$(Q) ln -f "$(INSTALL_BIN)/$(PROGRAM)$(PROG_EXT)" "$(INSTALL_BIN)/$(LINK_NAME)$(PROG_EXT)"
 
 configs-install:
-	$(E) "  CONFIG  " "configs/nanox -> " $(INSTALL_CONF)
+	$(E) "  CONFIG  " "configs/namo -> " $(INSTALL_CONF)
 	$(Q) install -d "$(INSTALL_CONF)"
-	$(Q) find configs/nanox -type f -not -name '.editorconfig' | while read f; do \
-		rel=$${f#configs/nanox/}; \
+	$(Q) find configs/namo -type f -not -name '.editorconfig' | while read f; do \
+		rel=$${f#configs/namo/}; \
 		dir=$(INSTALL_CONF)/$$(dirname $$rel); \
 		install -d "$$dir"; \
 		if [ -f "$(INSTALL_CONF)/$$rel" ]; then \
