@@ -1,0 +1,92 @@
+@import c/wchar
+
+fn unsigned int utf8_to_unicode(weird(unsigned char, 1) line, unsigned int index, unsigned int len, weird(unsigned int, 1) res) {
+    if line == null || res == null || index >= len return 0
+
+    auto c = line[index]
+    res[0] = c
+
+    if c < 0x80 return 1
+    if (c & 0xC0) == 0x80 return 1
+
+    auto available = len - index
+    if (c & 0xE0) == 0xC0 {
+        if available < 2 goto invalid
+        auto c1 = line[index + 1]
+        if (c1 & 0xC0) != 0x80 goto invalid
+        auto value = ((unsigned int)(c & 0x1F) << 6) | (unsigned int)(c1 & 0x3F)
+        if value < 0x80 goto invalid
+        res[0] = value
+        return 2
+    }
+
+    if (c & 0xF0) == 0xE0 {
+        if available < 3 goto invalid
+        auto c1 = line[index + 1]
+        auto c2 = line[index + 2]
+        if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 goto invalid
+        auto value = ((unsigned int)(c & 0x0F) << 12) | ((unsigned int)(c1 & 0x3F) << 6) | (unsigned int)(c2 & 0x3F)
+        if value < 0x800 goto invalid
+        if value >= 0xD800 && value <= 0xDFFF goto invalid
+        res[0] = value
+        return 3
+    }
+
+    if (c & 0xF8) == 0xF0 {
+        if available < 4 goto invalid
+        auto c1 = line[index + 1]
+        auto c2 = line[index + 2]
+        auto c3 = line[index + 3]
+        if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 goto invalid
+        auto value = ((unsigned int)(c & 0x07) << 18) | ((unsigned int)(c1 & 0x3F) << 12) | ((unsigned int)(c2 & 0x3F) << 6) | (unsigned int)(c3 & 0x3F)
+        if value < 0x10000 || value > 0x10FFFF goto invalid
+        res[0] = value
+        return 4
+    }
+
+invalid:
+    res[0] = 0xFFFD
+    return 1
+}
+
+fn void reverse_string(weird(unsigned char, 1) begin, weird(unsigned char, 1) end) {
+    while begin < end {
+        auto a = begin[0]
+        auto b = end[0]
+        end[0] = a
+        begin[0] = b
+        begin++
+        end--
+    }
+}
+
+fn unsigned int unicode_to_utf8(unsigned int c, weird(unsigned char, 1) utf8) {
+    auto bytes = 1
+    utf8[0] = (unsigned char)c
+    if c > 0x7f {
+        auto prefix = 0x40
+        auto p = utf8
+        while c >= prefix {
+            p[0] = 0x80 + (unsigned char)(c & 0x3f)
+            p++
+            bytes++
+            prefix >>= 1
+            c >>= 6
+        }
+        p[0] = (unsigned char)(c - 2 * prefix)
+        reverse_string(utf8, p)
+    }
+    return bytes
+}
+
+fn int unicode_width(unsigned int c) {
+    if c < 0x20 || c == 0x7F return 2
+    if c >= 0x80 && c <= 0xA0 return 3
+    auto width = wcwidth((wchar_t)c)
+    if width < 0 return 1
+    return width
+}
+
+fn bool is_beginning_utf8(unsigned char c) {
+    return (c & 0xc0) != 0x80
+}
