@@ -1,0 +1,234 @@
+@import std/io
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+@import "utf8.margo"
+
+fn static int getgoal(weird(line, 1) dlp) {
+    auto col = 0
+    auto dbo = 0
+    auto len = llength(dlp)
+    while dbo != len {
+        unsigned int c = 0
+        auto width = utf8_to_unicode((weird(unsigned char, 1))dlp->l_text, (unsigned int)dbo, (unsigned int)len, weird(unsigned int, 1)(&c))
+        col = next_column(col, (int)c, tab_width)
+        if col > curgoal break
+        dbo += (int)width
+    }
+    return dbo
+}
+
+fn int gotobol(int f, int n) {
+    curwp->w_doto = 0
+    return TRUE
+}
+
+fn int backchar(int f, int n) {
+    if n < 0 return forwchar(f, -n)
+    while n-- > 0 {
+        if curwp->w_doto == 0 {
+            auto lp = lback(curwp->w_dotp)
+            if lp == curbp->b_linep return FALSE
+            curwp->w_dotp = lp
+            curwp->w_doto = llength(lp)
+            curwp->w_flag |= (char)WFMOVE
+        } else {
+            while curwp->w_doto > 0 {
+                curwp->w_doto--
+                if is_beginning_utf8((unsigned char)lgetc(curwp->w_dotp, curwp->w_doto)) break
+            }
+        }
+    }
+    return TRUE
+}
+
+fn int gotoeol(int f, int n) {
+    curwp->w_doto = llength(curwp->w_dotp)
+    return TRUE
+}
+
+fn int forwchar(int f, int n) {
+    if n < 0 return backchar(f, -n)
+    while n-- > 0 {
+        auto len = llength(curwp->w_dotp)
+        if curwp->w_doto == len {
+            if curwp->w_dotp == curbp->b_linep return FALSE
+            curwp->w_dotp = lforw(curwp->w_dotp)
+            curwp->w_doto = 0
+            curwp->w_flag |= (char)WFMOVE
+        } else {
+            unsigned int c = 0
+            auto bytes = utf8_to_unicode((weird(unsigned char, 1))curwp->w_dotp->l_text, (unsigned int)curwp->w_doto, (unsigned int)len, weird(unsigned int, 1)(&c))
+            curwp->w_doto += (int)bytes
+            if curwp->w_doto > len curwp->w_doto = len
+        }
+    }
+    return TRUE
+}
+
+fn int gotoline(int f, int n) {
+    if f == FALSE {
+        char arg[1024]
+        auto status = minibuf_input("Line to GOTO: ", arg, 1024)
+        if status != TRUE {
+            mlwrite("(Aborted)")
+            return status
+        }
+        n = atoi((string)arg)
+    }
+    if n == 0 return gotoeob(f, n)
+    if n < 0 return FALSE
+    gotobob(f, n)
+    return forwline(f, n - 1)
+}
+
+fn int gotobob(int f, int n) {
+    curwp->w_dotp = lforw(curbp->b_linep)
+    curwp->w_doto = 0
+    curwp->w_flag |= (char)WFHARD
+    return TRUE
+}
+
+fn int gotoeob(int f, int n) {
+    curwp->w_dotp = curbp->b_linep
+    curwp->w_doto = 0
+    curwp->w_flag |= (char)WFHARD
+    return TRUE
+}
+
+fn int forwline(int f, int n) {
+    if n < 0 return backline(f, -n)
+    if curwp->w_dotp == curbp->b_linep return FALSE
+    if (lastflag & CFCPCN) == 0 curgoal = getccol(FALSE)
+    thisflag |= CFCPCN
+    auto dlp = curwp->w_dotp
+    while n-- > 0 && dlp != curbp->b_linep {
+        dlp = lforw(dlp)
+    }
+    curwp->w_dotp = dlp
+    curwp->w_doto = getgoal(dlp)
+    curwp->w_flag |= (char)WFMOVE
+    return TRUE
+}
+
+fn int backline(int f, int n) {
+    if n < 0 return forwline(f, -n)
+    if lback(curwp->w_dotp) == curbp->b_linep return FALSE
+    if (lastflag & CFCPCN) == 0 curgoal = getccol(FALSE)
+    thisflag |= CFCPCN
+    auto dlp = curwp->w_dotp
+    while n-- > 0 && lback(dlp) != curbp->b_linep {
+        dlp = lback(dlp)
+    }
+    curwp->w_dotp = dlp
+    curwp->w_doto = getgoal(dlp)
+    curwp->w_flag |= (char)WFMOVE
+    return TRUE
+}
+
+fn static int is_new_para() {
+    auto len = llength(curwp->w_dotp)
+    for i=0; <len; ++ {
+        auto c = lgetc(curwp->w_dotp, i)
+        if c == ' ' || c == 0x09 { // TAB
+            if justflag continue
+            return 1
+        }
+        if !isletter(c) return 1
+        return 0
+    }
+    return 1
+}
+
+fn int gotobop(int f, int n) {
+    if n < 0 return gotoeop(f, -n)
+    while n-- > 0 {
+        auto suc = backchar(FALSE, 1)
+        while !inword() && suc == TRUE suc = backchar(FALSE, 1)
+        curwp->w_doto = 0
+        while lback(curwp->w_dotp) != curbp->b_linep {
+            if is_new_para() == 1 break
+            curwp->w_dotp = lback(curwp->w_dotp)
+        }
+        suc = forwchar(FALSE, 1)
+        while suc == TRUE && !inword() suc = forwchar(FALSE, 1)
+    }
+    curwp->w_flag |= (char)WFMOVE
+    return TRUE
+}
+
+fn int gotoeop(int f, int n) {
+    if n < 0 return gotobop(f, -n)
+    while n-- > 0 {
+        auto suc = forwchar(FALSE, 1)
+        while !inword() && suc == TRUE suc = forwchar(FALSE, 1)
+        curwp->w_doto = 0
+        if suc == TRUE curwp->w_dotp = lforw(curwp->w_dotp)
+        while curwp->w_dotp != curbp->b_linep {
+            if is_new_para() == 1 break
+            curwp->w_dotp = lforw(curwp->w_dotp)
+        }
+        suc = backchar(FALSE, 1)
+        while suc == TRUE && !inword() suc = backchar(FALSE, 1)
+        curwp->w_doto = llength(curwp->w_dotp)
+    }
+    curwp->w_flag |= (char)WFMOVE
+    return TRUE
+}
+
+fn int forwpage(int f, int n) {
+    if f == FALSE {
+        n = nanox_text_rows() - 2
+        if n <= 0 n = 1
+    } else if n < 0 return backpage(f, -n)
+    else n *= nanox_text_rows()
+    auto lp = curwp->w_linep
+    while n-- > 0 && lp != curbp->b_linep {
+        lp = lforw(lp)
+    }
+    curwp->w_linep = lp
+    curwp->w_dotp = lp
+    curwp->w_doto = 0
+    curwp->w_flag |= (char)WFHARD
+    return TRUE
+}
+
+fn int backpage(int f, int n) {
+    if f == FALSE {
+        n = nanox_text_rows() - 2
+        if n <= 0 n = 1
+    } else if n < 0 return forwpage(f, -n)
+    else n *= nanox_text_rows()
+    auto lp = curwp->w_linep
+    while n-- > 0 && lback(lp) != curbp->b_linep {
+        lp = lback(lp)
+    }
+    curwp->w_linep = lp
+    curwp->w_dotp = lp
+    curwp->w_doto = 0
+    curwp->w_flag |= (char)WFHARD
+    return TRUE
+}
+
+fn int setmark(int f, int n) {
+    curwp->w_markp = curwp->w_dotp
+    curwp->w_marko = curwp->w_doto
+    mlwrite("(Mark set)")
+    return TRUE
+}
+
+fn int swapmark(int f, int n) {
+    if curwp->w_markp == null {
+        mlwrite("No mark in this window")
+        return FALSE
+    }
+    auto odotp = curwp->w_dotp
+    auto odoto = curwp->w_doto
+    curwp->w_dotp = curwp->w_markp
+    curwp->w_doto = curwp->w_marko
+    curwp->w_markp = odotp
+    curwp->w_marko = odoto
+    curwp->w_flag |= (char)WFMOVE
+    return TRUE
+}
