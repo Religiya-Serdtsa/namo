@@ -405,7 +405,7 @@ static bool find_highlight_rules(char *out, size_t cap)
         return true;
 
     const char *fallbacks[] = {
-        "configs/nanox/syntax.ini",
+        "configs/namo/syntax.ini",
         "syntax.ini",
     };
 

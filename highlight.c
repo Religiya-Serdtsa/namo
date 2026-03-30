@@ -485,7 +485,7 @@ static void load_markdown_lang_aliases(const char *rule_config_path)
         load_markdown_lang_alias_file(alias_path);
     }
 
-    load_markdown_lang_alias_file("configs/nanox/markdown_lang_map.ini");
+    load_markdown_lang_alias_file("configs/namo/markdown_lang_map.ini");
 }
 
 static int resolve_markdown_fence_profile_index(const char *standard_name)
@@ -522,7 +522,7 @@ static bool load_external_langs(const char *rule_config_path)
             nanox_path_join(lang_path, sizeof(lang_path), base, "langs");
             if (lang_path[0]) {
                 loaded |= load_lang_dir(lang_path);
-                if (strcmp(lang_path, "configs/nanox/langs") == 0)
+                if (strcmp(lang_path, "configs/namo/langs") == 0)
                     tried_repo_langs = true;
             }
         }
@@ -541,7 +541,7 @@ static bool load_external_langs(const char *rule_config_path)
     }
 
     if (!tried_repo_langs)
-        loaded |= load_lang_dir("configs/nanox/langs");
+        loaded |= load_lang_dir("configs/namo/langs");
     return loaded;
 }
 
