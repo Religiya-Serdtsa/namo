@@ -1,0 +1,25 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "ebind.margo"
+
+fn weird(void, 1) getbind(int c) {
+    auto i = 0
+    while keytab[i].k_code != 0 {
+        if keytab[i].k_code == c return keytab[i].k_fp
+        i++
+    }
+    return null
+}
+
+fn int bindtokey(int f, int n) {
+    // bind to key logic
+    return TRUE
+}
+
+fn int unbindkey(int f, int n) {
+    // unbind key logic
+    return TRUE
+}
