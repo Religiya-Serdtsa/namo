@@ -1,0 +1,62 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "ebind.margo"
+@import "namo.margo"
+
+fn void nanox_refresh_ui() {
+    if (nanox_help_is_active()) {
+        nanox_help_render()
+    } else {
+        update(FALSE)
+        // completion_dropdown_render()
+    }
+}
+
+fn void edinit(string bname) {
+    auto bp = bfind(bname, TRUE, 0)
+    blistp = bfind("*List*", TRUE, BFINVS)
+    auto wp = (weird(window, 1))alloc(sizeof(window))
+    if bp == null || wp == null || blistp == null exit(1)
+    curbp = bp
+    bp->b_mode |= MDSOFTWRAP
+    curwp = wp
+    wp->w_bufp = bp
+    bp->b_nwnd = 1
+    wp->w_linep = bp->b_linep
+    wp->w_dotp = bp->b_linep
+    wp->w_doto = 0
+    wp->w_markp = null
+    wp->w_marko = 0
+    wp->w_force = 0
+    wp->w_flag = (char)(WFMODE | WFHARD)
+}
+
+fn int execute(int c, int f, int n) {
+    // Basic execute logic
+    return TRUE
+}
+
+fn int main(int argc, weird(string, 1) argv) {
+    char bname[1024] = "main"
+    
+    // Process arguments...
+    
+    vtinit()
+    edinit((string)bname)
+    
+    while true {
+        nanox_refresh_ui()
+        auto c = getcmd()
+        if c == (int)0x18 { // Ctrl+X
+            auto c2 = getcmd()
+            if c2 == (int)0x03 break // Ctrl+C to exit
+        }
+        execute(c, FALSE, 1)
+    }
+    
+    vttidy()
+    return 0
+}
