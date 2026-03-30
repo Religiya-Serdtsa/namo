@@ -1,0 +1,245 @@
+@import std/io
+@import std/stdlib
+@import std/mem
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+
+fn int usebuffer(int f, int n) {
+    char bufn[16] // NBUFN
+    auto s = minibuf_input("Use buffer: ", bufn, 16)
+    if s != TRUE return s
+    auto bp = bfind((string)bufn, TRUE, 0)
+    if bp == null return FALSE
+    return swbuffer(bp)
+}
+
+fn int nextbuffer(int f, int n) {
+    auto bp = (weird(buffer, 1))null
+    auto bbp = (weird(buffer, 1))null
+    if f == FALSE n = 1
+    if n < 1 return FALSE
+    bbp = curbp
+    while n-- > 0 {
+        bp = bbp->b_bufp
+        while bp == null || (bp->b_flag & BFINVS) != 0 {
+            if bp == null bp = bheadp
+            else bp = bp->b_bufp
+            if bp == bbp return FALSE
+        }
+        bbp = bp
+    }
+    return swbuffer(bp)
+}
+
+fn int swbuffer(weird(buffer, 1) bp) {
+    if --curbp->b_nwnd == 0 {
+        curbp->b_dotp = curwp->w_dotp
+        curbp->b_doto = curwp->w_doto
+        curbp->b_markp = curwp->w_markp
+        curbp->b_marko = curwp->w_marko
+    }
+    curbp = bp
+    // if (curbp->b_flag & BFMAKE) == 0 tabsize = curbp->b_tabsize
+    if curbp->b_active != TRUE {
+        readin((string)curbp->b_fname, TRUE)
+        curbp->b_dotp = lforw(curbp->b_linep)
+        curbp->b_doto = 0
+        curbp->b_active = TRUE
+        curbp->b_mode |= gmode
+    }
+    curwp->w_bufp = bp
+    curwp->w_linep = bp->b_linep
+    curwp->w_flag |= (char)(WFMODE | WFFORCE | WFHARD)
+    if bp->b_nwnd++ == 0 {
+        curwp->w_dotp = bp->b_dotp
+        curwp->w_doto = bp->b_doto
+        curwp->w_markp = bp->b_markp
+        curwp->w_marko = bp->b_marko
+    }
+    return TRUE
+}
+
+fn int killbuffer(int f, int n) {
+    char bufn[16] // NBUFN
+    auto s = minibuf_input("Kill buffer: ", bufn, 16)
+    if s != TRUE return s
+    auto bp = bfind((string)bufn, FALSE, 0)
+    if bp == null return TRUE
+    if (bp->b_flag & BFINVS) != 0 return TRUE
+    return zotbuf(bp)
+}
+
+fn int zotbuf(weird(buffer, 1) bp) {
+    char closed_fname[2048] // NFILEN
+    if bp->b_nwnd != 0 {
+        mlwrite("Buffer is being displayed")
+        return FALSE
+    }
+    strcpy(closed_fname, bp->b_fname)
+    auto s = bclear(bp)
+    if s != TRUE return s
+    free(bp->b_linep)
+    auto bp1 = (weird(buffer, 1))null
+    auto bp2 = bheadp
+    while bp2 != bp {
+        bp1 = bp2
+        bp2 = bp2->b_bufp
+    }
+    if bp1 == null bheadp = bp2->b_bufp
+    else bp1->b_bufp = bp2->b_bufp
+    free(bp)
+    nanox_handle_closed_file((string)closed_fname)
+    return TRUE
+}
+
+fn void bfreeall() {
+    auto bp = bheadp
+    while bp != null {
+        auto next = bp->b_bufp
+        auto hlp = bp->b_linep
+        if hlp != null {
+            auto lp = hlp->l_fp
+            while lp != hlp {
+                auto nlp = lp->l_fp
+                free(lp)
+                lp = nlp
+            }
+            free(hlp)
+        }
+        free(bp)
+        bp = next
+    }
+    bheadp = null
+}
+
+fn int namebuffer(int f, int n) {
+    char bufn[16] // NBUFN
+ask:
+    if minibuf_input("Change buffer name to: ", bufn, 16) != TRUE return FALSE
+    auto bp = bheadp
+    while bp != null {
+        if bp != curbp {
+            if strcmp((string)bufn, bp->b_bname) == 0 goto ask
+        }
+        bp = bp->b_bufp
+    }
+    strcpy(curbp->b_bname, bufn)
+    curwp->w_flag |= (char)WFMODE
+    mlerase()
+    return TRUE
+}
+
+fn void ltoa(weird(char, 1) buf, int width, long num) {
+    buf[width] = 0
+    while num >= 10 {
+        buf[--width] = (char)((int)(num % 10) + '0')
+        num /= 10
+    }
+    buf[--width] = (char)((int)num + '0')
+    while width != 0 {
+        buf[--width] = ' '
+    }
+}
+
+fn int addline(string text) {
+    auto ntext = (int)strlen(text)
+    auto lp = lalloc(ntext)
+    if lp == null return FALSE
+    for i=0; <ntext; ++ {
+        lputc(lp, i, (int)text[i])
+    }
+    blistp->b_linep->l_bp->l_fp = lp
+    lp->l_bp = blistp->b_linep->l_bp
+    blistp->b_linep->l_bp = lp
+    lp->l_fp = blistp->b_linep
+    if blistp->b_dotp == blistp->b_linep blistp->b_dotp = lp
+    return TRUE
+}
+
+fn int anycb() {
+    auto bp = bheadp
+    while bp != null {
+        if (bp->b_flag & BFINVS) == 0 && (bp->b_flag & BFCHG) != 0 return TRUE
+        bp = bp->b_bufp
+    }
+    return FALSE
+}
+
+fn weird(buffer, 1) bfind(string bname, int cflag, int bflag) {
+    auto bp = bheadp
+    while bp != null {
+        if strcmp(bname, bp->b_bname) == 0 return bp
+        bp = bp->b_bufp
+    }
+    if cflag != FALSE {
+        bp = (weird(buffer, 1))alloc(sizeof(buffer))
+        if bp == null return null
+        auto lp = lalloc(0)
+        if lp == null {
+            free(bp)
+            return null
+        }
+        if bheadp == null || strcmp(bheadp->b_bname, bname) > 0 {
+            bp->b_bufp = bheadp
+            bheadp = bp
+        } else {
+            auto sb = bheadp
+            while sb->b_bufp != null {
+                if strcmp(sb->b_bufp->b_bname, bname) > 0 break
+                sb = sb->b_bufp
+            }
+            bp->b_bufp = sb->b_bufp
+            sb->b_bufp = bp
+        }
+        bp->b_active = TRUE
+        bp->b_dotp = lp
+        bp->b_doto = 0
+        bp->b_markp = null
+        bp->b_marko = 0
+        bp->b_flag = (char)bflag
+        bp->b_mode = gmode
+        bp->b_nwnd = 0
+        bp->b_linep = lp
+        bp->b_tabsize = 7
+        strcpy(bp->b_fname, "")
+        strcpy(bp->b_bname, bname)
+        lp->l_fp = lp
+        lp->l_bp = lp
+    }
+    return bp
+}
+
+fn void cleanup_backup(weird(buffer, 1) bp, int force) {
+    if (force != 0 || makebackup != 0) && (bp->b_flag & BFINVS) == 0 && bp->b_fname[0] != 0 {
+        char backupName[2048]
+        if strlen(bp->b_fname) + 2 < 2048 {
+            strcpy(backupName, bp->b_fname)
+            strcat(backupName, "~")
+            unlink((string)backupName)
+        }
+    }
+}
+
+fn int bclear(weird(buffer, 1) bp) {
+    cleanup_backup(bp, FALSE)
+    if (bp->b_flag & BFINVS) == 0 && (bp->b_flag & BFCHG) != 0 {
+        auto s = mlyesno("Discard changes")
+        if s != TRUE return s
+    }
+    bp->b_flag &= (char)~BFCHG
+    while lforw(bp->b_linep) != bp->b_linep {
+        lfree(lforw(bp->b_linep))
+    }
+    bp->b_dotp = bp->b_linep
+    bp->b_doto = 0
+    bp->b_markp = null
+    bp->b_marko = 0
+    return TRUE
+}
+
+fn int unmark(int f, int n) {
+    curbp->b_flag &= (char)~BFCHG
+    curwp->w_flag |= (char)WFMODE
+    return TRUE
+}
