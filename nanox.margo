@@ -1,0 +1,75 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+@import "util.margo"
+@import "platform.margo"
+
+nanox_config nanox_cfg = {
+    true, true, "--W", "--E", SPEC | (int)'P', "en",
+    false, 8, false, true, false, false, false
+}
+
+char file_reserve[64][4096] // NANOX_SLOT_MAX, PATH_MAX
+bool should_redraw_underbar = false
+static int lamp_state = (int)NANOX_LAMP_OFF
+
+fn void nanox_request_underbar_redraw() {
+    should_redraw_underbar = true
+}
+
+fn void nanox_init() {
+    // Basic init
+}
+
+fn void nanox_apply_config() {
+    // Apply config logic
+}
+
+fn void nanox_set_lamp(int state) {
+    lamp_state = state
+}
+
+fn int nanox_current_lamp() {
+    return lamp_state
+}
+
+fn string nanox_lamp_label() {
+    if lamp_state == (int)NANOX_LAMP_WARN return (string)nanox_cfg.warning_format
+    if lamp_state == (int)NANOX_LAMP_ERROR return (string)nanox_cfg.error_format
+    return ""
+}
+
+fn int nanox_text_rows() {
+    auto rows = (int)term->t_nrow
+    if nanox_cfg.hint_bar rows -= 2
+    return rows
+}
+
+fn int nanox_text_cols() {
+    auto cols = (int)term->t_ncol
+    if (nanox_cfg.nonr == 0) cols -= 6
+    return cols
+}
+
+fn int nanox_hint_top_row() {
+    return (int)term->t_nrow - 1
+}
+
+fn int nanox_hint_bottom_row() {
+    return (int)term->t_nrow
+}
+
+fn void nanox_notify_message(string text) {
+    mlwrite(text)
+}
+
+fn void nanox_handle_closed_file(string path) {
+    // Handle closed file logic
+}
+
+fn void nanox_cleanup() {
+    // Cleanup logic
+}
