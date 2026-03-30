@@ -1,0 +1,236 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "util.margo"
+
+enum HighlightStyleID {
+    HL_NORMAL = 0,
+    HL_COMMENT,
+    HL_STRING,
+    HL_NUMBER,
+    HL_BRACKET,
+    HL_OPERATOR,
+    HL_KEYWORD,
+    HL_TYPE,
+    HL_FUNCTION,
+    HL_FLOW,
+    HL_PREPROC,
+    HL_RETURN,
+    HL_ESCAPE,
+    HL_CONTROL,
+    HL_TERNARY,
+    HL_ERROR,
+    HL_NOTICE,
+    HL_SELECTION,
+    HL_HEADER,
+    HL_MD_BOLD,
+    HL_MD_ITALIC,
+    HL_MD_UNDERLINE,
+    HL_LINENUM,
+    HL_COUNT
+}
+
+struct HighlightStyle {
+    int fg
+    int bg
+    bool bold
+    bool underline
+    bool italic
+}
+
+static char current_scheme_name[64] = "default"
+static HighlightStyle styles[HL_COUNT]
+
+fn static void set_default_scheme() {
+    styles[HL_NORMAL] = (HighlightStyle){-1, -1, false, false, false}
+    styles[HL_COMMENT] = (HighlightStyle){8, -1, false, false, false}
+    styles[HL_STRING] = (HighlightStyle){2, -1, false, false, false}
+    styles[HL_NUMBER] = (HighlightStyle){5, -1, false, false, false}
+    styles[HL_BRACKET] = (HighlightStyle){6, -1, false, false, false}
+    styles[HL_OPERATOR] = (HighlightStyle){6, -1, false, false, false}
+    styles[HL_KEYWORD] = (HighlightStyle){3, -1, true, false, false}
+    styles[HL_TYPE] = (HighlightStyle){6, -1, false, false, false}
+    styles[HL_FUNCTION] = (HighlightStyle){4, -1, false, false, false}
+    styles[HL_FLOW] = (HighlightStyle){3, -1, true, false, false}
+    styles[HL_PREPROC] = (HighlightStyle){1, -1, false, false, false}
+    styles[HL_RETURN] = (HighlightStyle){9, -1, true, false, false}
+    styles[HL_ESCAPE] = (HighlightStyle){14, -1, false, false, false}
+    styles[HL_CONTROL] = (HighlightStyle){9, -1, false, true, false}
+    styles[HL_TERNARY] = (HighlightStyle){3, -1, true, false, false}
+    styles[HL_ERROR] = (HighlightStyle){9, -1, false, false, false}
+    styles[HL_NOTICE] = (HighlightStyle){208, -1, true, false, false}
+    styles[HL_SELECTION] = (HighlightStyle){0, 11, false, false, false}
+    styles[HL_HEADER] = (HighlightStyle){4, -1, true, false, false}
+    styles[HL_MD_BOLD] = (HighlightStyle){-1, -1, true, false, false}
+    styles[HL_MD_ITALIC] = (HighlightStyle){6, -1, false, false, true}
+    styles[HL_MD_UNDERLINE] = (HighlightStyle){-1, -1, false, true, false}
+    styles[HL_LINENUM] = (HighlightStyle){8, -1, false, false, false}
+}
+
+fn static int parse_color(string val) {
+    if strcmp(val, "default") == 0 return -1
+    if val[0] == '#' {
+        int r, g, b
+        if sscanf(val + 1, "%02x%02x%02x", &r, &g, &b) == 3 {
+            return 0x01000000 | (r << 16) | (g << 8) | b
+        }
+    }
+    auto offset = 0
+    auto p = val
+    if strncmp(p, "bright_", 7) == 0 {
+        offset = 8
+        p += 7
+    }
+    if strcmp(p, "black") == 0 return 0 + offset
+    if strcmp(p, "red") == 0 return 1 + offset
+    if strcmp(p, "green") == 0 return 2 + offset
+    if strcmp(p, "yellow") == 0 return 3 + offset
+    if strcmp(p, "blue") == 0 return 4 + offset
+    if strcmp(p, "magenta") == 0 return 5 + offset
+    if strcmp(p, "cyan") == 0 return 6 + offset
+    if strcmp(p, "white") == 0 return 7 + offset
+    return -1
+}
+
+fn static void parse_attributes(string value, weird(HighlightStyle, 1) style) {
+    auto token = strtok(value, " ")
+    while token != null {
+        if strncmp(token, "fg=", 3) == 0 style->fg = parse_color(token + 3)
+        else if strncmp(token, "bg=", 3) == 0 style->bg = parse_color(token + 3)
+        else if strcmp(token, "bold") == 0 style->bold = true
+        else if strcmp(token, "underline") == 0 style->underline = true
+        else if strcmp(token, "italic") == 0 style->italic = true
+        token = strtok(null, " ")
+    }
+}
+
+fn static bool is_safe_name(string name) {
+    if name == null || name[0] == 0 return false
+    for i=0; <(int)strlen(name); ++ {
+        auto c = name[i]
+        if !isalnum((unsigned char)c) && c != '-' && c != '_' return false
+    }
+    return true
+}
+
+fn static void load_scheme_file(string path) {
+    auto f = fopen(path, "r")
+    if f == null return
+    char line[256]
+    while fgets(line, 256, f) != null {
+        if line[0] == ';' || line[0] == '#' || line[0] == '\n' continue
+        auto eq = strchr(line, '=')
+        if eq == null continue
+        eq[0] = 0
+        auto key = line
+        auto val = eq + 1
+        while val[0] == ' ' val++
+        auto len = (int)strlen(val)
+        while len > 0 && (val[len-1] == '\n' || val[len-1] == '\r') {
+            val[len-1] = 0
+            len--
+        }
+        auto id = HL_COUNT
+        if strcmp(key, "normal") == 0 id = HL_NORMAL
+        else if strcmp(key, "comment") == 0 id = HL_COMMENT
+        else if strcmp(key, "string") == 0 id = HL_STRING
+        else if strcmp(key, "number") == 0 id = HL_NUMBER
+        else if strcmp(key, "bracket") == 0 id = HL_BRACKET
+        else if strcmp(key, "operator") == 0 id = HL_OPERATOR
+        else if strcmp(key, "keyword") == 0 id = HL_KEYWORD
+        else if strcmp(key, "type") == 0 id = HL_TYPE
+        else if strcmp(key, "function") == 0 id = HL_FUNCTION
+        else if strcmp(key, "flow") == 0 id = HL_FLOW
+        else if strcmp(key, "preproc") == 0 id = HL_PREPROC
+        else if strcmp(key, "return") == 0 id = HL_RETURN
+        else if strcmp(key, "escape") == 0 id = HL_ESCAPE
+        else if strcmp(key, "control") == 0 id = HL_CONTROL
+        else if strcmp(key, "ternary") == 0 id = HL_TERNARY
+        else if strcmp(key, "error") == 0 id = HL_ERROR
+        else if strcmp(key, "notice") == 0 id = HL_NOTICE
+        else if strcmp(key, "selection") == 0 id = HL_SELECTION
+        else if strcmp(key, "header") == 0 id = HL_HEADER
+        else if strcmp(key, "md_bold") == 0 id = HL_MD_BOLD
+        else if strcmp(key, "md_italic") == 0 id = HL_MD_ITALIC
+        else if strcmp(key, "md_underline") == 0 id = HL_MD_UNDERLINE
+        else if strcmp(key, "linenum") == 0 id = HL_LINENUM
+
+        if id != HL_COUNT {
+            parse_attributes((string)val, weird(HighlightStyle, 1)(&styles[id]))
+        }
+    }
+    fclose(f)
+    if styles[HL_NORMAL].bg != -1 {
+        for i=0; <(int)HL_COUNT; ++ {
+            if i == (int)HL_NORMAL || i == (int)HL_SELECTION continue
+            if styles[i].bg == -1 styles[i].bg = styles[HL_NORMAL].bg
+        }
+    }
+}
+
+fn void colorscheme_init(string requested_name) {
+    set_default_scheme()
+    char name[64] = ""
+    auto env_scheme = nanox_getenv("NANOX_COLORSCHEME")
+    if env_scheme != null && env_scheme[0] != 0 && is_safe_name(env_scheme) {
+        mystrscpy(name, env_scheme, 64)
+    } else if requested_name != null && requested_name[0] != 0 && is_safe_name(requested_name) {
+        mystrscpy(name, requested_name, 64)
+    } else {
+        strcpy(name, "default")
+    }
+
+    if strcmp((string)name, "default") == 0 return
+
+    char dir[512]
+    char path[1024]
+    char file_name[64 + 12]
+
+    nanox_get_user_config_dir(dir, 512)
+    nanox_path_join(dir, 512, dir, "colorscheme")
+
+    snprintf(file_name, 64+12, "%s.nanoxcolor", name)
+    nanox_path_join(path, 1024, dir, file_name)
+    if nanox_file_exists(path) {
+        load_scheme_file((string)path)
+        mystrscpy(current_scheme_name, (string)name, 64)
+        return
+    }
+
+    snprintf(file_name, 64+12, "%s.ini", name)
+    nanox_path_join(path, 1024, dir, file_name)
+    if nanox_file_exists(path) {
+        load_scheme_file((string)path)
+        mystrscpy(current_scheme_name, (string)name, 64)
+        return
+    }
+
+    nanox_get_user_data_dir(dir, 512)
+    nanox_path_join(dir, 512, dir, "colorscheme")
+
+    snprintf(file_name, 64+12, "%s.nanoxcolor", name)
+    nanox_path_join(path, 1024, dir, file_name)
+    if nanox_file_exists(path) {
+        load_scheme_file((string)path)
+        mystrscpy(current_scheme_name, (string)name, 64)
+        return
+    }
+
+    snprintf(file_name, 64+12, "%s.ini", name)
+    nanox_path_join(path, 1024, dir, file_name)
+    if nanox_file_exists(path) {
+        load_scheme_file((string)path)
+        mystrscpy(current_scheme_name, (string)name, 64)
+        return
+    }
+}
+
+fn HighlightStyle colorscheme_get(HighlightStyleID id) {
+    if (int)id < 0 || (int)id >= (int)HL_COUNT return styles[HL_NORMAL]
+    return styles[(int)id]
+}
+
+fn string colorscheme_get_name() {
+    return (string)current_scheme_name
+}
