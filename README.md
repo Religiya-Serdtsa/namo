@@ -7,7 +7,7 @@
 ## Fast Guide
 
 ```bash
-nm
+nmo
 # or namo
 # Press F1 to see emacs guide
 ```
@@ -167,7 +167,7 @@ You can extend or override the built-ins without recompiling:
 
 1. Create `~/.config/namo/langs` (or `~/.local/share/namo/langs`).
 2. Drop one or more `.ini` files there. Each file can hold a single language section using the same keys found in `syntax.ini`. Use `file_matches = ^regex$` when you need to match basenames without reliable extensions (e.g., `Makefile`, `Kconfig`); patterns follow POSIX extended regular expressions and are matched case-insensitively against the filename.
-3. Restart Nanox. The editor will automatically merge everything under the `langs/` directory after loading the base profiles.
+3. Restart namo. The editor will automatically merge everything under the `langs/` directory after loading the base profiles.
 
 Example (`~/.config/namo/langs/futhark.ini`):
 

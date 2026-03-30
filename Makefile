@@ -27,7 +27,7 @@ USE_NCURSES ?= 1
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
 
 PROGRAM=namo
-LINK_NAME=nm
+LINK_NAME=nmo
 
 SRC=	basic.c bind.c buffer.c colorscheme.c command_mode.c completion.c cutln.c display.c eval.c exec.c file.c \
 	fileio.c highlight.c input.c isearch.c line.c lock.c globals.c main.c \
