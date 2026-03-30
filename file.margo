@@ -1,0 +1,131 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+@import "fileio.margo"
+@import "util.margo"
+
+fn int fileread(int f, int n) {
+    if restflag != 0 return resterr()
+    char fname[2048]
+    auto s = minibuf_input("Read file: ", fname, 2048)
+    if s != TRUE return s
+    return readin((string)fname, TRUE)
+}
+
+fn int filefind(int f, int n) {
+    if restflag != 0 return resterr()
+    char fname[2048]
+    auto s = minibuf_input("Find file: ", fname, 2048)
+    if s != TRUE return s
+    return getfile((string)fname, TRUE)
+}
+
+fn int viewfile(int f, int n) {
+    if restflag != 0 return resterr()
+    char fname[2048]
+    auto s = minibuf_input("View file: ", fname, 2048)
+    if s != TRUE return s
+    s = getfile((string)fname, FALSE)
+    if s == TRUE curbp->b_mode |= MDVIEW
+    return s
+}
+
+fn int insertfile(int f, int n) {
+    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if restflag != 0 return resterr()
+    char fname[2048]
+    auto s = minibuf_input("Insert file: ", fname, 2048)
+    if s != TRUE return s
+    return ifile((string)fname)
+}
+
+fn int filewrite(int f, int n) {
+    if restflag != 0 return resterr()
+    char fname[2048]
+    auto s = minibuf_input("Write file: ", fname, 2048)
+    if s != TRUE return s
+    if (s = writeout((string)fname)) == TRUE {
+        strcpy(curbp->b_fname, fname)
+        curbp->b_flag &= (char)~BFCHG
+        upmode()
+    }
+    return s
+}
+
+fn int filesave(int f, int n) {
+    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if (curbp->b_flag & BFCHG) == 0 return TRUE
+    if (curbp->b_fname[0] == 0) return filewrite(f, n)
+    auto s = writeout((string)curbp->b_fname)
+    if (s == TRUE) {
+        curbp->b_flag &= (char)~BFCHG
+        upmode()
+    }
+    return s
+}
+
+fn int writeout(string fn) {
+    auto s = ffwopen(fn)
+    if (s != FIOSUC) return FALSE
+    mlwrite("(Writing...)")
+    auto lp = lforw(curbp->b_linep)
+    while (lp != curbp->b_linep) {
+        if ((s = ffputline(lp->l_text, llength(lp))) != FIOSUC) break
+        lp = lforw(lp)
+    }
+    if (s == FIOSUC) {
+        s = ffclose()
+        if (s == FIOSUC) {
+            mlwrite("(Wrote %s)", fn)
+            return TRUE
+        }
+    }
+    ffclose()
+    return FALSE
+}
+
+fn int readin(string fn, int lockfl) {
+    auto s = bclear(curbp)
+    if (s != TRUE) return s
+    strcpy(curbp->b_fname, fn)
+    if ((s = ffropen(fn)) == FIOFNF) {
+        mlwrite("(New file)")
+        return TRUE
+    }
+    if (s != FIOSUC) return FALSE
+    mlwrite("(Reading...)")
+    auto nline = 0L
+    while ((s = ffgetline()) == FIOSUC) {
+        auto ntext = (int)strlen(fline)
+        auto lp = lalloc(ntext)
+        if (lp == null) {
+            s = FIOMEM
+            break
+        }
+        memcpy(lp->l_text, fline, ntext)
+        lp->l_bp = curbp->b_linep->l_bp
+        lp->l_fp = curbp->b_linep
+        lp->l_bp->l_fp = lp
+        lp->l_fp->l_bp = lp
+        nline++
+    }
+    ffclose()
+    if (s == FIOEOF) {
+        curbp->b_flag &= (char)~BFCHG
+        if (nline == 1) mlwrite("(Read 1 line)")
+        else mlwrite("(Read %D lines)", nline)
+        return TRUE
+    }
+    return FALSE
+}
+
+fn int getfile(string fn, int lockfl) {
+    auto bp = bfind(fn, TRUE, 0)
+    if (bp == null) return FALSE
+    if (swbuffer(bp) != TRUE) return FALSE
+    if (bp->b_active == TRUE) return TRUE
+    return readin(fn, lockfl)
+}
