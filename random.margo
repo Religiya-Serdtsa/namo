@@ -1,0 +1,227 @@
+@import std/io
+@import std/stdlib
+@import std/mem
+@import c/ctype
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+@import "utf8.margo"
+@import "util.margo"
+
+int tabsize = 7
+
+fn static int get_indent(weird(line, 1) lp) {
+    auto nicol = 0
+    auto len = llength(lp)
+    for i=0; <len; ++ {
+        auto c = lgetc(lp, i)
+        if c != ' ' && c != 0x09 break
+        if c == 0x09 nicol = next_tab_stop(nicol, tab_width)
+        else nicol++
+    }
+    return nicol
+}
+
+fn static void set_indent(int target) {
+    auto cur = get_indent(curwp->w_dotp)
+    if cur == target {
+        curwp->w_doto = 0
+        while curwp->w_doto < llength(curwp->w_dotp) {
+            auto ch = lgetc(curwp->w_dotp, curwp->w_doto)
+            if ch != ' ' && ch != 0x09 break
+            curwp->w_doto++
+        }
+        return
+    }
+    curwp->w_doto = 0
+    while curwp->w_doto < llength(curwp->w_dotp) {
+        auto ch = lgetc(curwp->w_dotp, curwp->w_doto)
+        if ch != ' ' && ch != 0x09 break
+        ldelchar(1, FALSE)
+    }
+    if target > 0 {
+        // if nanox_cfg.soft_tab
+        for i=0; <target; ++ {
+            linsert(1, (int)' ')
+        }
+    }
+    curwp->w_doto = 0
+    while curwp->w_doto < llength(curwp->w_dotp) {
+        auto ch2 = lgetc(curwp->w_dotp, curwp->w_doto)
+        if ch2 != ' ' && ch2 != 0x09 break
+        curwp->w_doto++
+    }
+}
+
+fn int forwdel(int f, int n) {
+    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if n < 0 return backdel(f, -n)
+    if f != FALSE {
+        if (lastflag & CFKILL) == 0 kdelete()
+        thisflag |= CFKILL
+    }
+    return ldelchar((long)n, f)
+}
+
+fn int backdel(int f, int n) {
+    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if n < 0 return forwdel(f, -n)
+    if f != FALSE {
+        if (lastflag & CFKILL) == 0 kdelete()
+        thisflag |= CFKILL
+    }
+    if backchar(f, n) == TRUE return ldelchar((long)n, f)
+    return FALSE
+}
+
+fn int killtext(int f, int n) {
+    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if (lastflag & CFKILL) == 0 kdelete()
+    thisflag |= CFKILL
+    auto chunk = 0L
+    if f == FALSE {
+        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto)
+        if chunk == 0 chunk = 1
+    } else if n == 0 {
+        chunk = (long)curwp->w_doto
+        curwp->w_doto = 0
+    } else if n > 0 {
+        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto + 1)
+        auto nextp = lforw(curwp->w_dotp)
+        while --n > 0 {
+            if nextp == curbp->b_linep return FALSE
+            chunk += (long)(llength(nextp) + 1)
+            nextp = lforw(nextp)
+        }
+    } else {
+        mlwrite("neg kill")
+        return FALSE
+    }
+    return ldelete(chunk, TRUE)
+}
+
+fn int setemode(int f, int n) { return adjustmode(TRUE, FALSE) }
+fn int delmode(int f, int n) { return adjustmode(FALSE, FALSE) }
+fn int setgmode(int f, int n) { return adjustmode(TRUE, TRUE) }
+fn int delgmode(int f, int n) { return adjustmode(FALSE, TRUE) }
+
+fn int adjustmode(int kind, int global) {
+    char prompt[64]
+    char cbuf[1024]
+    if global != 0 strcpy(prompt, "Global mode to ")
+    else strcpy(prompt, "Mode to ")
+    if kind == TRUE strcat(prompt, "add: ")
+    else strcat(prompt, "delete: ")
+    auto status = minibuf_input(prompt, cbuf, 1023)
+    if status != TRUE return status
+    for i=0; <(int)strlen(cbuf); ++ {
+        if cbuf[i] >= 'a' && cbuf[i] <= 'z' cbuf[i] -= 32
+    }
+    for i=0; <9; ++ { // NUMMODES
+        if strcmp((string)cbuf, modename[i]) == 0 {
+            if kind == TRUE {
+                if global != 0 gmode |= (1 << i)
+                else curbp->b_mode |= (1 << i)
+            } else {
+                if global != 0 gmode &= ~(1 << i)
+                else curbp->b_mode &= ~(1 << i)
+            }
+            if global == 0 upmode()
+            mlerase()
+            return TRUE
+        }
+    }
+    mlwrite("No such mode!")
+    return FALSE
+}
+
+fn int clrmes(int f, int n) {
+    mlforce("")
+    return TRUE
+}
+
+fn int writemsg(int f, int n) {
+    char buf[1024]
+    char nbuf[2048]
+    auto status = minibuf_input("Message to write: ", buf, 1023)
+    if status != TRUE return status
+    auto sp = 0
+    auto np = 0
+    while buf[sp] != 0 {
+        nbuf[np++] = buf[sp]
+        if buf[sp] == '%' nbuf[np++] = '%'
+        sp++
+    }
+    nbuf[np] = 0
+    mlforce((string)nbuf)
+    return TRUE
+}
+
+fn int getfence(int f, int n) {
+    auto oldlp = curwp->w_dotp
+    auto oldoff = curwp->w_doto
+    auto ch = 0
+    if oldoff == llength(oldlp) ch = '\n'
+    else ch = lgetc(oldlp, oldoff)
+    auto ofence = 0
+    auto sdir = FORWARD
+    if ch == '(' { ofence = ')'; sdir = FORWARD }
+    else if ch == '{' { ofence = '}'; sdir = FORWARD }
+    else if ch == '[' { ofence = ']'; sdir = FORWARD }
+    else if ch == ')' { ofence = '('; sdir = REVERSE }
+    else if ch == '}' { ofence = '{'; sdir = REVERSE }
+    else if ch == ']' { ofence = '['; sdir = REVERSE }
+    else {
+        TTbeep()
+        return FALSE
+    }
+    auto count = 1
+    if sdir == REVERSE backchar(FALSE, 1)
+    else forwchar(FALSE, 1)
+    while count > 0 {
+        auto c = 0
+        if curwp->w_doto == llength(curwp->w_dotp) c = '\n'
+        else c = lgetc(curwp->w_dotp, curwp->w_doto)
+        if c == ch count++
+        if c == ofence count--
+        if sdir == FORWARD forwchar(FALSE, 1)
+        else backchar(FALSE, 1)
+        if boundry(curwp->w_dotp, curwp->w_doto, sdir) break
+    }
+    if count == 0 {
+        if sdir == FORWARD backchar(FALSE, 1)
+        else forwchar(FALSE, 1)
+        curwp->w_flag |= (char)WFMOVE
+        return TRUE
+    }
+    curwp->w_dotp = oldlp
+    curwp->w_doto = oldoff
+    TTbeep()
+    return FALSE
+}
+
+fn int istring(int f, int n) {
+    char tstring[1024]
+    auto status = mlreplyt("String to insert<META>: ", tstring, 1023, metac)
+    if status != TRUE return status
+    if f == FALSE n = 1
+    if n < 0 n = -n
+    while n-- > 0 {
+        status = linstr((string)tstring)
+        if status != TRUE break
+    }
+    return status
+}
+
+fn int ovstring(int f, int n) {
+    char tstring[1024]
+    auto status = mlreplyt("String to overwrite<META>: ", tstring, 1023, metac)
+    if status != TRUE return status
+    if f == FALSE n = 1
+    if n < 0 n = -n
+    while n-- > 0 {
+        status = lover((string)tstring)
+        if status != TRUE break
+    }
+    return status
+}
