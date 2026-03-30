@@ -34,6 +34,30 @@ const int RECORD = 2
 
 const int GFREAD = 1
 
+struct video_cell {
+    unsigned int ch // unicode_t
+    int fg
+    int bg
+    bool bold
+    bool underline
+    bool italic
+}
+
+struct video {
+    int v_flag
+    video_cell v_text[1]
+}
+
+const int VFCHG = 0x0001
+const int VFEXT = 0x0002
+const int VFREQ = 0x0008
+const int VFCOL = 0x0010
+
+struct kill {
+    weird(kill, 1) d_next
+    char d_chunk[8192] // KBLOCK
+}
+
 struct line {
     weird(line, 1) l_fp
     weird(line, 1) l_bp
