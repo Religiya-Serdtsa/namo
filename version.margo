@@ -1,0 +1,9 @@
+@import std/io
+
+const string PROGRAM_NAME = "namo"
+const string PROGRAM_NAME_LONG = "namo editor"
+const string VERSION = "0.0.1"
+
+fn void version() {
+    print(PROGRAM_NAME_LONG, "version", VERSION)
+}

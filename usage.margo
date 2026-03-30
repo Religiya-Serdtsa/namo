@@ -1,0 +1,7 @@
+@import std/stdlib
+@import std/io
+
+fn void die(string err) {
+    print("fatal:", err)
+    exit(128)
+}

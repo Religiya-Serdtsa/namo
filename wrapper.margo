@@ -1,0 +1,18 @@
+@import std/stdlib
+@import std/io
+
+fn int xmkstemp(string template) {
+    auto fd = mkstemp(template)
+    if fd < 0 {
+        die("Unable to create temporary file")
+    }
+    return fd
+}
+
+fn weird(void, 1) xmalloc(int size) {
+    auto ret = alloc(size)
+    if ret == null {
+        die("Out of memory")
+    }
+    return ret
+}
