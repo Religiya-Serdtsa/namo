@@ -614,7 +614,7 @@ static const char *nanox_help_sheet[] = {
     "===============================================================================",
 "* Ctrl+V opens command mode (goto/help/viblock-edit/viblock-replace/indent/outdent/lint)",
     "* viblock-edit inserts the same text on each selected line",
-    "* viblock-replace replaces the selected rectangle on each selected line",
+    "* viblock-replace replaces the whole selected block with one input string",
     "* viblock-set-nr start-end [rev] rewrites numbered list prefixes in range",
     "* viblock-flip a-b c-d swaps two non-overlapping line ranges",
     "* F9-F12 are slot jumps; Ctrl+Alt+9, 0, -, = map to F9-F12",

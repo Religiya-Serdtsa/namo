@@ -22,7 +22,7 @@ F9-F12 : File Slots     F8/^Y : Paste           ------------------
   6. "viblock-flip 1-10 11-40" swaps two non-overlapping line ranges.
 * viblock-edit: start at the current cursor, move to the opposite corner, press Enter,
   then type the shared text to insert on every selected line.
-* viblock-replace: same rectangle workflow, but the selected block is replaced on every line.
+* viblock-replace: same rectangle workflow, but the whole selected block is replaced once.
 * Slots now use F9-F12 by default. Ctrl+Alt+9, 0, -, = map to F9, F10, F11, F12.
 * Ctrl+Alt+8 (or F8) pastes from the copy/cut buffer if you lack function keys.
 * nx *.txt does not immediately open every file. Files are queued into F9-F12 slots and
