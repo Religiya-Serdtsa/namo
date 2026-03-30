@@ -1,0 +1,3 @@
+[submodule "deps/margo"]
+	path = deps/margo
+	url = https://github.com/religiya-serdtsa/margo
