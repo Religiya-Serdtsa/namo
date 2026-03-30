@@ -1,0 +1,98 @@
+// estruct.margo
+// Constants and Structures for namo
+
+const int MAXCOL = 512
+const int MAXROW = 1024
+
+const int NBINDS = 2048
+const int NFILEN = 2048
+const int NBUFN = 16
+const int NLINE = 2048
+const int NSTRING = 1024
+const int NKBDM = 2048
+const int NPAT = 1024
+const int HUGE = 1000
+const int NLOCKS = 1000
+const int NCOLORS = 8
+const int KBLOCK = 8192
+
+const int CONTROL = 0x10000000
+const int META = 0x20000000
+const int SHIFT = 0x08000000
+const int SUPER = 0x04000000
+const int CTLX = 0x40000000
+const int SPEC = 0x80000000
+
+const int FALSE = 0
+const int TRUE = 1
+const int ABORT = 2
+const int FAILED = 3
+
+const int STOP = 0
+const int PLAY = 1
+const int RECORD = 2
+
+const int GFREAD = 1
+
+struct line {
+    weird(line, 1) l_fp
+    weird(line, 1) l_bp
+    int l_size
+    int l_used
+    weird(void, 1) hl_start_state
+    weird(void, 1) hl_end_state
+    char l_text[1]
+}
+
+struct window {
+    weird(buffer, 1) w_bufp
+    weird(line, 1) w_linep
+    weird(line, 1) w_dotp
+    weird(line, 1) w_markp
+    int w_doto
+    int w_marko
+    char w_force
+    char w_flag
+}
+
+struct buffer {
+    weird(buffer, 1) b_bufp
+    weird(line, 1) b_dotp
+    weird(line, 1) b_markp
+    weird(line, 1) b_linep
+    int b_doto
+    int b_marko
+    int b_mode
+    char b_active
+    char b_nwnd
+    char b_flag
+    char b_fname[2048] // NFILEN
+    char b_bname[16] // NBUFN
+    int b_tabsize
+}
+
+struct terminal {
+    int t_mrow
+    int t_nrow
+    int t_mcol
+    int t_ncol
+    int t_margin
+    int t_scrsiz
+    int t_pause
+    weird(void, 1) t_open
+    weird(void, 1) t_close
+    weird(void, 1) t_kopen
+    weird(void, 1) t_kclose
+    weird(void, 1) t_getchar
+    weird(void, 1) t_putchar
+    weird(void, 1) t_flush
+    weird(void, 1) t_move
+    weird(void, 1) t_eeol
+    weird(void, 1) t_eeop
+    weird(void, 1) t_beep
+    weird(void, 1) t_rev
+    weird(void, 1) t_italic
+    weird(void, 1) t_set_colors
+    weird(void, 1) t_set_attrs
+    weird(void, 1) t_rez
+}
