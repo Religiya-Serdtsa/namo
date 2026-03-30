@@ -1,0 +1,122 @@
+@import std/io
+@import std/mem
+@import "estruct.margo"
+@import "globals.margo"
+
+weird(FILE, 1) ffp = null
+int eofflag = FALSE
+
+fn int ffropen(string fn) {
+    ffp = fopen(fn, "r")
+    if ffp == null return FIOFNF
+    eofflag = FALSE
+    return FIOSUC
+}
+
+fn int ffwopen(string fn) {
+    ffp = fopen(fn, "w")
+    if ffp == null {
+        mlwrite("Cannot open file for writing")
+        return FIOERR
+    }
+    return FIOSUC
+}
+
+fn int ffclose() {
+    if fline != null {
+        free(fline)
+        fline = null
+    }
+    eofflag = FALSE
+    if fclose(ffp) != 0 {
+        mlwrite("Error closing file")
+        return FIOERR
+    }
+    return FIOSUC
+}
+
+fn int ffputline(string buf, int nbuf) {
+    for i=0; <nbuf; ++ {
+        fputc(buf[i] & 0xFF, ffp)
+    }
+    fputc('\n', ffp)
+    if ferror(ffp) {
+        mlwrite("Write I/O error")
+        return FIOERR
+    }
+    return FIOSUC
+}
+
+fn int ffgetline() {
+    if eofflag return FIOEOF
+
+    if flen > NSTRING {
+        free(fline)
+        fline = null
+    }
+
+    if fline == null {
+        flen = NSTRING
+        fline = alloc(flen)
+        if fline == null return FIOMEM
+    }
+
+    auto i = 0
+    auto c = 0
+
+    if !nullflag {
+        if fgets(fline, NSTRING, ffp) == null {
+            i = 0
+            c = -1 // EOF
+        } else {
+            i = strlen(fline)
+            c = 0
+            if i > 0 {
+                c = fline[i-1]
+                if c == '\n' || c == '\r' {
+                    i--
+                }
+            }
+        }
+    } else {
+        i = 0
+        c = fgetc(ffp)
+    }
+
+    while c != -1 && c != '\n' {
+        if c != 0 && c != '\r' {
+            fline[i++] = c
+            if i >= flen {
+                auto tmpline = alloc(flen + NSTRING)
+                if tmpline == null return FIOMEM
+                memcpy(tmpline, fline, flen)
+                flen += NSTRING
+                free(fline)
+                fline = tmpline
+            }
+        }
+        c = fgetc(ffp)
+    }
+
+    if c == -1 {
+        if ferror(ffp) {
+            mlwrite("File read error")
+            return FIOERR
+        }
+        if i != 0 {
+            eofflag = TRUE
+        } else {
+            return FIOEOF
+        }
+    }
+
+    fline[i] = 0
+    return FIOSUC
+}
+
+fn int fexist(string fname) {
+    auto fp = fopen(fname, "r")
+    if fp == null return FALSE
+    fclose(fp)
+    return TRUE
+}
