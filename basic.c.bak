@@ -370,13 +370,13 @@ int forwpage(int f, int n)
     struct line *lp;
 
     if (f == FALSE) {
-        n = nanox_text_rows() - 2;  /* Default scroll. */
+        n = namo_text_rows() - 2;  /* Default scroll. */
         if (n <= 0)
             n = 1;
     } else if (n < 0)
         return backpage(f, -n);
     else                    /* Convert from pages. */
-        n *= nanox_text_rows();     /* To lines. */
+        n *= namo_text_rows();     /* To lines. */
     lp = curwp->w_linep;
     while (n-- && lp != curbp->b_linep)
         lp = lforw(lp);
@@ -398,13 +398,13 @@ int backpage(int f, int n)
     struct line *lp;
 
     if (f == FALSE) {
-        n = nanox_text_rows() - 2;  /* Default scroll. */
+        n = namo_text_rows() - 2;  /* Default scroll. */
         if (n <= 0)
             n = 1;
     } else if (n < 0)
         return forwpage(f, -n);
     else                    /* Convert from pages. */
-        n *= nanox_text_rows();     /* To lines. */
+        n *= namo_text_rows();     /* To lines. */
     lp = curwp->w_linep;
     while (n-- && lback(lp) != curbp->b_linep)
         lp = lback(lp);

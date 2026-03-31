@@ -35,4 +35,8 @@ void paste_slot_display(void);
 /* Insert paste slot content into document */
 int paste_slot_insert(void);
 
+/* Query/handle the interactive paste slot window */
+int check_paste_slot_active(void);
+void paste_slot_handle_key(int key);
+
 #endif /* PASTE_SLOT_H_ */

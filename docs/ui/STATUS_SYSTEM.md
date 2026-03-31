@@ -1,6 +1,6 @@
 # Status Bars and Indicators
 
-Nanox provides constant feedback to the user through three distinct UI areas: the Modeline, the Hint Bar, and the Message Line.
+Namo provides constant feedback to the user through three distinct UI areas: the Modeline, the Hint Bar, and the Message Line.
 
 ## 1. The Modeline (Status Row)
 Located above the hint bar, the modeline displays metadata about the current window:
@@ -24,4 +24,4 @@ The very last row (shared with the second hint bar row or appearing temporarily)
 Lamps are priority-based status indicators:
 1. **`--E` (Error)**: Critical failures (Red/Bold in some themes).
 2. **`--W` (Warning)**: Non-fatal issues (Yellow/Bold).
-These are set via `nanox_set_lamp()` and cleared when a new message is written to the message line.
+These are set via `namo_set_lamp()` and cleared when a new message is written to the message line.

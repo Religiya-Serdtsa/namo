@@ -120,7 +120,7 @@ int getfile(char *fname, int lockfl)
         if ((bp->b_flag & BFINVS) == 0 && strcmp(bp->b_fname, fname) == 0) {
             swbuffer(bp);
             lp = curwp->w_dotp;
-            i = nanox_text_rows() / 2;
+            i = namo_text_rows() / 2;
             while (i-- && lback(lp) != curbp->b_linep)
                 lp = lback(lp);
             curwp->w_linep = lp;
@@ -219,7 +219,7 @@ int readin(char *fname, int lockfl)
     execute(META | SPEC | 'R', FALSE, 1);
 
     if ((s = ffropen(fname)) == FIOERR) {   /* Hard file open.      */
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
         goto out;
     }
 
@@ -266,9 +266,9 @@ int readin(char *fname, int lockfl)
     strcat(mesg, ")");
     mlwrite(mesg);
     if (s == FIOERR || s == FIOMEM)
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
     else
-        nanox_set_lamp(NANOX_LAMP_OFF);
+        namo_set_lamp(NAMO_LAMP_OFF);
 
  out:
     wp = curwp;
@@ -358,9 +358,9 @@ int filewrite(int f, int n)
         wp = curwp;         /* Update mode line.    */
         if (wp->w_bufp == curbp)
             wp->w_flag |= WFMODE;
-        nanox_set_lamp(NANOX_LAMP_OFF);
+        namo_set_lamp(NAMO_LAMP_OFF);
     } else {
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
     }
     return s;
 }
@@ -409,7 +409,7 @@ int filesave(int f, int n)
         return TRUE;
     if (curbp->b_fname[0] == 0) {       /* Must have a name.    */
         mlwrite("No file name");
-        nanox_set_lamp(NANOX_LAMP_WARN);
+        namo_set_lamp(NAMO_LAMP_WARN);
         return FALSE;
     }
 
@@ -425,9 +425,9 @@ int filesave(int f, int n)
     if (s == TRUE) {
         curbp->b_flag &= ~BFCHG;
         curwp->w_flag |= WFMODE;    /* Update mode line.    */
-        nanox_set_lamp(NANOX_LAMP_OFF);
+        namo_set_lamp(NAMO_LAMP_OFF);
     } else {
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
     }
     return s;
 }
@@ -521,7 +521,7 @@ int writeout(char *fn)
                  unlink(backupName); /* Remove old backup if it exists */
                  if (rename(fn, backupName) != 0) {
                      mlwrite("(Cannot create backup)");
-                     nanox_set_lamp(NANOX_LAMP_ERROR);
+                     namo_set_lamp(NAMO_LAMP_ERROR);
                      return FALSE;
                  }
                  backupCreated = TRUE;
@@ -530,7 +530,7 @@ int writeout(char *fn)
     }
 
     if ((s = ffwopen(fn)) != FIOSUC) {  /* Open writes message. */
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
         return FALSE;
     }
     
@@ -580,7 +580,7 @@ int writeout(char *fn)
     } else                  /* Ignore close error   */
         ffclose();          /* if a write error.    */
     if (s != FIOSUC) {          /* Some sort of error.  */
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
         return FALSE;
     }
     return TRUE;
@@ -637,7 +637,7 @@ int ifile(char *fname)
         goto out;
     if (s == FIOFNF) {          /* File not found.      */
         mlwrite("(No such file)");
-        nanox_set_lamp(NANOX_LAMP_ERROR);
+        namo_set_lamp(NAMO_LAMP_ERROR);
         return FALSE;
     }
     mlwrite("(Inserting file)");
@@ -686,7 +686,7 @@ int ifile(char *fname)
         strcat(mesg, "s");
     strcat(mesg, ")");
     mlwrite(mesg);
-    nanox_set_lamp(NANOX_LAMP_OFF);
+    namo_set_lamp(NAMO_LAMP_OFF);
 
  out:
     /* advance to the next line and mark the window for changes */

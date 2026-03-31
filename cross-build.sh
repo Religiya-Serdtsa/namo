@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# This script provides a unified interface for cross-compiling the nanox project
+# This script provides a unified interface for cross-compiling the namo project
 # across multiple hardware architectures. It automates toolchain selection,
 # sysroot isolation, and dependency verification.
 
@@ -59,7 +59,7 @@ for lib in "${REQUIRED_LIBS[@]}"; do
 done
 
 # Resolve preprocessor and linker flags from the target's pkg-config path.
-# We explicitly append pcre2-8 to align with the nanox Makefile requirements.
+# We explicitly append pcre2-8 to align with the namo Makefile requirements.
 TARGET_CFLAGS=$(pkg-config --cflags ncurses hunspell)
 TARGET_LDLIBS=$(pkg-config --libs ncurses hunspell)
 TARGET_LDLIBS="$TARGET_LDLIBS -lpcre2-8"
@@ -78,9 +78,9 @@ make -j$(nproc) \
 # and strip its symbol table to minimize the deployment footprint.
 if [ $? -eq 0 ]; then
     echo "--- Build Successful! ---"
-    mv nanox "${BUILD_DIR}/nanox_${1}"
-    $STRIP "${BUILD_DIR}/nanox_${1}"
-    file "${BUILD_DIR}/nanox_${1}"
+    mv namo "${BUILD_DIR}/namo_${1}"
+    $STRIP "${BUILD_DIR}/namo_${1}"
+    file "${BUILD_DIR}/namo_${1}"
 else
     echo "--- Build Failed ---"
     exit 1

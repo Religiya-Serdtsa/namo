@@ -7,16 +7,16 @@
 @import "utf8.margo"
 @import "util.margo"
 @import "colorscheme.margo"
-@import "nanox.margo"
+@import "namo_core.margo"
 
 weird(weird(video, 1), 1) vscreen = null
 
 fn static int get_gutter_width() {
-    return (nanox_cfg.nonr == 0) ? 6 : 0
+    return (namo_cfg.nonr == 0) ? 6 : 0
 }
 
 fn static void render_gutter(int row, int lnum) {
-    if nanox_cfg.nonr != 0 return
+    if namo_cfg.nonr != 0 return
     char buf[10]
     if lnum > 0 snprintf(buf, 10, "%5d", lnum)
     else strcpy(buf, "     ")
@@ -65,7 +65,7 @@ fn static int get_line_height(weird(line, 1) lp) {
         unsigned int c = 0
         auto bytes = utf8_to_unicode((weird(unsigned char, 1))lp->l_text, (unsigned int)i, (unsigned int)len, weird(unsigned int, 1)(&c))
         auto w = get_char_width(c, col)
-        if col + w > nanox_text_cols() {
+        if col + w > namo_text_cols() {
             height++
             col = 4
             w = get_char_width(c, col)
@@ -131,7 +131,7 @@ fn void vtputc(int c) {
     }
     auto char_width = mystrnlen_raw_w((unsigned int)c)
     if vtcol + char_width > term->t_ncol {
-        if vtrow < nanox_text_rows() - 1 {
+        if vtrow < namo_text_rows() - 1 {
             vtrow++
             vtcol = vt_margin_left
             vscreen[vtrow]->v_flag |= VFCHG
@@ -209,7 +209,7 @@ fn int update(int force) {
 
 fn static void updpos() {
     auto lp = curwp->w_linep
-    auto rows = nanox_text_rows()
+    auto rows = namo_text_rows()
     currow = 0
     while lp != curwp->w_dotp && currow < rows {
         currow += get_line_height(lp)
@@ -222,7 +222,7 @@ fn static void updpos() {
         unsigned int c = 0
         auto bytes = utf8_to_unicode((weird(unsigned char, 1))lp->l_text, (unsigned int)i, (unsigned int)curwp->w_doto, weird(unsigned int, 1)(&c))
         auto w = get_char_width(c, curcol)
-        if curcol + w > nanox_text_cols() {
+        if curcol + w > namo_text_cols() {
             currow++
             curcol = 4
             w = get_char_width(c, curcol)

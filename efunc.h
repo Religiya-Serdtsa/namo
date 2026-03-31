@@ -9,7 +9,7 @@
  *  modified by Petri Kutvonen
  */
 
-#include "nanox.h"
+#include "namo.h"
 #include "edef.h"
 
 /* External function declarations. */
@@ -215,18 +215,18 @@ extern int readin(char *fname, int lockfl);
 extern void makename(char *bname, char *fname);
 extern void unqname(char *name);
 
-/* nanox.c */
-extern void nanox_init(void);
-extern void nanox_apply_config(void);
-extern void nanox_notify_message(const char *text);
-extern int nanox_text_rows(void);
-extern int nanox_hint_top_row(void);
-extern int nanox_hint_bottom_row(void);
-extern bool nanox_help_is_active(void);
-extern int nanox_help_command(int f, int n);
-extern int nanox_help_handle_key(int key);
-extern void nanox_cleanup(void);
-extern void nanox_message_prefix(const char *input, char *output, size_t outsz);
+/* namo.c */
+extern void namo_init(void);
+extern void namo_apply_config(void);
+extern void namo_notify_message(const char *text);
+extern int namo_text_rows(void);
+extern int namo_hint_top_row(void);
+extern int namo_hint_bottom_row(void);
+extern bool namo_help_is_active(void);
+extern int namo_help_command(int f, int n);
+extern int namo_help_handle_key(int key);
+extern void namo_cleanup(void);
+extern void namo_message_prefix(const char *input, char *output, size_t outsz);
 
 /* cutln.c */
 extern int cutln_end_cut(int f, int n);
@@ -256,9 +256,9 @@ extern int reserve_jump_fallback_2(int f, int n);
 extern int reserve_jump_fallback_3(int f, int n);
 extern int reserve_jump_fallback_4(int f, int n);
 extern int reserve_jump_numeric_mode(int f, int n);
-extern void nanox_queue_startup_file(const char *path);
-extern int nanox_open_startup_slot(void);
-extern void nanox_handle_closed_file(const char *path);
+extern void namo_queue_startup_file(const char *path);
+extern int namo_open_startup_slot(void);
+extern void namo_handle_closed_file(const char *path);
 extern int filewrite(int f, int n);
 extern int filesave(int f, int n);
 extern int writeout(char *fn);
@@ -403,7 +403,7 @@ extern int forwsearch(int f, int n);
 extern int forwhunt(int f, int n);
 extern int backsearch(int f, int n);
 extern int backhunt(int f, int n);
-extern int nanox_search_engine(int f, int n);
+extern int namo_search_engine(int f, int n);
 extern int mcscanner(struct magic *mcpatrn, int direct, int beg_or_end);
 extern int scanner(const char *patrn, int direct, int beg_or_end);
 extern int eq(unsigned char bc, unsigned char pc);

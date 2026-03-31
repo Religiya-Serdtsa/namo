@@ -98,18 +98,18 @@ fn static void parse_attributes(string value, weird(HighlightStyle, 1) style) {
     while token != null {
         if strncmp(token, "fg=", 3) == 0 style->fg = parse_color(token + 3)
         else if strncmp(token, "bg=", 3) == 0 style->bg = parse_color(token + 3)
-        else if strcmp(token, "bold") == 0 style->bold = true
-        else if strcmp(token, "underline") == 0 style->underline = true
-        else if strcmp(token, "italic") == 0 style->italic = true
+        else if strcmp(token, "bold=true") == 0 style->bold = true
+        else if strcmp(token, "underline=true") == 0 style->underline = true
+        else if strcmp(token, "italic=true") == 0 style->italic = true
         token = strtok(null, " ")
     }
 }
 
 fn static bool is_safe_name(string name) {
-    if name == null || name[0] == 0 return false
+    if name == null return false
     for i=0; <(int)strlen(name); ++ {
         auto c = name[i]
-        if !isalnum((unsigned char)c) && c != '-' && c != '_' return false
+        if !isalnum((unsigned char)c) && c != '.' && c != '_' && c != '-' return false
     }
     return true
 }
@@ -117,20 +117,44 @@ fn static bool is_safe_name(string name) {
 fn static void load_scheme_file(string path) {
     auto f = fopen(path, "r")
     if f == null return
+
     char line[256]
+    bool in_styles = false
+
     while fgets(line, 256, f) != null {
-        if line[0] == ';' || line[0] == '#' || line[0] == '\n' continue
-        auto eq = strchr(line, '=')
-        if eq == null continue
-        eq[0] = 0
-        auto key = line
-        auto val = eq + 1
-        while val[0] == ' ' val++
-        auto len = (int)strlen(val)
-        while len > 0 && (val[len-1] == '\n' || val[len-1] == '\r') {
-            val[len-1] = 0
+        auto p = line
+        while p[0] != 0 && isspace((unsigned char)p[0]) p++
+
+        if p[0] == 0 || p[0] == ';' || p[0] == '#' continue
+
+        auto len = (int)strlen(p)
+        while len > 0 && isspace((unsigned char)p[len-1]) {
+            p[len-1] = 0
             len--
         }
+
+        if p[0] == '[' {
+            if strcmp(p, "[styles]") == 0 in_styles = true
+            else in_styles = false
+            continue
+        }
+
+        if !in_styles continue
+
+        auto eq = strchr(p, '=')
+        if eq == null continue
+        eq[0] = 0
+        auto key = p
+        auto val = eq + 1
+
+        while val[0] != 0 && isspace((unsigned char)val[0]) val++
+
+        auto key_len = (int)strlen(key)
+        while key_len > 0 && isspace((unsigned char)key[key_len-1]) {
+            key[key_len-1] = 0
+            key_len--
+        }
+
         auto id = HL_COUNT
         if strcmp(key, "normal") == 0 id = HL_NORMAL
         else if strcmp(key, "comment") == 0 id = HL_COMMENT
@@ -161,6 +185,7 @@ fn static void load_scheme_file(string path) {
         }
     }
     fclose(f)
+
     if styles[HL_NORMAL].bg != -1 {
         for i=0; <(int)HL_COUNT; ++ {
             if i == (int)HL_NORMAL || i == (int)HL_SELECTION continue
@@ -172,7 +197,7 @@ fn static void load_scheme_file(string path) {
 fn void colorscheme_init(string requested_name) {
     set_default_scheme()
     char name[64] = ""
-    auto env_scheme = nanox_getenv("NANOX_COLORSCHEME")
+    auto env_scheme = namo_getenv("NAMO_COLORSCHEME")
     if env_scheme != null && env_scheme[0] != 0 && is_safe_name(env_scheme) {
         mystrscpy(name, env_scheme, 64)
     } else if requested_name != null && requested_name[0] != 0 && is_safe_name(requested_name) {
@@ -187,39 +212,39 @@ fn void colorscheme_init(string requested_name) {
     char path[1024]
     char file_name[64 + 12]
 
-    nanox_get_user_config_dir(dir, 512)
-    nanox_path_join(dir, 512, dir, "colorscheme")
+    namo_get_user_config_dir(dir, 512)
+    namo_path_join(dir, 512, dir, "colorscheme")
 
-    snprintf(file_name, 64+12, "%s.nanoxcolor", name)
-    nanox_path_join(path, 1024, dir, file_name)
-    if nanox_file_exists(path) {
+    snprintf(file_name, 64+12, "%s.namocolor", name)
+    namo_path_join(path, 1024, dir, file_name)
+    if namo_file_exists(path) {
         load_scheme_file((string)path)
         mystrscpy(current_scheme_name, (string)name, 64)
         return
     }
 
     snprintf(file_name, 64+12, "%s.ini", name)
-    nanox_path_join(path, 1024, dir, file_name)
-    if nanox_file_exists(path) {
+    namo_path_join(path, 1024, dir, file_name)
+    if namo_file_exists(path) {
         load_scheme_file((string)path)
         mystrscpy(current_scheme_name, (string)name, 64)
         return
     }
 
-    nanox_get_user_data_dir(dir, 512)
-    nanox_path_join(dir, 512, dir, "colorscheme")
+    namo_get_user_data_dir(dir, 512)
+    namo_path_join(dir, 512, dir, "colorscheme")
 
-    snprintf(file_name, 64+12, "%s.nanoxcolor", name)
-    nanox_path_join(path, 1024, dir, file_name)
-    if nanox_file_exists(path) {
+    snprintf(file_name, 64+12, "%s.namocolor", name)
+    namo_path_join(path, 1024, dir, file_name)
+    if namo_file_exists(path) {
         load_scheme_file((string)path)
         mystrscpy(current_scheme_name, (string)name, 64)
         return
     }
 
     snprintf(file_name, 64+12, "%s.ini", name)
-    nanox_path_join(path, 1024, dir, file_name)
-    if nanox_file_exists(path) {
+    namo_path_join(path, 1024, dir, file_name)
+    if namo_file_exists(path) {
         load_scheme_file((string)path)
         mystrscpy(current_scheme_name, (string)name, 64)
         return

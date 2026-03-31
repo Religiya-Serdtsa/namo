@@ -1,0 +1,10 @@
+  MARGO    namo
+main.margo:1981: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:2599: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:2666: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:2673: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:2774: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:3346: error: function 'fopen' expects 1 argument(s) but 2 given
+main.margo:3351: error: function 'fopen' expects 1 argument(s) but 2 given
+Build error: aborting due to 7 semantic error(s)
+make: *** [Makefile:165: namo] 오류 1

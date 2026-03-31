@@ -18,5 +18,5 @@ $LIB_PATH/libtinfo.a \
 -Wl,--end-group"
 
 echo "--- Build Result ---"
-ls -lh nanox
-ldd nanox 2>&1 | grep "not a dynamic executable" || echo "Warning: Still dynamic!"
+ls -lh namo
+ldd namo 2>&1 | grep "not a dynamic executable" || echo "Warning: Still dynamic!"

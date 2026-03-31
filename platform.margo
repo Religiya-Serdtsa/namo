@@ -3,7 +3,7 @@
 @import std/mem
 @import "util.margo"
 
-fn void nanox_get_user_data_dir(weird(char, 1) out, int cap) {
+fn void namo_get_user_data_dir(weird(char, 1) out, int cap) {
     auto home = getenv("HOME")
     if home == null {
         mystrscpy(out, "/tmp", cap)
@@ -12,7 +12,7 @@ fn void nanox_get_user_data_dir(weird(char, 1) out, int cap) {
     snprintf(out, (unsigned int)cap, "%s/.local/share/namo", home)
 }
 
-fn void nanox_get_user_config_dir(weird(char, 1) out, int cap) {
+fn void namo_get_user_config_dir(weird(char, 1) out, int cap) {
     auto home = getenv("HOME")
     if home == null {
         mystrscpy(out, "/tmp", cap)
@@ -21,7 +21,7 @@ fn void nanox_get_user_config_dir(weird(char, 1) out, int cap) {
     snprintf(out, (unsigned int)cap, "%s/.config/namo", home)
 }
 
-fn void nanox_path_join(weird(char, 1) out, int cap, string a, string b) {
+fn void namo_path_join(weird(char, 1) out, int cap, string a, string b) {
     if a == null || a[0] == 0 {
         mystrscpy(out, b, cap)
         return
@@ -34,14 +34,14 @@ fn void nanox_path_join(weird(char, 1) out, int cap, string a, string b) {
     }
 }
 
-fn bool nanox_file_exists(string path) {
+fn bool namo_file_exists(string path) {
     auto f = fopen(path, "r")
     if f == null return false
     fclose(f)
     return true
 }
 
-fn void nanox_normalize_path(weird(char, 1) path) {
+fn void namo_normalize_path(weird(char, 1) path) {
     // Basic normalization: convert backslashes to forward slashes
     auto i = 0
     while path[i] != 0 {
@@ -50,6 +50,6 @@ fn void nanox_normalize_path(weird(char, 1) path) {
     }
 }
 
-fn string nanox_getenv(string name) {
+fn string namo_getenv(string name) {
     return (string)getenv(name)
 }

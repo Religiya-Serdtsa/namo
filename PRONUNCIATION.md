@@ -2,7 +2,7 @@
 
 The name of this project is written as:
 
-**Nanox**
+**Namo**
 **拿錄**
 
 Core sound: **na.noks**

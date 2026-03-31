@@ -1,6 +1,6 @@
-# Hooks for Nanox Integration
+# Hooks for Namo Integration
 
-To integrate the syntax highlighting engine into Nanox (uEmacs), follow these steps.
+To integrate the syntax highlighting engine into Namo (uEmacs), follow these steps.
 
 ## 1. Line Structure (`line.h`)
 
@@ -54,7 +54,7 @@ Initialize the highlighting engine at startup.
 
 int main(int argc, char *argv[]) {
     /* ... */
-    nanox_init(); /* Existing init */
+    namo_init(); /* Existing init */
     highlight_init("syntax.ini"); /* Add this */
     /* ... */
 }

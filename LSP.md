@@ -2,7 +2,7 @@
 
 This document lists commonly used Language Server Protocol (LSP) servers and their installation methods across major UNIX-like operating systems.
 
-Detection in nanox is based on the presence of executable binaries in `$PATH`.
+Detection in namo is based on the presence of executable binaries in `$PATH`.
 
 Supported servers:
 
@@ -17,7 +17,7 @@ Supported servers:
 
 ## Completion UI / LSP integration behavior
 
-When `autocomplete=true`, nanox now shows UTF-8 safe completion candidates in a popup mini-buffer below the cursor.
+When `autocomplete=true`, namo now shows UTF-8 safe completion candidates in a popup mini-buffer below the cursor.
 
 Key flow:
 
@@ -258,7 +258,7 @@ pkg install jdtls
 
 ## Detection Strategy
 
-nanox should detect LSP availability using:
+namo should detect LSP availability using:
 
 ```bash
 which <binary>

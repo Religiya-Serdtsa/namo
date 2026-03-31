@@ -22,7 +22,7 @@
 #include "efunc.h"
 #include "line.h"
 #include "version.h"
-#include "nanox.h"
+#include "namo.h"
 #include "wrapper.h"
 #include "utf8.h"
 #include "util.h"
@@ -35,12 +35,12 @@ struct video **vscreen;          /* Virtual screen. */
 
 static int get_gutter_width(void)
 {
-    return !nanox_cfg.nonr ? 6 : 0;
+    return !namo_cfg.nonr ? 6 : 0;
 }
 
 static void render_gutter(int row, int lnum)
 {
-    if (nanox_cfg.nonr) return;
+    if (namo_cfg.nonr) return;
 
     char buf[10];
     if (lnum > 0) {
@@ -114,7 +114,7 @@ static int get_line_height(struct line *lp)
         unicode_t c;
         int bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, len, &c);
         int w = get_char_width(c, col);
-        if (col + w > nanox_text_cols()) {
+        if (col + w > namo_text_cols()) {
             height++;
             col = 4;
             w = get_char_width(c, col);
@@ -380,7 +380,7 @@ void vtputc(int c)
     char_width = mystrnlen_raw_w(c);
 
     if (vtcol + char_width > term->t_ncol) {
-        if (vtrow < nanox_text_rows() - 1) {
+        if (vtrow < namo_text_rows() - 1) {
             vtrow++;
             vtcol = vt_margin_left;
             vscreen[vtrow]->v_flag |= VFCHG;
@@ -564,7 +564,7 @@ static int reframe(struct window *wp)
 {
     struct line *lp;
     int i = 0;
-    int rows = nanox_text_rows();
+    int rows = namo_text_rows();
 
     /* if not a requested reframe, check for a needed one */
     if ((wp->w_flag & WFFORCE) == 0) {
@@ -580,7 +580,7 @@ static int reframe(struct window *wp)
                     unicode_t c;
                     int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, wp->w_doto, &c);
                     int w = get_char_width(c, col);
-                    if (col + w > nanox_text_cols()) {
+                    if (col + w > namo_text_cols()) {
                         dot_vrow++;
                         col = 4;
                         w = get_char_width(c, col);
@@ -841,7 +841,7 @@ render_segment:
 
         if (line_start_idx < len) {
             vtrow++;
-            if(vtrow >= nanox_text_rows()) {
+            if(vtrow >= namo_text_rows()) {
                 break;
             }
             vtcol = vt_margin_left;
@@ -865,7 +865,7 @@ static void updone(struct window *wp)
 {
     struct line *lp;
     int sline;
-    int rows = nanox_text_rows();
+    int rows = namo_text_rows();
 
     /* Softwrap requires full update to handle wrap/unwrap shifting */
     if (wp->w_bufp->b_mode & MDSOFTWRAP) {
@@ -911,7 +911,7 @@ static void updall(struct window *wp)
 {
     struct line *lp;            /* line to update */
     int sline;              /* physical screen line to update */
-    int rows = nanox_text_rows();
+    int rows = namo_text_rows();
     int lnum = get_line_num(wp->w_bufp, wp->w_linep);
 
     /* search down the lines, updating them */
@@ -954,7 +954,7 @@ void updpos(void)
 {
     struct line *lp;
     int i;
-    int rows = nanox_text_rows();
+    int rows = namo_text_rows();
 
     /* find the current row */
     lp = curwp->w_linep;
@@ -974,7 +974,7 @@ void updpos(void)
 
         bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, curwp->w_doto, &c);
         int w = get_char_width(c, curcol);
-        if (curcol + w > nanox_text_cols()) {
+        if (curcol + w > namo_text_cols()) {
             currow++;
             curcol = 4;
             w = get_char_width(c, curcol);
@@ -1000,10 +1000,10 @@ void upddex(void)
     lp = wp->w_linep;
     i = 0;
 
-    while (i < nanox_text_rows()) {
+    while (i < namo_text_rows()) {
         if (vscreen[i]->v_flag & VFEXT) {
             if ((wp != curwp) || (lp != wp->w_dotp) ||
-                (curcol < nanox_text_cols() - 1)) {
+                (curcol < namo_text_cols() - 1)) {
                 vtmove(i, 0);
                 show_line(wp, lp);
                 vteeol();
@@ -1318,19 +1318,19 @@ static int updateline(int row, struct video *vp)
 static void modeline(struct window *wp)
 {
     struct buffer *bp = wp->w_bufp;
-    const char *row1 = nanox_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search" : "";
+    const char *row1 = namo_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search" : "";
     const char *row2 = "";
     char status[MAXCOL + 1];
     const char *fname = bp->b_fname[0] ? bp->b_fname : bp->b_bname;
-    const char *lamp = nanox_lamp_label();
+    const char *lamp = namo_lamp_label();
     char mark = (bp->b_flag & BFCHG) ? '*' : '-';
     int line = window_line_number(wp);
     int col = window_column_number(wp);
-    int top = nanox_hint_top_row();
-    int bottom = nanox_hint_bottom_row();
+    int top = namo_hint_top_row();
+    int bottom = namo_hint_bottom_row();
 
-    if (nanox_cfg.hint_bar) {
-        row2 = nanox_cfg.no_function_slot
+    if (namo_cfg.hint_bar) {
+        row2 = namo_cfg.no_function_slot
             ? "F6/^W Copy(S:End) F7/^X Cut(S:End) F8/^V Paste ^A+num Slot"
             : "F6/^W Copy(S:End) F7/^X Cut(S:End) F8/^V Paste F9-12 Slot";
     }
@@ -1470,7 +1470,7 @@ void mlwrite(const char *fmt, ...)
         }
     }
     va_end(ap);
-    nanox_message_prefix(dest.buf, final, sizeof(final));
+    namo_message_prefix(dest.buf, final, sizeof(final));
     
     unsigned char *p = (unsigned char *)final;
     int len = strlen((char *)p);
@@ -1489,7 +1489,7 @@ void mlwrite(const char *fmt, ...)
 
     TTflush();
     mpresf = TRUE;
-    nanox_notify_message(final);
+    namo_notify_message(final);
 }
 
 /*

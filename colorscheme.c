@@ -190,13 +190,32 @@ static void load_scheme_file(const char *path) {
     }
 }
 
+static bool try_load_scheme_from_dir(const char *dir, const char *name) {
+    if (!dir || !*dir || !name || !*name) return false;
+
+    static const char *exts[] = {"namocolor", "nanoxcolor", "ini", NULL};
+    char path[1024];
+    char file_name[MAX_NAME + 16];
+
+    for (const char **ext = exts; *ext; ext++) {
+        snprintf(file_name, sizeof(file_name), "%s.%s", name, *ext);
+        namo_path_join(path, sizeof(path), dir, file_name);
+        if (namo_file_exists(path)) {
+            load_scheme_file(path);
+            mystrscpy(current_scheme_name, name, MAX_NAME);
+            return true;
+        }
+    }
+    return false;
+}
+
 void colorscheme_init(const char *requested_name) {
     set_default_scheme();
     
     char name[MAX_NAME] = {0};
 
     /* Priority 1: Env Var */
-    const char *env_scheme = nanox_getenv("NANOX_COLORSCHEME");
+    const char *env_scheme = namo_getenv("NAMO_COLORSCHEME");
     if (env_scheme && *env_scheme && is_safe_name(env_scheme)) {
         mystrscpy(name, env_scheme, MAX_NAME);
     } 
@@ -213,53 +232,21 @@ void colorscheme_init(const char *requested_name) {
 
     /* Resolve path */
     char dir[512];
-    char path[1024];
-    char file_name[MAX_NAME + 12];
     
-    /* 1. Try Config Dir */
-    nanox_get_user_config_dir(dir, sizeof(dir));
-    nanox_path_join(dir, sizeof(dir), dir, "colorscheme");
-
-    /* Try .nanoxcolor */
-    snprintf(file_name, sizeof(file_name), "%s.nanoxcolor", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    if (nanox_file_exists(path)) {
-        load_scheme_file(path);
-        mystrscpy(current_scheme_name, name, MAX_NAME);
-        return;
-    }
-    /* Try .ini */
-    snprintf(file_name, sizeof(file_name), "%s.ini", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    if (nanox_file_exists(path)) {
-        load_scheme_file(path);
-        mystrscpy(current_scheme_name, name, MAX_NAME);
-        return;
+    namo_get_user_config_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        namo_path_join(dir, sizeof(dir), dir, "colorscheme");
+        if (try_load_scheme_from_dir(dir, name)) return;
     }
 
-    /* 2. Try Data Dir */
-    nanox_get_user_data_dir(dir, sizeof(dir));
-    nanox_path_join(dir, sizeof(dir), dir, "colorscheme");
-    
-    /* Try .nanoxcolor */
-    snprintf(file_name, sizeof(file_name), "%s.nanoxcolor", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    
-    if (nanox_file_exists(path)) {
-        load_scheme_file(path);
-        mystrscpy(current_scheme_name, name, MAX_NAME);
-        return;
+    namo_get_user_data_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        namo_path_join(dir, sizeof(dir), dir, "colorscheme");
+        if (try_load_scheme_from_dir(dir, name)) return;
     }
 
-    /* Try .ini */
-    snprintf(file_name, sizeof(file_name), "%s.ini", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    
-    if (nanox_file_exists(path)) {
-        load_scheme_file(path);
-        mystrscpy(current_scheme_name, name, MAX_NAME);
-        return;
-    }
+    if (try_load_scheme_from_dir("configs/namo/colorscheme", name)) return;
+    if (try_load_scheme_from_dir("colorscheme", name)) return;
 }
 
 HighlightStyle colorscheme_get(HighlightStyleID id) {

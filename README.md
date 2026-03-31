@@ -1,6 +1,6 @@
 # namo
 
-![Demo Video](./nanox.gif)
+![Demo Video](./namo.gif)
 
 **Bring function keys back to functions**
 
@@ -13,11 +13,11 @@ nmo
 ```
 *A terminal editor designed around two hands, physical keys, and explicit intent.*
 
-Nanox(/na.noks/) is a modern, minimalistic, feature-rich fork of **uEmacs/PK** that brings the intuitive user experience of `nano` to the professional power of `MicroEmacs`. It's designed to be ultra-fast, lightweight, and fully UTF-8 aware, making it the perfect choice for terminal-based editing on any system.
+Namo(/na.noks/) is a modern, minimalistic, feature-rich fork of **uEmacs/PK** that brings the intuitive user experience of `nano` to the professional power of `MicroEmacs`. It's designed to be ultra-fast, lightweight, and fully UTF-8 aware, making it the perfect choice for terminal-based editing on any system.
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](#)
 [![License](https://img.shields.io/badge/license-Custom-blue)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/gg582/nanox?style=social)](https://github.com/gg582/nanox)
+[![Stars](https://img.shields.io/github/stars/gg582/namo?style=social)](https://github.com/gg582/namo)
 ![Hangeul Ready](https://img.shields.io/badge/Hangeul-UTF--8%20Ready-red)
 
 ---
@@ -39,13 +39,13 @@ We’ve ditched complex semantic analysis for **lean, rule-based logic** that fo
 * **Minimal Overhead:** By avoiding AST generation, the editor maintains a microscopic memory footprint while providing the essential "smart" feel of a modern IDE.
 
 ### 3. [NEW] Atomic UTF-8 Minibuffer Window
-Unlike other `uEmacs` forks that suffer from broken CJK input in the message line, Nanox features a robust **Minibuffer Window System**:
+Unlike other `uEmacs` forks that suffer from broken CJK input in the message line, Namo features a robust **Minibuffer Window System**:
 * **No More Latin-1 Ghosts:** Uses a dedicated 8-bit masked output pipeline (`TTputc & 0xFF`) to stop sign-extension artifacts.
 * **Perfect CJK Sync:** Integrated with `mystrnlen_raw_w` for precise cursor positioning on double-width Korean/Chinese/Japanese characters.
 * **Race-Condition Free:** Implements an atomic "Gate Buffer" logic for ISearch and Replace, ensuring your terminal never "beeps" due to incomplete UTF-8 fragments.
 
 ### 4. [NEW] Markdown & HTML Rich Text Rendering
-Nanox brings **visual formatting** to Markdown and HTML files directly in the terminal:
+Namo brings **visual formatting** to Markdown and HTML files directly in the terminal:
 
 * **Bold Text:** `**text**` or `__text__` is rendered with bold styling
 * **Italic Text:** `*text*` or `_text_` is rendered with distinctive highlighting
@@ -54,7 +54,7 @@ Nanox brings **visual formatting** to Markdown and HTML files directly in the te
 * All formatting is purely visual and preserves the raw markup in the file
 
 ### 5. [NEW] Live Color Code Preview
-For developers working with colors, Nanox provides **inline color preview boxes**:
+For developers working with colors, Namo provides **inline color preview boxes**:
 
 * **Hex Colors:** `#RGB` and `#RRGGBB` formats are detected and previewed
 * **RGB/RGBA:** `rgb(r, g, b)` and `rgba(r, g, b, a)` show color boxes
@@ -98,7 +98,7 @@ For long lines that extend beyond the terminal width:
 
 ### Classic Emacs Bindings
 
-For users coming from a traditional Emacs background, Nanox maintains compatibility with several core MicroEmacs shortcuts:
+For users coming from a traditional Emacs background, Namo maintains compatibility with several core MicroEmacs shortcuts:
 
 | Key | Action | Key | Action |
 | :--- | :--- | :--- | :--- |
@@ -114,7 +114,7 @@ For users coming from a traditional Emacs background, Nanox maintains compatibil
 
 ## Installation & Build
 
-Nanox is written in C and has minimal dependencies.
+Namo is written in C and has minimal dependencies.
 
 ### Prerequisites
 - A C compiler (GCC/Clang)
@@ -161,7 +161,7 @@ Set `use_lsp=true` to enable extra completion sources when a language server bin
 
 ### Syntax Highlighting Profiles
 
-Nanox now ships with first-class syntax rules for **32 widely used languages** (C/C++, Python, Ruby, Rust, Go, Java/Kotlin/Scala, JavaScript/TypeScript, SQL, HTML/CSS/JSON/YAML, etc.). These definitions live in `syntax.ini` and cover accurate flow/type/keyword lists plus bracket, triple-quote, and numeric highlighting where languages support them.
+Namo now ships with first-class syntax rules for **32 widely used languages** (C/C++, Python, Ruby, Rust, Go, Java/Kotlin/Scala, JavaScript/TypeScript, SQL, HTML/CSS/JSON/YAML, etc.). These definitions live in `syntax.ini` and cover accurate flow/type/keyword lists plus bracket, triple-quote, and numeric highlighting where languages support them.
 
 You can extend or override the built-ins without recompiling:
 
@@ -195,13 +195,13 @@ Bundled themes now include additional popular and classic presets such as:
 
 ## Help & Documentation
 
-Press **F1** inside the editor to open the interactive Nanox help system. You can browse keybindings, configuration options, and deep-dive into the MicroEmacs manual by pressing **Enter** on any function name.
+Press **F1** inside the editor to open the interactive Namo help system. You can browse keybindings, configuration options, and deep-dive into the MicroEmacs manual by pressing **Enter** on any function name.
 
 ---
 
 ## History
 
-Nanox is based on **uEmacs/PK 4.0**, which itself is an enhanced version of **MicroEMACS 3.9e** (written by Dave G. Conroy and Daniel M. Lawrence). This version carries forward the tradition of extreme portability and efficiency while adding modern terminal capabilities.
+Namo is based on **uEmacs/PK 4.0**, which itself is an enhanced version of **MicroEMACS 3.9e** (written by Dave G. Conroy and Daniel M. Lawrence). This version carries forward the tradition of extreme portability and efficiency while adding modern terminal capabilities.
 
 ---
 

@@ -168,7 +168,7 @@ int zotbuf(struct buffer *bp)
     else
         bp1->b_bufp = bp2;
     free((char *)bp);           /* Release buffer block */
-    nanox_handle_closed_file(closed_fname);
+    namo_handle_closed_file(closed_fname);
     return TRUE;
 }
 

@@ -37,12 +37,12 @@ LINK_NAME=nmo
 
 SRC=    basic.c bind.c buffer.c colorscheme.c command_mode.c completion.c cutln.c display.c eval.c exec.c file.c \
         fileio.c highlight.c input.c isearch.c line.c lock.c globals.c main.c \
-        names.c nanox.c paste_slot.c pklock.c platform.c posix.c random.c region.c search.c \
+        names.c namo.c paste_slot.c pklock.c platform.c posix.c random.c region.c search.c \
         spawn.c tcap.c usage.c utf8.c version.c window.c word.c wrapper.c cscope.c term_wrapper.c
 
 OBJ=    basic.o bind.o buffer.o colorscheme.o command_mode.o completion.o cutln.o display.o eval.o exec.o file.o \
         fileio.o highlight.o input.o isearch.o line.o lock.o globals.o main.o \
-        names.o nanox.o paste_slot.o pklock.o platform.o posix.o random.o region.o search.o \
+        names.o namo.o paste_slot.o pklock.o platform.o posix.o random.o region.o search.o \
         spawn.o tcap.o usage.o utf8.o version.o window.o word.o wrapper.o cscope.o term_wrapper.o
 
 ifeq ($(USE_NCURSES),1)
@@ -52,7 +52,7 @@ ifeq ($(USE_NCURSES),1)
 endif
 
 HDR=    command_mode.h completion.h ebind.h edef.h efunc.h epath.h estruct.h evar.h line.h paste_slot.h usage.h \
-        utf8.h util.h version.h wrapper.h nanox.h
+        utf8.h util.h version.h wrapper.h namo.h
 
 # DO NOT ADD OR MODIFY ANY LINES ABOVE THIS -- make source creates them
 
@@ -304,7 +304,7 @@ version.o: version.c version.h
 usage.o: usage.c usage.h
 wrapper.o: wrapper.c usage.h
 utf8.o: utf8.c utf8.h
-nanox.o: nanox.c nanox.h estruct.h edef.h efunc.h line.h util.h version.h
+namo.o: namo.c namo.h estruct.h edef.h efunc.h line.h util.h version.h
 
 # DEPENDENCIES MUST END AT END OF FILE
 # IF YOU PUT STUFF HERE IT WILL GO AWAY

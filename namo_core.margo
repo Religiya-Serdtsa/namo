@@ -1,0 +1,75 @@
+@import std/io
+@import std/mem
+@import std/stdlib
+@import "estruct.margo"
+@import "globals.margo"
+@import "line.margo"
+@import "util.margo"
+@import "platform.margo"
+
+namo_config namo_cfg = {
+    true, true, "--W", "--E", SPEC | (int)'P', "en",
+    false, 8, false, true, false, false, false
+}
+
+char file_reserve[64][4096] // NAMO_SLOT_MAX, PATH_MAX
+bool should_redraw_underbar = false
+static int lamp_state = (int)NAMO_LAMP_OFF
+
+fn void namo_request_underbar_redraw() {
+    should_redraw_underbar = true
+}
+
+fn void namo_init() {
+    // Basic init
+}
+
+fn void namo_apply_config() {
+    // Apply config logic
+}
+
+fn void namo_set_lamp(int state) {
+    lamp_state = state
+}
+
+fn int namo_current_lamp() {
+    return lamp_state
+}
+
+fn string namo_lamp_label() {
+    if lamp_state == (int)NAMO_LAMP_WARN return (string)namo_cfg.warning_format
+    if lamp_state == (int)NAMO_LAMP_ERROR return (string)namo_cfg.error_format
+    return ""
+}
+
+fn int namo_text_rows() {
+    auto rows = (int)term->t_nrow
+    if namo_cfg.hint_bar rows -= 2
+    return rows
+}
+
+fn int namo_text_cols() {
+    auto cols = (int)term->t_ncol
+    if (namo_cfg.nonr == 0) cols -= 6
+    return cols
+}
+
+fn int namo_hint_top_row() {
+    return (int)term->t_nrow - 1
+}
+
+fn int namo_hint_bottom_row() {
+    return (int)term->t_nrow
+}
+
+fn void namo_notify_message(string text) {
+    mlwrite(text)
+}
+
+fn void namo_handle_closed_file(string path) {
+    // Handle closed file logic
+}
+
+fn void namo_cleanup() {
+    // Cleanup logic
+}

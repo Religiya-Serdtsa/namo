@@ -15,7 +15,7 @@
 #include "line.h"
 #include "utf8.h"
 #include "util.h"
-#include "nanox.h"
+#include "namo.h"
 #include "completion.h"
 
 int tabsize;                    /* Tab size (0: use real tabs) */
@@ -59,7 +59,7 @@ static void set_indent(int target) {
     }
 
     if (target > 0) {
-        if (nanox_cfg.soft_tab) {
+        if (namo_cfg.soft_tab) {
             int i;
             for (i = 0; i < target; ++i)
                 linsert(1, ' ');
@@ -584,7 +584,7 @@ int insert_tab(int f, int n)
 
     /* Prefer completion when cursor is on a symbol/path prefix.
      * This enables TAB -> open candidates, TAB again -> focus list. */
-    if (n == 1 && nanox_cfg.autocomplete) {
+    if (n == 1 && namo_cfg.autocomplete) {
         int completion_handled = completion_try_at_cursor();
         if (completion_handled)
             return TRUE; /* candidates exist: open/drive completion UI */
@@ -918,7 +918,7 @@ int cinsert(void)
     /* and one level of indentation for an open brace or preprocessor block */
     if (bracef || ppf) {
         int step = (curbp->b_tabsize ? curbp->b_tabsize : (tab_width + 1));
-        if (step == 8 && !nanox_cfg.soft_tab) linsert(1, '\t');
+        if (step == 8 && !namo_cfg.soft_tab) linsert(1, '\t');
         else {
             for (int i = 0; i < step; i++) linsert(1, ' ');
         }

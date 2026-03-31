@@ -21,7 +21,7 @@
 #include "util.h"
 #include "utf8.h"
 #include "scraper.h"
-#include "nanox.h"
+#include "namo.h"
 
 completion_state_t completion_state;
 typedef struct {
@@ -1770,7 +1770,7 @@ typedef struct {
 
 static int completion_should_use_lsp(void)
 {
-    if (!nanox_cfg.autocomplete || !nanox_cfg.use_lsp || !curbp || !curbp->b_fname[0])
+    if (!namo_cfg.autocomplete || !namo_cfg.use_lsp || !curbp || !curbp->b_fname[0])
         return FALSE;
     static const lsp_dep_entry_t deps[] = {
         { ".c", "clangd" }, { ".h", "clangd" }, { ".cpp", "clangd" }, { ".hpp", "clangd" },
@@ -1962,7 +1962,7 @@ void completion_init(void)
 
 void completion_update(const char *prefix, completion_context_t ctx)
 {
-    if (!nanox_cfg.autocomplete) {
+    if (!namo_cfg.autocomplete) {
         completion_reset_state();
         return;
     }
@@ -2507,7 +2507,7 @@ static void completion_draw_popup_box(void)
 
 int completion_try_at_cursor(void)
 {
-    if (!nanox_cfg.autocomplete)
+    if (!namo_cfg.autocomplete)
         return FALSE;
 
     char prefix[MAX_COMPLETION_LEN];

@@ -1,5 +1,5 @@
 #!/bin/bash
-# RHEL/CentOS/Alma/Rocky Build Dependency Installer for nanox (Updated for 2026)
+# RHEL/CentOS/Alma/Rocky Build Dependency Installer for namo (Updated for 2026)
 
 set -e
 

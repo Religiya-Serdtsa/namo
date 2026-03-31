@@ -42,7 +42,7 @@ struct key_tab keytab[NBINDS] = {
     { CONTROL | 'V', command_mode_activate_command }, /* Ctrl+V: Command Mode */
 
     /* SYSTEM */
-    { SPEC | 'P', nanox_help_command },  /* F1 */
+    { SPEC | 'P', namo_help_command },  /* F1 */
 
     /* FILE CONTROL */
     { SPEC | 'Q', filesave },            /* F2 */
@@ -55,8 +55,8 @@ struct key_tab keytab[NBINDS] = {
     { CONTROL | 'Q', quit },
 
     /* DATA EXPLORATION & SEARCH */
-    { SPEC | 'U', nanox_search_engine },  /* F5 */
-    { CONTROL | 'F', nanox_search_engine },
+    { SPEC | 'U', namo_search_engine },  /* F5 */
+    { CONTROL | 'F', namo_search_engine },
     { CONTROL | 'R', sed_replace_command },
 
     /* DATA DELETION & COPY (CUT/COPY) */

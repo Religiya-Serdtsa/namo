@@ -1,6 +1,6 @@
 # Syntax Highlighting Engine
 
-Nanox features a flexible, rule-based syntax highlighting engine implemented in `highlight.c`.
+Namo features a flexible, rule-based syntax highlighting engine implemented in `highlight.c`.
 
 ## 1. The Highlighting Pipeline
 Highlighting happens per-line during the display pass:
@@ -24,12 +24,12 @@ The engine loads rules from `.ini` files. Key categories include:
 - **Implicit States**: Simple states like "Inside Double Quotes" are handled within the line, while "Inside Block Comment" is persisted across lines via the `line` structure's `hl_start_state` field.
 
 ## 5. Adding a New Language
-1. Create a `.ini` file in `configs/nanox/langs/`.
+1. Create a `.ini` file in `configs/namo/langs/`.
 2. Define `extensions = .ext` for normal extension-based detection, and optionally `file_matches = ^regex$` for basename regexes (POSIX extended, case-insensitive) when extensions aren't sufficient (e.g., `Makefile`).
 3. Define keyword lists and comment pairs.
-4. Nanox will automatically detect and load it on the next startup or file load.
+4. Namo will automatically detect and load it on the next startup or file load.
 
 ## 6. Markdown fenced code language aliases
-- Markdown fenced code blocks (` ```lang `) now validate `lang` using `configs/nanox/markdown_lang_map.ini`.
-- The mapping file is `n:1` (`standard_name = nanox_profile_name`).
-- When a mapping is valid, lines inside the fence are highlighted with the mapped Nanox profile until the closing fence.
+- Markdown fenced code blocks (` ```lang `) now validate `lang` using `configs/namo/markdown_lang_map.ini`.
+- The mapping file is `n:1` (`standard_name = namo_profile_name`).
+- When a mapping is valid, lines inside the fence are highlighted with the mapped Namo profile until the closing fence.

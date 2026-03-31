@@ -1,6 +1,6 @@
 # Language Support Matrix
 
-Nanox now ships with **118 built-in syntax profiles**. Each profile defines comment delimiters, flow/type/keyword sets, and highlighting toggles for triple quotes, brackets, and numerics. All built-ins are loaded from `syntax.ini`, and you can add more via the per-user `langs/` directory.
+Namo now ships with **118 built-in syntax profiles**. Each profile defines comment delimiters, flow/type/keyword sets, and highlighting toggles for triple quotes, brackets, and numerics. All built-ins are loaded from `syntax.ini`, and you can add more via the per-user `langs/` directory.
 
 Profiles marked **regex** use `file_matches` (filename regex) instead of extension matching — these cover files like `Makefile`, `CMakeLists.txt`, `Dockerfile`, and systemd units that have no conventional extension.
 
@@ -128,9 +128,9 @@ Profiles marked **regex** use `file_matches` (filename regex) instead of extensi
 
 ## Extending Beyond Built-in Languages
 
-Place additional `.ini` files under `~/.config/nanox/langs` (or `~/.local/share/nanox/langs`). Every file can define one or more `[language]` sections using the same keys as the core profiles. Nanox merges these after loading the defaults, so you can override a bundled language or add niche languages such as Ada, COBOL, Erlang, Elixir, or Fortran.
+Place additional `.ini` files under `~/.config/namo/langs` (or `~/.local/share/namo/langs`). Every file can define one or more `[language]` sections using the same keys as the core profiles. Namo merges these after loading the defaults, so you can override a bundled language or add niche languages such as Ada, COBOL, Erlang, Elixir, or Fortran.
 
-Example (`~/.config/nanox/langs/erlang.ini`):
+Example (`~/.config/namo/langs/erlang.ini`):
 
 ```ini
 [erlang]
@@ -142,4 +142,4 @@ keywords = module,export,import,record,when,spawn,let,apply
 return_keywords = return
 ```
 
-Reference profiles for Ada, COBOL, Elixir, Erlang, and Fortran ship under `configs/nanox/langs` to serve as templates.
+Reference profiles for Ada, COBOL, Elixir, Erlang, and Fortran ship under `configs/namo/langs` to serve as templates.

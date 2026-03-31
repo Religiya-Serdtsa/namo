@@ -1,6 +1,6 @@
 /*  ncurses.c
  *
- *  ncurses video driver for Nanox
+ *  ncurses video driver for Namo
  */
 
 #define _XOPEN_SOURCE_EXTENDED 1

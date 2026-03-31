@@ -37,7 +37,7 @@ static CompiledFileMatch profile_file_matches[MAX_PROFILES][MAX_FILE_MATCHES];
 
 typedef struct {
     char standard[MAX_TOKEN_LEN];
-    char nanox[MAX_TOKEN_LEN];
+    char namo[MAX_TOKEN_LEN];
 } MarkdownLangAlias;
 
 static MarkdownLangAlias markdown_lang_aliases[MAX_MD_LANG_ALIASES];
@@ -92,7 +92,7 @@ static bool compile_profile_file_match(int profile_index, int slot, const char *
     if (ret != 0) {
         char errbuf[128];
         regerror(ret, &entry->regex, errbuf, sizeof(errbuf));
-        fprintf(stderr, "nanox: invalid file_matches regex '%s' for profile '%s': %s\n",
+        fprintf(stderr, "namo: invalid file_matches regex '%s' for profile '%s': %s\n",
                 pattern, profile_name ? profile_name : "(unknown)", errbuf);
         entry->compiled = false;
         return false;
@@ -356,7 +356,7 @@ static bool load_lang_dir(const char *dir)
         if (!ext || strcasecmp(ext + 1, "ini") != 0)
             continue;
         char path[PATH_MAX];
-        nanox_path_join(path, sizeof(path), dir, data.cFileName);
+        namo_path_join(path, sizeof(path), dir, data.cFileName);
         if (load_config_file(path, false))
             loaded = true;
     } while (FindNextFileA(handle, &data));
@@ -373,7 +373,7 @@ static bool load_lang_dir(const char *dir)
         if (!ext || strcasecmp(ext + 1, "ini") != 0)
             continue;
         char path[PATH_MAX];
-        nanox_path_join(path, sizeof(path), dir, entry->d_name);
+        namo_path_join(path, sizeof(path), dir, entry->d_name);
         if (!path[0])
             continue;
         if (load_config_file(path, false))
@@ -384,14 +384,14 @@ static bool load_lang_dir(const char *dir)
     return loaded;
 }
 
-static bool add_markdown_lang_alias(const char *standard, const char *nanox)
+static bool add_markdown_lang_alias(const char *standard, const char *namo)
 {
-    if (!standard || !*standard || !nanox || !*nanox)
+    if (!standard || !*standard || !namo || !*namo)
         return false;
 
     for (int i = 0; i < markdown_lang_alias_count; i++) {
         if (strcasecmp(markdown_lang_aliases[i].standard, standard) == 0) {
-            mystrscpy(markdown_lang_aliases[i].nanox, nanox, sizeof(markdown_lang_aliases[i].nanox));
+            mystrscpy(markdown_lang_aliases[i].namo, namo, sizeof(markdown_lang_aliases[i].namo));
             return true;
         }
     }
@@ -401,8 +401,8 @@ static bool add_markdown_lang_alias(const char *standard, const char *nanox)
 
     mystrscpy(markdown_lang_aliases[markdown_lang_alias_count].standard, standard,
               sizeof(markdown_lang_aliases[markdown_lang_alias_count].standard));
-    mystrscpy(markdown_lang_aliases[markdown_lang_alias_count].nanox, nanox,
-              sizeof(markdown_lang_aliases[markdown_lang_alias_count].nanox));
+    mystrscpy(markdown_lang_aliases[markdown_lang_alias_count].namo, namo,
+              sizeof(markdown_lang_aliases[markdown_lang_alias_count].namo));
     markdown_lang_alias_count++;
     return true;
 }
@@ -442,8 +442,8 @@ static bool load_markdown_lang_alias_file(const char *path)
             continue;
         *eq = 0;
         char *standard = trim(p);
-        char *nanox = trim(eq + 1);
-        if (add_markdown_lang_alias(standard, nanox))
+        char *namo = trim(eq + 1);
+        if (add_markdown_lang_alias(standard, namo))
             loaded = true;
     }
 
@@ -468,20 +468,20 @@ static void load_markdown_lang_aliases(const char *rule_config_path)
 #endif
         if (sep) {
             *sep = 0;
-            nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+            namo_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
             load_markdown_lang_alias_file(alias_path);
         }
     }
 
-    nanox_get_user_config_dir(dir, sizeof(dir));
+    namo_get_user_config_dir(dir, sizeof(dir));
     if (dir[0]) {
-        nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+        namo_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
         load_markdown_lang_alias_file(alias_path);
     }
 
-    nanox_get_user_data_dir(dir, sizeof(dir));
+    namo_get_user_data_dir(dir, sizeof(dir));
     if (dir[0]) {
-        nanox_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
+        namo_path_join(alias_path, sizeof(alias_path), dir, "markdown_lang_map.ini");
         load_markdown_lang_alias_file(alias_path);
     }
 
@@ -495,7 +495,7 @@ static int resolve_markdown_fence_profile_index(const char *standard_name)
 
     for (int i = 0; i < markdown_lang_alias_count; i++) {
         if (strcasecmp(markdown_lang_aliases[i].standard, standard_name) == 0)
-            return profile_index_by_name(markdown_lang_aliases[i].nanox);
+            return profile_index_by_name(markdown_lang_aliases[i].namo);
     }
 
     return -1;
@@ -519,7 +519,7 @@ static bool load_external_langs(const char *rule_config_path)
 #endif
         if (sep) {
             *sep = 0;
-            nanox_path_join(lang_path, sizeof(lang_path), base, "langs");
+            namo_path_join(lang_path, sizeof(lang_path), base, "langs");
             if (lang_path[0]) {
                 loaded |= load_lang_dir(lang_path);
                 if (strcmp(lang_path, "configs/namo/langs") == 0)
@@ -528,15 +528,15 @@ static bool load_external_langs(const char *rule_config_path)
         }
     }
 
-    nanox_get_user_config_dir(dir, sizeof(dir));
+    namo_get_user_config_dir(dir, sizeof(dir));
     if (dir[0]) {
-        nanox_path_join(lang_path, sizeof(lang_path), dir, "langs");
+        namo_path_join(lang_path, sizeof(lang_path), dir, "langs");
         loaded |= load_lang_dir(lang_path);
     }
 
-    nanox_get_user_data_dir(dir, sizeof(dir));
+    namo_get_user_data_dir(dir, sizeof(dir));
     if (dir[0]) {
-        nanox_path_join(lang_path, sizeof(lang_path), dir, "langs");
+        namo_path_join(lang_path, sizeof(lang_path), dir, "langs");
         loaded |= load_lang_dir(lang_path);
     }
 
@@ -712,6 +712,12 @@ static bool is_html_profile(const HighlightProfile *profile)
 {
     if (!profile) return false;
     return (strcasecmp(profile->name, "html") == 0);
+}
+
+static bool is_margo_profile(const HighlightProfile *profile)
+{
+    if (!profile) return false;
+    return (strcasecmp(profile->name, "margo") == 0);
 }
 
 static bool profile_supports_at_annotations(const HighlightProfile *profile)
@@ -985,6 +991,7 @@ static bool push_block_comment(HighlightState *state, int idx)
         return false;
     state->stack[state->depth].state = HS_BLOCK_COMMENT;
     state->stack[state->depth].sub_id = idx;
+    state->stack[state->depth].aux = 0;
     state->stack[state->depth].string_delim = 0;
     state->depth++;
     return true;
@@ -998,9 +1005,92 @@ static bool push_string_state(HighlightState *state, bool triple, char delim)
         return false;
     state->stack[state->depth].state = triple ? HS_TRIPLE_STRING : HS_STRING;
     state->stack[state->depth].sub_id = 0;
+    state->stack[state->depth].aux = 0;
     state->stack[state->depth].string_delim = delim;
     state->depth++;
     return true;
+}
+
+static bool push_style_block(HighlightState *state, int profile_index)
+{
+    if (!state)
+        return false;
+    if (state->depth >= HL_STATE_STACK_MAX)
+        return false;
+    state->stack[state->depth].state = HS_STYLE_BLOCK;
+    state->stack[state->depth].sub_id = profile_index;
+    state->stack[state->depth].aux = 1; /* account for the opening '{' */
+    state->stack[state->depth].string_delim = 0;
+    state->depth++;
+    return true;
+}
+
+static int adjust_style_brace_depth(const char *text, int len, int depth)
+{
+    bool in_block_comment = false;
+    bool in_line_comment = false;
+    bool in_string = false;
+    bool in_char = false;
+    bool string_escape = false;
+    bool char_escape = false;
+
+    for (int i = 0; i < len; i++) {
+        char c = text[i];
+        char next = (i + 1 < len) ? text[i + 1] : 0;
+
+        if (in_line_comment) {
+            break;
+        }
+        if (in_block_comment) {
+            if (c == '*' && next == '/') {
+                in_block_comment = false;
+                i++;
+            }
+            continue;
+        }
+        if (in_string) {
+            if (!string_escape && c == '"')
+                in_string = false;
+            string_escape = (!string_escape && c == '\\');
+            continue;
+        }
+        if (in_char) {
+            if (!char_escape && c == '\'')
+                in_char = false;
+            char_escape = (!char_escape && c == '\\');
+            continue;
+        }
+
+        if (c == '/' && next == '*') {
+            in_block_comment = true;
+            i++;
+            continue;
+        }
+        if (c == '/' && next == '/') {
+            in_line_comment = true;
+            continue;
+        }
+        if (c == '"') {
+            in_string = true;
+            string_escape = false;
+            continue;
+        }
+        if (c == '\'') {
+            in_char = true;
+            char_escape = false;
+            continue;
+        }
+        if (c == '{') {
+            depth++;
+            continue;
+        }
+        if (c == '}') {
+            if (depth > 0)
+                depth--;
+            continue;
+        }
+    }
+    return depth;
 }
 
 void highlight_line(const char *text, int len, HighlightState start, const HighlightProfile *profile, SpanVec *out, HighlightState *end)
@@ -1022,6 +1112,7 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
     /* Check for markdown or HTML for special handling */
     bool is_md = is_markdown_profile(profile);
     bool is_html = is_html_profile(profile);
+    bool is_margo = is_margo_profile(profile);
     
     /* If no profile, still process color codes for all files */
     if (!profile) {
@@ -1044,6 +1135,26 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
 
     HighlightState state = start;
     normalize_state(&state);
+
+    if (current_state(&state) == HS_STYLE_BLOCK) {
+        HighlightStackEntry *frame = state_top(&state);
+        if (frame && frame->sub_id >= 0 && frame->sub_id < profile_count) {
+            HighlightState inner_end = {0};
+            highlight_line(text, len, (HighlightState){0}, &profiles[frame->sub_id], out, &inner_end);
+        } else if (out) {
+            add_span(out, 0, len, HL_NORMAL);
+        }
+
+        if (frame) {
+            frame->aux = adjust_style_brace_depth(text, len, frame->aux);
+            if (frame->aux <= 0)
+                pop_state(&state);
+        } else {
+            pop_state(&state);
+        }
+        *end = state;
+        return;
+    }
 
     if (is_md && current_state(&state) == HS_MD_FENCE) {
         int first_non_ws = 0;
@@ -1149,6 +1260,7 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
                     if (state.depth < HL_STATE_STACK_MAX) {
                         state.stack[state.depth].state = HS_MD_FENCE;
                         state.stack[state.depth].sub_id = mapped_profile;
+                        state.stack[state.depth].aux = 0;
                         state.stack[state.depth].string_delim = 0;
                         state.depth++;
                     }
@@ -1241,6 +1353,47 @@ void highlight_line(const char *text, int len, HighlightState start, const Highl
                     }
                     if (pos == search + 4) continue;
                 }
+            }
+
+            /* 0f. Margo @style blocks */
+            if (is_margo && text[pos] == '@' && starts_with(text + pos, "@style")) {
+                int start_pos = pos;
+                int p = pos + 6;
+                while (p < len && isspace((unsigned char)text[p]))
+                    p++;
+
+                int lang_start = p;
+                while (p < len && (isalnum((unsigned char)text[p]) || text[p] == '_' || text[p] == '-'))
+                    p++;
+                int lang_end = p;
+
+                while (p < len && isspace((unsigned char)text[p]))
+                    p++;
+
+                bool has_brace = (p < len && text[p] == '{');
+                if (out) {
+                    int span_end = has_brace ? p + 1 : p;
+                    if (span_end > start_pos)
+                        add_span(out, start_pos, span_end, HL_PREPROC);
+                }
+
+                if (has_brace) {
+                    int lang_index = -1;
+                    if (lang_end > lang_start) {
+                        int lang_len = lang_end - lang_start;
+                        if (lang_len >= MAX_TOKEN_LEN)
+                            lang_len = MAX_TOKEN_LEN - 1;
+                        char lang_name[MAX_TOKEN_LEN];
+                        memcpy(lang_name, text + lang_start, lang_len);
+                        lang_name[lang_len] = 0;
+                        lang_index = profile_index_by_name(lang_name);
+                    }
+                    push_style_block(&state, lang_index);
+                    pos = p + 1;
+                } else {
+                    pos = p;
+                }
+                continue;
             }
 
             /* 1. Check Block Comments */

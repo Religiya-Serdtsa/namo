@@ -174,8 +174,8 @@ int filter_buffer(int f, int n)
     struct buffer *bp;          /* pointer to buffer to zot */
     char line[NLINE];           /* command line send to shell */
     char tmpnam[NFILEN];            /* place to store real file name */
-    char filnam1[] = "/tmp/nanox_fltinp_XXXXXX";
-    char filnam2[] = "/tmp/nanox_fltout_XXXXXX";
+    char filnam1[] = "/tmp/namo_fltinp_XXXXXX";
+    char filnam2[] = "/tmp/namo_fltout_XXXXXX";
     int fd;
 
     /* don't allow this command if restricted */

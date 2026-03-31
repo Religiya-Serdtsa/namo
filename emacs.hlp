@@ -1,10 +1,10 @@
 ===============================================================================
-=>                      NANOX SYSTEM BINDINGS & SEARCH SPEC
+=>                      NAMO SYSTEM BINDINGS & SEARCH SPEC
 -------------------------------------------------------------------------------
 FILE & SLOT CONTROL     EDITING & SEARCH        INDENT / OUTDENT
 F2 / ^S : Save File     ^K : Cut Current Line   ^J / ^H : Start Range
 F3 / ^O : Open File     F7 / ^X : Cut(S:End)    ^S+J / ^S+H : End Range
-F4 / ^Q : Quit nanox    F6 / ^W : Copy(S:End)   gg : Apply Range
+F4 / ^Q : Quit namo    F6 / ^W : Copy(S:End)   gg : Apply Range
 F1 / ^H : Help Menu     ^V : Command Mode       BS : Cancel Range
 F9-F12 : File Slots     F8/^Y : Paste           ------------------
 ===============================================================================
@@ -29,7 +29,7 @@ F9-F12 : File Slots     F8/^Y : Paste           ------------------
   the first queued file opens through the F9 slot. When a slotted file is closed, the next
   queued file fills that empty slot.
 * In tty mode the line-number gutter uses a Unicode separator (│).
-* If nanox config sets no_function_slot = true, the bottom bar switches from F9-12 Slot
+* If namo config sets no_function_slot = true, the bottom bar switches from F9-12 Slot
   to ^A+num Slot, slot access switches to Ctrl+Alt+number mode, and the slot pool expands
   to 64 entries instead of staying limited to F9-F12.
 * ^S+J: Ctrl+Shift+J, ^S+H: Ctrl+Shift+H (End Range)

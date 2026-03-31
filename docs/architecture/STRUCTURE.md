@@ -1,6 +1,6 @@
 # Codebase Structure
 
-This document provides a comprehensive mapping of files in the Nanox project and their specific responsibilities.
+This document provides a comprehensive mapping of files in the Namo project and their specific responsibilities.
 
 ## Core System
 - **`main.c`**: The engine's heart. Contains the main event loop, command-line argument parsing, and top-level key dispatch.
@@ -17,7 +17,7 @@ This document provides a comprehensive mapping of files in the Nanox project and
 
 ## Rendering & Visuals
 - **`display.c`**: The rendering engine. Implements the "Virtual Screen" logic and incremental updates.
-- **`nanox.c`**: Implements the Nano-style UI enhancements, including the hint bar and status indicators.
+- **`namo.c`**: Implements the Nano-style UI enhancements, including the hint bar and status indicators.
 - **`highlight.c`**: The Syntax Highlighting engine. Parses rules and applies styles to text spans.
 - **`colorscheme.c`**: Manages themes and maps style IDs to ANSI or TrueColor escape sequences.
 

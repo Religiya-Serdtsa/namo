@@ -17,11 +17,11 @@
 #define PATH_SEP_STR "/"
 #endif
 
-const char *nanox_getenv(const char *name) {
+const char *namo_getenv(const char *name) {
     return getenv(name);
 }
 
-void nanox_get_user_data_dir(char *out, size_t cap) {
+void namo_get_user_data_dir(char *out, size_t cap) {
 #ifdef USE_WINDOWS
     const char *local_app_data = getenv("LOCALAPPDATA");
     if (local_app_data) {
@@ -58,9 +58,9 @@ void nanox_get_user_data_dir(char *out, size_t cap) {
 #endif
 }
 
-void nanox_get_user_config_dir(char *out, size_t cap) {
+void namo_get_user_config_dir(char *out, size_t cap) {
 #ifdef USE_WINDOWS
-    nanox_get_user_data_dir(out, cap); /* Same for Windows usually */
+    namo_get_user_data_dir(out, cap); /* Same for Windows usually */
 #else
     const char *xdg_config = getenv("XDG_CONFIG_HOME");
     if (xdg_config && *xdg_config) {
@@ -80,7 +80,7 @@ void nanox_get_user_config_dir(char *out, size_t cap) {
 #endif
 }
 
-void nanox_path_join(char *out, size_t cap, const char *a, const char *b) {
+void namo_path_join(char *out, size_t cap, const char *a, const char *b) {
     size_t len_a = strlen(a);
     size_t len_b = strlen(b);
     
@@ -107,12 +107,12 @@ void nanox_path_join(char *out, size_t cap, const char *a, const char *b) {
     }
 }
 
-bool nanox_file_exists(const char *path) {
+bool namo_file_exists(const char *path) {
     struct stat st;
     return stat(path, &st) == 0;
 }
 
-void nanox_normalize_path(char *path) {
+void namo_normalize_path(char *path) {
     if (!path) return;
     for (char *p = path; *p; p++) {
 #ifdef USE_WINDOWS

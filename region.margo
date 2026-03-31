@@ -4,7 +4,7 @@
 @import "globals.margo"
 @import "line.margo"
 
-fn static int nanox_resolve_region(weird(region, 1) rp) {
+fn static int namo_resolve_region(weird(region, 1) rp) {
     if curwp->w_markp == null {
         mlwrite("No mark set in this window")
         return FALSE
@@ -12,12 +12,12 @@ fn static int nanox_resolve_region(weird(region, 1) rp) {
     return getregion(rp)
 }
 
-fn static void nanox_prime_kill_buffer() {
+fn static void namo_prime_kill_buffer() {
     if (lastflag & CFKILL) == 0 kdelete()
     thisflag |= CFKILL
 }
 
-fn static int nanox_copy_region_to_kill(weird(region, 1) rp) {
+fn static int namo_copy_region_to_kill(weird(region, 1) rp) {
     auto linep = rp->r_linep
     auto loffs = rp->r_offset
     auto remaining = rp->r_size
@@ -35,12 +35,12 @@ fn static int nanox_copy_region_to_kill(weird(region, 1) rp) {
     return TRUE
 }
 
-fn int kill_region_nanox(int f, int n) {
+fn int kill_region_namo(int f, int n) {
     region r
     if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if nanox_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
-    nanox_prime_kill_buffer()
-    if nanox_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
+    if namo_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
+    namo_prime_kill_buffer()
+    if namo_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
     curwp->w_dotp = r.r_linep
     curwp->w_doto = r.r_offset
     if ldelete(r.r_size, FALSE) != TRUE return FALSE
@@ -49,20 +49,20 @@ fn int kill_region_nanox(int f, int n) {
 }
 
 fn int killregion(int f, int n) {
-    return kill_region_nanox(f, n)
+    return kill_region_namo(f, n)
 }
 
-fn int copy_region_nanox(int f, int n) {
+fn int copy_region_namo(int f, int n) {
     region r
-    if nanox_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
-    nanox_prime_kill_buffer()
-    if nanox_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
+    if namo_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
+    namo_prime_kill_buffer()
+    if namo_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
     mlwrite("(region copied)")
     return TRUE
 }
 
 fn int copyregion(int f, int n) {
-    return copy_region_nanox(f, n)
+    return copy_region_namo(f, n)
 }
 
 fn int lowerregion(int f, int n) {

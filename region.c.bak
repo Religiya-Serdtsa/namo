@@ -14,7 +14,7 @@
 #include "efunc.h"
 #include "line.h"
 
-static int nanox_resolve_region(struct region *region)
+static int namo_resolve_region(struct region *region)
 {
     if (curwp->w_markp == NULL) {
         mlwrite("No mark set in this window");
@@ -23,14 +23,14 @@ static int nanox_resolve_region(struct region *region)
     return getregion(region);
 }
 
-static void nanox_prime_kill_buffer(void)
+static void namo_prime_kill_buffer(void)
 {
     if ((lastflag & CFKILL) == 0)
         kdelete();
     thisflag |= CFKILL;
 }
 
-static int nanox_copy_region_to_kill(const struct region *region)
+static int namo_copy_region_to_kill(const struct region *region)
 {
     struct line *linep = region->r_linep;
     int loffs = region->r_offset;
@@ -54,17 +54,17 @@ static int nanox_copy_region_to_kill(const struct region *region)
     return TRUE;
 }
 
-int kill_region_nanox(int f, int n)
+int kill_region_namo(int f, int n)
 {
     struct region region;
 
     if (curbp->b_mode & MDVIEW)
         return rdonly();
-    if (nanox_resolve_region(&region) != TRUE)
+    if (namo_resolve_region(&region) != TRUE)
         return FALSE;
 
-    nanox_prime_kill_buffer();
-    if (nanox_copy_region_to_kill(&region) != TRUE)
+    namo_prime_kill_buffer();
+    if (namo_copy_region_to_kill(&region) != TRUE)
         return FALSE;
 
     curwp->w_dotp = region.r_linep;
@@ -79,7 +79,7 @@ int kill_region_nanox(int f, int n)
 
 int killregion(int f, int n)
 {
-    return kill_region_nanox(f, n);
+    return kill_region_namo(f, n);
 }
 
 /*
@@ -88,15 +88,15 @@ int killregion(int f, int n)
  * at all. This is a bit like a kill region followed
  * by a yank. Bound to "M-W".
  */
-int copy_region_nanox(int f, int n)
+int copy_region_namo(int f, int n)
 {
     struct region region;
 
-    if (nanox_resolve_region(&region) != TRUE)
+    if (namo_resolve_region(&region) != TRUE)
         return FALSE;
 
-    nanox_prime_kill_buffer();
-    if (nanox_copy_region_to_kill(&region) != TRUE)
+    namo_prime_kill_buffer();
+    if (namo_copy_region_to_kill(&region) != TRUE)
         return FALSE;
 
     mlwrite("(region copied)");
@@ -105,7 +105,7 @@ int copy_region_nanox(int f, int n)
 
 int copyregion(int f, int n)
 {
-    return copy_region_nanox(f, n);
+    return copy_region_namo(f, n);
 }
 
 /*

@@ -221,11 +221,49 @@ void paste_slot_display(void)
 int paste_slot_insert(void)
 {
     extern int linsert_block(const char *block, int len);
-    
+
     if (paste_slot_buffer == NULL || paste_slot_size == 0)
         return 1;
 
     mlwrite("Pasting...");
-    
+
     return linsert_block(paste_slot_buffer, paste_slot_size);
+}
+
+int check_paste_slot_active(void)
+{
+    return paste_slot_is_active();
+}
+
+static void paste_slot_deactivate(void)
+{
+    paste_slot_set_active(0);
+    paste_slot_clear();
+    sgarbf = TRUE;
+}
+
+void paste_slot_handle_key(int key)
+{
+    if (!paste_slot_is_active())
+        return;
+
+    switch (key) {
+    case 'p':
+    case 'P':
+    case '\r':
+    case '\n':
+    case CONTROL | 'M':
+        paste_slot_insert();
+        paste_slot_deactivate();
+        mlwrite("(Paste slot inserted)");
+        break;
+    case CONTROL | '[':
+    case 27:
+    case CONTROL | 'G':
+        paste_slot_deactivate();
+        mlwrite("(Paste slot cancelled)");
+        break;
+    default:
+        break;
+    }
 }

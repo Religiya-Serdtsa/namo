@@ -40,7 +40,7 @@ fn static void set_indent(int target) {
         ldelchar(1, FALSE)
     }
     if target > 0 {
-        // if nanox_cfg.soft_tab
+        // if namo_cfg.soft_tab
         for i=0; <target; ++ {
             linsert(1, (int)' ')
         }

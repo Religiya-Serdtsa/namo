@@ -69,7 +69,8 @@ typedef enum {
     HS_BLOCK_COMMENT,
     HS_STRING,
     HS_TRIPLE_STRING,
-    HS_MD_FENCE
+    HS_MD_FENCE,
+    HS_STYLE_BLOCK
 } StateID;
 
 #define HL_STATE_STACK_MAX 8
@@ -77,6 +78,7 @@ typedef enum {
 typedef struct {
     StateID state;
     int sub_id;       /* Block comment index or string metadata */
+    int aux;          /* Generic slot (e.g., brace depth for @style blocks) */
     char string_delim;
 } HighlightStackEntry;
 

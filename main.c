@@ -56,6 +56,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <limits.h>
 #ifdef HAVE_HUNSPELL
 #include <hunspell.h>
 #endif
@@ -68,21 +69,26 @@
 #include "ebind.h"                  /* Default key bindings. */
 #include "edef.h"
 #include "version.h"
-#include "nanox.h"                  /* Added for Nanox specific declarations */
+#include "namo.h"                  /* Added for Namo specific declarations */
 #include "completion.h"
 #include "command_mode.h"           /* F1 command mode */
+#include "paste_slot.h"
+#include "highlight.h"
+#include "platform.h"
 
 #include <signal.h>
 static void emergencyexit(int);
 extern void sizesignal(int);
 
-/* Nanox help active flag */
-int nanox_help_active_flag = 0;
+/* Namo help active flag */
+int namo_help_active_flag = 0;
 
-static void nanox_refresh_ui(void)
+static void namo_refresh_ui(void)
 {
-    if (nanox_help_is_active()) {
-        nanox_help_render();
+    if (namo_help_is_active()) {
+        namo_help_render();
+    } else if (check_paste_slot_active()) {
+        paste_slot_display();
     } else {
         update(FALSE);
         completion_dropdown_render();
@@ -150,6 +156,48 @@ static void select_terminal_driver(void)
     term = selected;
 }
 
+static bool locate_syntax_config(char *out, size_t cap)
+{
+    char dir[PATH_MAX];
+
+    namo_get_user_config_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        namo_path_join(out, cap, dir, "syntax.ini");
+        if (namo_file_exists(out))
+            return true;
+    }
+
+    namo_get_user_data_dir(dir, sizeof(dir));
+    if (dir[0]) {
+        namo_path_join(out, cap, dir, "syntax.ini");
+        if (namo_file_exists(out))
+            return true;
+    }
+
+    if (namo_file_exists("configs/namo/syntax.ini")) {
+        snprintf(out, cap, "%s", "configs/namo/syntax.ini");
+        return true;
+    }
+
+    if (namo_file_exists("syntax.ini")) {
+        snprintf(out, cap, "%s", "syntax.ini");
+        return true;
+    }
+
+    if (cap > 0)
+        out[0] = '\0';
+    return false;
+}
+
+static void initialize_highlighting(void)
+{
+    char syntax_path[PATH_MAX];
+    if (locate_syntax_config(syntax_path, sizeof(syntax_path)))
+        highlight_init(syntax_path);
+    else
+        highlight_init(NULL);
+}
+
 int main(int argc, char **argv)
 {
     int c = -1;                /* command character */
@@ -205,7 +253,8 @@ int main(int argc, char **argv)
     vtinit();                /* Display */
     edinit("main");                /* Buffers, windows */
     varinit();                /* user variables */
-    nanox_init();            /* Initialize Nanox system */
+    namo_init();            /* Initialize Namo system */
+    initialize_highlighting();
 
     viewflag = FALSE;            /* view mode defaults off in command line */
     gotoflag = FALSE;            /* set to off to begin with */
@@ -277,7 +326,7 @@ int main(int argc, char **argv)
 
             /* Process an input file */
             if (slot_startup_mode) {
-                nanox_queue_startup_file(argv[carg]);
+                namo_queue_startup_file(argv[carg]);
                 firstfile = FALSE;
                 continue;
             }
@@ -332,7 +381,7 @@ int main(int argc, char **argv)
     /* if there are any files to read, read the first one! */
     bp = bfind("main", FALSE, 0);
     if (slot_startup_mode && (gflags & GFREAD)) {
-        nanox_open_startup_slot();
+        namo_open_startup_slot();
     } else if (firstfile == FALSE && (gflags & GFREAD)) {
         swbuffer(firstbp);
         zotbuf(bp);
@@ -364,7 +413,7 @@ int main(int argc, char **argv)
 
             if (typahead()) {
                 while ((newc = getcmd()) == 0);
-                nanox_refresh_ui();
+                namo_refresh_ui();
                 do {
                     fn_t execfunc;
 
@@ -376,17 +425,17 @@ int main(int argc, char **argv)
                 } while (typahead());
                 c = newc;
             } else {
-                nanox_refresh_ui();
+                namo_refresh_ui();
                 while ((c = getcmd()) == 0);
             }    /* if there is something on the command line, clear it */
     if (mpresf != FALSE) {
         mlerase();
-        nanox_refresh_ui();
+        namo_refresh_ui();
     }
 
-    /* Nanox help system handling */
-    if (nanox_help_is_active()) {
-        nanox_help_handle_key(c);
+    /* Namo help system handling */
+    if (namo_help_is_active()) {
+        namo_help_handle_key(c);
         goto loop;
     }
 
@@ -589,7 +638,7 @@ int execute(int c, int f, int n)
         return status;
     }
     TTbeep();
-    nanox_set_lamp(NANOX_LAMP_WARN); /* Nanox warning lamp */
+    namo_set_lamp(NAMO_LAMP_WARN); /* Namo warning lamp */
     mlwrite("(Key not bound)");        /* complain             */
     lastflag = 0;                /* Fake last flags.     */
     return FALSE;
@@ -657,7 +706,7 @@ int quit(int f, int n)
             hunhandle = NULL;
         }
 #endif
-        nanox_cleanup();
+        namo_cleanup();
         struct buffer *bp = bheadp;
         while (bp != NULL) {
             cleanup_backup(bp, TRUE);

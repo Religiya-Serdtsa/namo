@@ -262,7 +262,7 @@ int linsert(int n, int c)
 }
 
 /*
- * nanox: UTF-8 safe control character filter.
+ * namo: UTF-8 safe control character filter.
  * 1. Allow essential control characters: \n, \t, \r.
  * 2. Block system control characters (0x00-0x1F except above, 0x7F).
  * 3. Allow everything else including UTF-8 multibyte sequences.

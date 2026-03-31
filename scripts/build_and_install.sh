@@ -1,11 +1,11 @@
 #!/bin/bash
-# Generic Build and Install script for nanox
+# Generic Build and Install script for namo
 # This script attempts to detect the package manager, install dependencies,
 # build the project, and install it.
 
 set -e
 
-echo "Starting nanox build and install process..."
+echo "Starting namo build and install process..."
 
 # 1. Detect Package Manager and Install Dependencies
 if [ -f /etc/debian_version ]; then
@@ -71,14 +71,14 @@ else
     fi
 fi
 
-# 2. Build nanox
-echo "Building nanox..."
+# 2. Build namo
+echo "Building namo..."
 make clean
 make -j$(nproc)
 
-# 3. Install nanox
-echo "Installing nanox..."
+# 3. Install namo
+echo "Installing namo..."
 sudo make install-all
 
-echo "nanox has been successfully built and installed!"
-echo "You can run it by typing 'nanox' or 'nx'."
+echo "namo has been successfully built and installed!"
+echo "You can run it by typing 'namo' or 'nx'."

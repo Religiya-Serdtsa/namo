@@ -6,9 +6,9 @@
 @import "ebind.margo"
 @import "namo.margo"
 
-fn void nanox_refresh_ui() {
-    if (nanox_help_is_active()) {
-        nanox_help_render()
+fn void namo_refresh_ui() {
+    if (namo_help_is_active()) {
+        namo_help_render()
     } else {
         update(FALSE)
         // completion_dropdown_render()
@@ -48,7 +48,7 @@ fn int main(int argc, weird(string, 1) argv) {
     edinit((string)bname)
     
     while true {
-        nanox_refresh_ui()
+        namo_refresh_ui()
         auto c = getcmd()
         if c == (int)0x18 { // Ctrl+X
             auto c2 = getcmd()

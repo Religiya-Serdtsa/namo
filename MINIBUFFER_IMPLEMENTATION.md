@@ -37,7 +37,7 @@ The correct flow is:
 
 ## Overview
 
-This document describes the implementation of a dedicated Minibuffer Window System for UTF-8 ISearch in the nanox editor. The implementation follows the Clone Protocol by studying and replicating the editor's main update() and updateline() logic.
+This document describes the implementation of a dedicated Minibuffer Window System for UTF-8 ISearch in the namo editor. The implementation follows the Clone Protocol by studying and replicating the editor's main update() and updateline() logic.
 
 ## Critical Bug Fix: Korean Hangul Latin-1 Misinterpretation
 

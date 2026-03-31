@@ -196,7 +196,7 @@ void colorscheme_init(const char *requested_name) {
     char name[MAX_NAME] = {0};
 
     /* Priority 1: Env Var */
-    const char *env_scheme = nanox_getenv("NANOX_COLORSCHEME");
+    const char *env_scheme = namo_getenv("NAMO_COLORSCHEME");
     if (env_scheme && *env_scheme && is_safe_name(env_scheme)) {
         mystrscpy(name, env_scheme, MAX_NAME);
     } 
@@ -217,35 +217,35 @@ void colorscheme_init(const char *requested_name) {
     char file_name[MAX_NAME + 12];
     
     /* 1. Try Config Dir */
-    nanox_get_user_config_dir(dir, sizeof(dir));
-    nanox_path_join(dir, sizeof(dir), dir, "colorscheme");
+    namo_get_user_config_dir(dir, sizeof(dir));
+    namo_path_join(dir, sizeof(dir), dir, "colorscheme");
 
-    /* Try .nanoxcolor */
-    snprintf(file_name, sizeof(file_name), "%s.nanoxcolor", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    if (nanox_file_exists(path)) {
+    /* Try .namocolor */
+    snprintf(file_name, sizeof(file_name), "%s.namocolor", name);
+    namo_path_join(path, sizeof(path), dir, file_name);
+    if (namo_file_exists(path)) {
         load_scheme_file(path);
         mystrscpy(current_scheme_name, name, MAX_NAME);
         return;
     }
     /* Try .ini */
     snprintf(file_name, sizeof(file_name), "%s.ini", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
-    if (nanox_file_exists(path)) {
+    namo_path_join(path, sizeof(path), dir, file_name);
+    if (namo_file_exists(path)) {
         load_scheme_file(path);
         mystrscpy(current_scheme_name, name, MAX_NAME);
         return;
     }
 
     /* 2. Try Data Dir */
-    nanox_get_user_data_dir(dir, sizeof(dir));
-    nanox_path_join(dir, sizeof(dir), dir, "colorscheme");
+    namo_get_user_data_dir(dir, sizeof(dir));
+    namo_path_join(dir, sizeof(dir), dir, "colorscheme");
     
-    /* Try .nanoxcolor */
-    snprintf(file_name, sizeof(file_name), "%s.nanoxcolor", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
+    /* Try .namocolor */
+    snprintf(file_name, sizeof(file_name), "%s.namocolor", name);
+    namo_path_join(path, sizeof(path), dir, file_name);
     
-    if (nanox_file_exists(path)) {
+    if (namo_file_exists(path)) {
         load_scheme_file(path);
         mystrscpy(current_scheme_name, name, MAX_NAME);
         return;
@@ -253,9 +253,9 @@ void colorscheme_init(const char *requested_name) {
 
     /* Try .ini */
     snprintf(file_name, sizeof(file_name), "%s.ini", name);
-    nanox_path_join(path, sizeof(path), dir, file_name);
+    namo_path_join(path, sizeof(path), dir, file_name);
     
-    if (nanox_file_exists(path)) {
+    if (namo_file_exists(path)) {
         load_scheme_file(path);
         mystrscpy(current_scheme_name, name, MAX_NAME);
         return;

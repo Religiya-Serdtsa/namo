@@ -1,5 +1,5 @@
 #!/bin/bash
-# OpenSUSE Build Dependency Installer for nanox (Updated for 2026)
+# OpenSUSE Build Dependency Installer for namo (Updated for 2026)
 
 set -e
 

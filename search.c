@@ -132,10 +132,10 @@ int forwsearch(int f, int n)
 }
 
 /*
- * nanox_search_engine -- Unified search engine for nanox.
+ * namo_search_engine -- Unified search engine for namo.
  * Supports &nx (forward) and &pr (reverse) suffixes.
  */
-int nanox_search_engine(int f, int n)
+int namo_search_engine(int f, int n)
 {
     char query[NPAT];
     static int last_dir = FORWARD;
@@ -143,7 +143,7 @@ int nanox_search_engine(int f, int n)
     while (1) {
         int input_status = minibuf_input("Search: ", query, NPAT);
         if (input_status != TRUE) {
-            nanox_request_underbar_redraw();
+            namo_request_underbar_redraw();
             return input_status;
         }
 
@@ -155,7 +155,7 @@ int nanox_search_engine(int f, int n)
         if (query[0] == '\0') {
             if (pat[0] == '\0') {
                 mlwrite("No pattern set");
-                nanox_request_underbar_redraw();
+                namo_request_underbar_redraw();
                 return FALSE;
             }
         } else {
@@ -181,7 +181,7 @@ int nanox_search_engine(int f, int n)
             } else if (has_suffix) {
                 if (pat[0] == '\0') {
                     mlwrite("No pattern set");
-                    nanox_request_underbar_redraw();
+                    namo_request_underbar_redraw();
                     return FALSE;
                 }
             }
@@ -228,7 +228,7 @@ int nanox_search_engine(int f, int n)
             break;
     }
 
-    nanox_request_underbar_redraw();
+    namo_request_underbar_redraw();
     return TRUE;
 }
 

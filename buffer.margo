@@ -89,7 +89,7 @@ fn int zotbuf(weird(buffer, 1) bp) {
     if bp1 == null bheadp = bp2->b_bufp
     else bp1->b_bufp = bp2->b_bufp
     free(bp)
-    nanox_handle_closed_file((string)closed_fname)
+    namo_handle_closed_file((string)closed_fname)
     return TRUE
 }
 

@@ -6,7 +6,7 @@
 @import "word.margo"
 @import "random.margo"
 @import "display.margo"
-@import "nanox.margo"
+@import "namo_core.margo"
 
 key_tab keytab[2048] = [
     { SPEC | (int)'A', (weird(void, 1))backline },
@@ -29,15 +29,15 @@ key_tab keytab[2048] = [
     { CONTROL | SHIFT | (int)'J', (weird(void, 1))indent_end_set },
     { (int)'g', (weird(void, 1))g_prefix_handler },
     { CONTROL | (int)'V', (weird(void, 1))command_mode_activate_command },
-    { SPEC | (int)'P', (weird(void, 1))nanox_help_command },
+    { SPEC | (int)'P', (weird(void, 1))namo_help_command },
     { SPEC | (int)'Q', (weird(void, 1))filesave },
     { CONTROL | (int)'S', (weird(void, 1))filesave },
     { SPEC | (int)'R', (weird(void, 1))filefind },
     { CONTROL | (int)'O', (weird(void, 1))filefind },
     { SPEC | (int)'S', (weird(void, 1))quit },
     { CONTROL | (int)'Q', (weird(void, 1))quit },
-    { SPEC | (int)'U', (weird(void, 1))nanox_search_engine },
-    { CONTROL | (int)'F', (weird(void, 1))nanox_search_engine },
+    { SPEC | (int)'U', (weird(void, 1))namo_search_engine },
+    { CONTROL | (int)'F', (weird(void, 1))namo_search_engine },
     { CONTROL | (int)'R', (weird(void, 1))sed_replace_command },
     { SPEC | (int)'W', (weird(void, 1))cutln_start_copy },
     { SPEC | SHIFT | (int)'W', (weird(void, 1))cutln_end_copy },

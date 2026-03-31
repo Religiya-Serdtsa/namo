@@ -127,7 +127,7 @@ struct name_bind names[] = {
     { "kill-to-end-of-line", killtext },
     { "meta-prefix", metafn },
     { "name-buffer", namebuffer },
-    { "nanox-search", nanox_search_engine },
+    { "namo-search", namo_search_engine },
     { "sed-replace", sed_replace_command },
     { "slot-numeric-mode", reserve_jump_numeric_mode },
     { "newline", insert_newline },

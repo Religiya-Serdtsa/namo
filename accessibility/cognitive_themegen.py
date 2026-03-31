@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Nanox cognitive-style theme codegen (trait-based, not diagnostic) with a strong RGB-axis penalty.
+Namo cognitive-style theme codegen (trait-based, not diagnostic) with a strong RGB-axis penalty.
 
 Fixed logic for the 'error' style to prevent foreground/background color collisions.
 All comments translated to English for technical consistency.
@@ -15,14 +15,14 @@ from typing import Dict, Optional, Tuple
 
 @dataclass(frozen=True)
 class Style:
-    """A single style entry for Nanox .nanoxcolor."""
+    """A single style entry for Namo .namocolor."""
     fg: Optional[str] = None
     bg: Optional[str] = None
     bold: bool = False
     underline: bool = False
 
     def to_ini(self) -> str:
-        """Render style into Nanox INI format."""
+        """Render style into Namo INI format."""
         parts = []
         if self.fg:
             parts.append(f"fg={self.fg}")
@@ -60,8 +60,8 @@ def ask_name(prompt: str) -> str:
         return name.lower()
 
 
-def write_nanoxcolor(path: Path, meta: Dict[str, str], styles: Dict[str, Style]) -> None:
-    """Write a .nanoxcolor file."""
+def write_namocolor(path: Path, meta: Dict[str, str], styles: Dict[str, Style]) -> None:
+    """Write a .namocolor file."""
     lines = []
     if meta:
         lines.append("[meta]")
@@ -201,8 +201,8 @@ def ask_rgb_salience_order() -> Tuple[bool, str]:
 def pick_free_theme_name(dir_path: Path, desired: str) -> str:
     """Pick a non-colliding base name for dark/light pair."""
     def taken(name: str) -> bool:
-        d = dir_path / f"{name}-dark.nanoxcolor"
-        l = dir_path / f"{name}-light.nanoxcolor"
+        d = dir_path / f"{name}-dark.namocolor"
+        l = dir_path / f"{name}-light.namocolor"
         return d.exists() or l.exists()
 
     if not taken(desired):
@@ -343,13 +343,13 @@ def trait_overrides(weights: Dict[str, float], variant: str) -> Dict[str, Style]
 
 
 def main() -> None:
-    out_dir = Path("configs/nanox/colorscheme")
+    out_dir = Path("configs/namo/colorscheme")
     if not out_dir.is_dir():
         print(f"Warning: output directory not found: {out_dir}")
         print("Creating directory...")
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Nanox Cognitive Theme Codegen\n")
+    print("Namo Cognitive Theme Codegen\n")
     weights = collect_trait_weights()
 
     probe_ok, rgb_order = ask_rgb_salience_order()
@@ -370,11 +370,11 @@ def main() -> None:
     dark = merge(dark, trait_overrides(weights, "dark"))
     light = merge(light, trait_overrides(weights, "light"))
 
-    dark_path = out_dir / f"{final_name}-dark.nanoxcolor"
-    light_path = out_dir / f"{final_name}-light.nanoxcolor"
+    dark_path = out_dir / f"{final_name}-dark.namocolor"
+    light_path = out_dir / f"{final_name}-light.namocolor"
 
-    write_nanoxcolor(dark_path, {"name": final_name, "variant": "dark"}, dark)
-    write_nanoxcolor(light_path, {"name": final_name, "variant": "light"}, light)
+    write_namocolor(dark_path, {"name": final_name, "variant": "dark"}, dark)
+    write_namocolor(light_path, {"name": final_name, "variant": "light"}, light)
 
     print("\nGenerated:")
     print(f"  {dark_path}")

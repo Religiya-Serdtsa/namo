@@ -1,5 +1,5 @@
 #!/bin/bash
-# Arch Linux Build Dependency Installer for nanox
+# Arch Linux Build Dependency Installer for namo
 
 set -e
 
