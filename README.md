@@ -2,7 +2,7 @@
 
 ![Demo Video](./namo.gif)
 
-**Bring function keys back to functions**
+**It can be compiled with....the specific C dialect?**
 
 ## Fast Guide
 
