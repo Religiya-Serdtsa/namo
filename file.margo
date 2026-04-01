@@ -34,7 +34,7 @@ fn int viewfile(int f, int n) {
 }
 
 fn int insertfile(int f, int n) {
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if ((curbp->b_mode & MDVIEW) != 0) return rdonly()
     if restflag != 0 return resterr()
     char fname[2048]
     auto s = minibuf_input("Insert file: ", fname, 2048)
@@ -56,7 +56,7 @@ fn int filewrite(int f, int n) {
 }
 
 fn int filesave(int f, int n) {
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
+    if ((curbp->b_mode & MDVIEW) != 0) return rdonly()
     if (curbp->b_flag & BFCHG) == 0 return TRUE
     if (curbp->b_fname[0] == 0) return filewrite(f, n)
     auto s = writeout((string)curbp->b_fname)
@@ -101,7 +101,7 @@ fn int readin(string fn, int lockfl) {
     while ((s = ffgetline()) == FIOSUC) {
         auto ntext = (int)strlen(fline)
         auto lp = lalloc(ntext)
-        if (lp == null) {
+        if (lp == NULL) {
             s = FIOMEM
             break
         }
@@ -124,7 +124,7 @@ fn int readin(string fn, int lockfl) {
 
 fn int getfile(string fn, int lockfl) {
     auto bp = bfind(fn, TRUE, 0)
-    if (bp == null) return FALSE
+    if (bp == NULL) return FALSE
     if (swbuffer(bp) != TRUE) return FALSE
     if (bp->b_active == TRUE) return TRUE
     return readin(fn, lockfl)

@@ -1,122 +1,284 @@
 // estruct.margo
 // Constants and Structures for namo
 
-const int MAXCOL = 512
-const int MAXROW = 1024
+#include <stddef.h>
+#include <wchar.h>
+#include <ctype.h>
 
-const int NBINDS = 2048
-const int NFILEN = 2048
-const int NBUFN = 16
-const int NLINE = 2048
-const int NSTRING = 1024
-const int NKBDM = 2048
-const int NPAT = 1024
-const int HUGE = 1000
-const int NLOCKS = 1000
-const int NCOLORS = 8
-const int KBLOCK = 8192
+#define MAXCOL 512
+#define MAXROW 1024
 
-const int CONTROL = 0x10000000
-const int META = 0x20000000
-const int SHIFT = 0x08000000
-const int SUPER = 0x04000000
-const int CTLX = 0x40000000
-const int SPEC = 0x80000000
+#define NBINDS 2048
+#define NFILEN 2048
+#define NBUFN 16
+#define NLINE 2048
+#define NSTRING 1024
+#define NKBDM 2048
+#define NPAT 1024
+#define HUGE 1000
+#define NLOCKS 1000
+#define NCOLORS 8
+#define KBLOCK 8192
 
-const int FALSE = 0
-const int TRUE = 1
-const int ABORT = 2
-const int FAILED = 3
+#define CONTROL 0x10000000
+#define META 0x20000000
+#define SHIFT 0x08000000
+#define SUPER 0x04000000
+#define CTLX 0x40000000
+#define SPEC 0x80000000
 
-const int STOP = 0
-const int PLAY = 1
-const int RECORD = 2
+#define FALSE 0
+#define TRUE 1
+#define ABORT 2
+#define FAILED 3
 
-const int GFREAD = 1
+#define STOP 0
+#define PLAY 1
+#define RECORD 2
+
+#define FIOSUC 0
+#define FIOFNF 1
+#define FIOEOF 2
+#define FIOERR 3
+#define FIOMEM 4
+#define FIONUL 5
+
+#define GFREAD 1
+#define PTBEG 0
+#define PTEND 1
+#define FORWARD 0
+#define REVERSE 1
+#define WFFORCE 0x01
+#define WFMOVE 0x02
+#define WFEDIT 0x04
+#define WFHARD 0x08
+#define WFMODE 0x10
+#define WFCOLR 0x20
+#define BFINVS 0x01
+#define BFCHG 0x02
+#define BFTRUNC 0x04
+#define BFMAKE 0x08
+#define MDWRAP 0x0001
+#define MDSOFTWRAP 0x0002
+#define MDCMOD 0x0004
+#define MDSPELL 0x0008
+#define MDEXACT 0x0010
+#define MDVIEW 0x0020
+#define MDOVER 0x0040
+#define MDMAGIC 0x0080
+#define MDASAVE 0x0800
+#define CFCPCN 0x0001
+#define CFKILL 0x0002
+
+struct line;
+typedef struct line line;
+
+struct buffer;
+typedef struct buffer buffer;
+
+struct window;
+typedef struct window window;
+
+struct video;
+typedef struct video video;
+
+struct video_cell;
+typedef struct video_cell video_cell;
+
+struct terminal;
+typedef struct terminal terminal;
+
+struct region;
+typedef struct region region;
+
+struct key_tab;
+typedef struct key_tab key_tab;
+
+struct name_bind;
+typedef struct name_bind name_bind;
 
 struct video_cell {
-    unsigned int ch // unicode_t
-    int fg
-    int bg
-    bool bold
-    bool underline
-    bool italic
-}
+    unsigned int ch; // unicode_t
+    int fg;
+    int bg;
+    bool bold;
+    bool underline;
+    bool italic;
+};
 
 struct video {
-    int v_flag
-    video_cell v_text[1]
-}
+    int v_flag;
+    video_cell v_text[1];
+};
 
-const int VFCHG = 0x0001
-const int VFEXT = 0x0002
-const int VFREQ = 0x0008
-const int VFCOL = 0x0010
+#define VFCHG 0x0001
+#define VFEXT 0x0002
+#define VFREQ 0x0008
+#define VFCOL 0x0010
 
 struct kill {
-    weird(kill, 1) d_next
-    char d_chunk[8192] // KBLOCK
-}
+    weird(struct kill, 1) d_next;
+    char d_chunk[KBLOCK];
+};
 
 struct line {
-    weird(line, 1) l_fp
-    weird(line, 1) l_bp
-    int l_size
-    int l_used
-    weird(void, 1) hl_start_state
-    weird(void, 1) hl_end_state
-    char l_text[1]
-}
+    weird(line, 1) l_fp;
+    weird(line, 1) l_bp;
+    int l_size;
+    int l_used;
+    weird(void, 1) hl_start_state;
+    weird(void, 1) hl_end_state;
+    char l_text[1];
+};
 
 struct window {
-    weird(buffer, 1) w_bufp
-    weird(line, 1) w_linep
-    weird(line, 1) w_dotp
-    weird(line, 1) w_markp
-    int w_doto
-    int w_marko
-    char w_force
-    char w_flag
-}
+    weird(buffer, 1) w_bufp;
+    weird(line, 1) w_linep;
+    weird(line, 1) w_dotp;
+    weird(line, 1) w_markp;
+    int w_doto;
+    int w_marko;
+    char w_force;
+    char w_flag;
+};
 
 struct buffer {
-    weird(buffer, 1) b_bufp
-    weird(line, 1) b_dotp
-    weird(line, 1) b_markp
-    weird(line, 1) b_linep
-    int b_doto
-    int b_marko
-    int b_mode
-    char b_active
-    char b_nwnd
-    char b_flag
-    char b_fname[2048] // NFILEN
-    char b_bname[16] // NBUFN
-    int b_tabsize
-}
+    weird(buffer, 1) b_bufp;
+    weird(line, 1) b_dotp;
+    weird(line, 1) b_markp;
+    weird(line, 1) b_linep;
+    int b_doto;
+    int b_marko;
+    int b_mode;
+    char b_active;
+    char b_nwnd;
+    char b_flag;
+    char b_fname[NFILEN];
+    char b_bname[NBUFN];
+    int b_tabsize;
+};
+
+struct region {
+    weird(line, 1) r_linep;
+    int r_offset;
+    long r_size;
+};
 
 struct terminal {
-    int t_mrow
-    int t_nrow
-    int t_mcol
-    int t_ncol
-    int t_margin
-    int t_scrsiz
-    int t_pause
-    weird(void, 1) t_open
-    weird(void, 1) t_close
-    weird(void, 1) t_kopen
-    weird(void, 1) t_kclose
-    weird(void, 1) t_getchar
-    weird(void, 1) t_putchar
-    weird(void, 1) t_flush
-    weird(void, 1) t_move
-    weird(void, 1) t_eeol
-    weird(void, 1) t_eeop
-    weird(void, 1) t_beep
-    weird(void, 1) t_rev
-    weird(void, 1) t_italic
-    weird(void, 1) t_set_colors
-    weird(void, 1) t_set_attrs
-    weird(void, 1) t_rez
+    int t_mrow;
+    int t_nrow;
+    int t_mcol;
+    int t_ncol;
+    int t_margin;
+    int t_scrsiz;
+    int t_pause;
+    weird(void, 1) t_open;
+    weird(void, 1) t_close;
+    weird(void, 1) t_kopen;
+    weird(void, 1) t_kclose;
+    weird(void, 1) t_getchar;
+    weird(void, 1) t_putchar;
+    weird(void, 1) t_flush;
+    weird(void, 1) t_move;
+    weird(void, 1) t_eeol;
+    weird(void, 1) t_eeop;
+    weird(void, 1) t_beep;
+    weird(void, 1) t_rev;
+    weird(void, 1) t_italic;
+    weird(void, 1) t_set_colors;
+    weird(void, 1) t_set_attrs;
+    weird(void, 1) t_rez;
+};
+
+struct key_tab {
+    int k_code;
+    weird(int, 1) k_fp;
+};
+
+struct name_bind {
+    string n_name;
+    weird(int, 1) n_func;
+};
+
+extern fn void vttopen()
+extern fn void vttclose()
+extern fn void vttkopen()
+extern fn void vttkclose()
+extern fn int vttgetc()
+extern fn int vttputc(int c)
+extern fn void vttflush()
+extern fn void vttmove(int row, int col)
+extern fn void vtteeol()
+extern fn void vtteeop()
+extern fn void vttbeep()
+extern fn void vttrev(int state)
+extern fn void vttitalic(int state)
+extern fn void vttsetcolors(int fg, int bg)
+extern fn void vttsetattrs(int bold, int underline, int italic)
+extern fn int vttrez(string res)
+
+extern fn void mlwrite(string fmt, ...)
+extern fn void mlforce(string s)
+
+extern fn int wcwidth(int c)
+extern fn int getcmd()
+
+#define TTopen vttopen
+#define TTclose vttclose
+#define TTkopen vttkopen
+#define TTkclose vttkclose
+#define TTgetc vttgetc
+#define TTputc vttputc
+#define TTflush vttflush
+#define TTmove vttmove
+#define TTeeol vtteeol
+#define TTeeop vtteeop
+#define TTbeep vttbeep
+#define TTrev vttrev
+#define TTitalic vttitalic
+#define TTsetcolors vttsetcolors
+#define TTsetattrs vttsetattrs
+#define TTrez vttrez
+
+fn int isletter(int c) {
+    auto ch = c & 0xFF
+    if ch >= (int)'a' && ch <= (int)'z' return TRUE
+    if ch >= (int)'A' && ch <= (int)'Z' return TRUE
+    return FALSE
 }
+
+extern fn void mlerase()
+extern fn void upmode()
+extern fn int mlreplyt(string prompt, weird(char, 1) buf, int len, int metac)
+extern fn int minibuf_input(string prompt, weird(char, 1) buf, int len)
+extern fn int mlyesno(string prompt)
+extern fn int boundry(weird(line, 1) lp, int off, int dir)
+extern fn int rdonly()
+extern fn void kdelete()
+extern fn int backchar(int f, int n)
+extern fn int forwchar(int f, int n)
+extern fn int linsert(int n, int c)
+extern fn int ldelchar(long n, int f)
+extern fn int ldelete(long n, int f)
+extern fn int linstr(string s)
+extern fn int lover(string s)
+extern fn void TTbeep()
+extern fn int next_tab_stop(int col, int tab_width_val)
+extern fn int adjustmode(int kind, int global)
+extern fn weird(buffer, 1) bfind(string bname, int cflag, int bflag)
+extern fn int swbuffer(weird(buffer, 1) bp)
+extern fn int readin(string fname, int f)
+extern fn int zotbuf(weird(buffer, 1) bp)
+extern fn int bclear(weird(buffer, 1) bp)
+extern fn void lputc(weird(line, 1) lp, int n, int c)
+extern fn weird(line, 1) lalloc(int used)
+extern fn void lfree(weird(line, 1) lp)
+extern fn int killregion(int f, int n)
+extern fn int getregion(weird(region, 1) rp)
+extern fn void gotobob(int f, int n)
+extern fn void gotoeob(int f, int n)
+extern fn void gotobop(int f, int n)
+extern fn void gotoeop(int f, int n)
+extern fn int lnewline()
+extern fn int lgetchar(weird(unsigned int, 1) cp)
+extern fn void namo_handle_closed_file(string fname)

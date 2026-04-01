@@ -7,21 +7,61 @@
 @import "util.margo"
 @import "platform.margo"
 
-namo_config namo_cfg = {
-    true, true, "--W", "--E", SPEC | (int)'P', "en",
-    false, 8, false, true, false, false, false
-}
+const int NAMO_PATH_MAX = 4096
+const int NAMO_SLOT_POOL = 64
+const int NAMO_SLOT_VISIBLE = 4
+const int NAMO_LAMP_OFF = 0
+const int NAMO_LAMP_WARN = 1
+const int NAMO_LAMP_ERROR = 2
 
-char file_reserve[64][4096] // NAMO_SLOT_MAX, PATH_MAX
-bool should_redraw_underbar = false
-static int lamp_state = (int)NAMO_LAMP_OFF
+struct namo_config {
+    bool hint_bar;
+    bool no_function_slot;
+    bool warning_lamp;
+    bool nonr;
+    bool soft_tab;
+    int soft_tab_width;
+    bool autocomplete;
+    bool use_lsp;
+    bool case_sensitive_default;
+    char warning_format[16];
+    char error_format[16];
+    char help_key[16];
+    char help_language[16];
+    char message_prefix[64];
+};
+typedef struct namo_config namo_config;
+
+namo_config namo_cfg;
+
+char file_reserve[NAMO_SLOT_POOL][NAMO_PATH_MAX];
+int should_redraw_underbar = FALSE;
+static int lamp_state = NAMO_LAMP_OFF;
+
+// Missing symbols reported by linker
+string namo_message_prefix = "Message: "
+char sres[128] = ""
 
 fn void namo_request_underbar_redraw() {
-    should_redraw_underbar = true
+    should_redraw_underbar = TRUE;
 }
 
 fn void namo_init() {
-    // Basic init
+    namo_cfg.hint_bar = TRUE;
+    namo_cfg.no_function_slot = FALSE;
+    namo_cfg.warning_lamp = TRUE;
+    namo_cfg.nonr = FALSE;
+    namo_cfg.soft_tab = TRUE;
+    namo_cfg.soft_tab_width = 4;
+    namo_cfg.autocomplete = TRUE;
+    namo_cfg.use_lsp = FALSE;
+    namo_cfg.case_sensitive_default = FALSE;
+    mystrscpy(namo_cfg.warning_format, "--W", 16);
+    mystrscpy(namo_cfg.error_format, "--E", 16);
+    mystrscpy(namo_cfg.help_key, "F1", 16);
+    mystrscpy(namo_cfg.help_language, "en", 16);
+    mystrscpy(namo_cfg.message_prefix, "Message: ", 64);
+    namo_message_prefix = (string)namo_cfg.message_prefix;
 }
 
 fn void namo_apply_config() {
@@ -29,28 +69,32 @@ fn void namo_apply_config() {
 }
 
 fn void namo_set_lamp(int state) {
-    lamp_state = state
+    lamp_state = state;
 }
 
 fn int namo_current_lamp() {
-    return lamp_state
+    return lamp_state;
 }
 
 fn string namo_lamp_label() {
-    if lamp_state == (int)NAMO_LAMP_WARN return (string)namo_cfg.warning_format
-    if lamp_state == (int)NAMO_LAMP_ERROR return (string)namo_cfg.error_format
+    if lamp_state == NAMO_LAMP_WARN { return (string)namo_cfg.warning_format; }
+    if lamp_state == NAMO_LAMP_ERROR { return (string)namo_cfg.error_format; }
     return ""
 }
 
 fn int namo_text_rows() {
-    auto rows = (int)term->t_nrow
-    if namo_cfg.hint_bar rows -= 2
+    auto rows = (int)term->t_nrow;
+    if TRUE == namo_cfg.hint_bar {
+        rows = rows - 2;
+    }
     return rows
 }
 
 fn int namo_text_cols() {
-    auto cols = (int)term->t_ncol
-    if (namo_cfg.nonr == 0) cols -= 6
+    auto cols = (int)term->t_ncol;
+    if FALSE == namo_cfg.nonr {
+        cols = cols - 6;
+    }
     return cols
 }
 
@@ -63,7 +107,7 @@ fn int namo_hint_bottom_row() {
 }
 
 fn void namo_notify_message(string text) {
-    mlwrite(text)
+    mlwrite(text);
 }
 
 fn void namo_handle_closed_file(string path) {
@@ -72,4 +116,20 @@ fn void namo_handle_closed_file(string path) {
 
 fn void namo_cleanup() {
     // Cleanup logic
+}
+
+fn bool namo_help_is_active() {
+    return FALSE
+}
+
+fn void namo_help_render() {
+    // Render when ready
+}
+
+fn int namo_help_command(int f, int n) {
+    return FALSE
+}
+
+fn int namo_help_handle_key(int key) {
+    return FALSE
 }

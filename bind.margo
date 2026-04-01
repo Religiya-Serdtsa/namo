@@ -11,7 +11,7 @@ fn weird(void, 1) getbind(int c) {
         if keytab[i].k_code == c return keytab[i].k_fp
         i++
     }
-    return null
+    return NULL
 }
 
 fn int bindtokey(int f, int n) {

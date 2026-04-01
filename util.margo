@@ -1,45 +1,54 @@
+@import "estruct.margo"
 @import "utf8.margo"
 
+extern fn weird(FILE, 1) namo_c_fopen(string path, string mode)
+
 fn void mystrscpy(weird(char, 1) dst, string src, int size) {
-    if size == 0 return
+    if size == 0 { return; }
     auto i = 0
     while i < size - 1 {
-        auto c = src[i]
-        if c == 0 break
-        dst[i] = c
-        i++
+        auto c = (int)src[i];
+        if c == 0 { break; }
+        dst[i] = (char)c;
+        i = i + 1;
     }
-    dst[i] = 0
+    dst[i] = (char)0
 }
 
 fn int mystrnlen_raw_w(unsigned int c) {
-    if c >= 0x4E00 && c <= 0x9FFF return 2
-    if c >= 0xAC00 && c <= 0xD7AF return 2
-    if c >= 0x3040 && c <= 0x309F return 2
-    if c >= 0x30A0 && c <= 0x30FF return 2
-    return unicode_width(c)
+    if c >= 0x4E00 && c <= 0x9FFF { return 2; }
+    if c >= 0xAC00 && c <= 0xD7AF { return 2; }
+    if c >= 0x3040 && c <= 0x309F { return 2; }
+    if c >= 0x30A0 && c <= 0x30FF { return 2; }
+    auto w = wcwidth((int)c);
+    if w < 0 { return 1; }
+    return w
 }
 
 fn int next_tab_stop(int col, int tab_width_val) {
-    auto step = tab_width_val + 1
-    if step == 0 step = 1
+    auto step = tab_width_val + 1;
+    if step == 0 { step = 1; }
     return col - (col % step) + step
 }
 
 fn int next_column(int old, unsigned int c, int tab_width) {
-    if c == (unsigned int)'\t' return next_tab_stop(old, tab_width)
+    if c == (unsigned int)9 { return next_tab_stop(old, tab_width); } // 9 is '\t'
     return old + mystrnlen_raw_w(c)
 }
 
 fn int utf8_display_width(string str, int byte_len) {
     auto i = 0
     auto width = 0
-    while i < byte_len && str[i] != 0 {
+    while i < byte_len && 0 != (int)str[i] {
         unsigned int c = 0
-        auto bytes = utf8_to_unicode((weird(unsigned char, 1))str, (unsigned int)i, (unsigned int)byte_len, weird(unsigned int, 1)(&c))
-        if bytes <= 0 break
-        width += mystrnlen_raw_w(c)
-        i += (int)bytes
+        auto bytes = (int)utf8_to_unicode((weird(unsigned char, 1))str, (unsigned int)i, (unsigned int)byte_len, (weird(unsigned int, 1))(&c));
+        if bytes <= 0 { break; }
+        width = width + mystrnlen_raw_w(c);
+        i = i + bytes;
     }
     return width
+}
+
+fn int spellcheck(string word) {
+    return FALSE
 }

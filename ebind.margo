@@ -8,7 +8,7 @@
 @import "display.margo"
 @import "namo_core.margo"
 
-key_tab keytab[2048] = [
+key_tab keytab[2048] = {
     { SPEC | (int)'A', (weird(void, 1))backline },
     { SPEC | (int)'B', (weird(void, 1))forwline },
     { SPEC | (int)'C', (weird(void, 1))forwchar },
@@ -68,5 +68,5 @@ key_tab keytab[2048] = [
     { META | CONTROL | (int)'6', (weird(void, 1))reserve_jump_numeric_mode },
     { META | CONTROL | (int)'7', (weird(void, 1))reserve_jump_numeric_mode },
     { CONTROL | (int)'G', (weird(void, 1))gotoline },
-    { 0, null }
-]
+    { 0, NULL }
+};

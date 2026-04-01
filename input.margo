@@ -5,50 +5,29 @@
 @import "globals.margo"
 @import "util.margo"
 @import "utf8.margo"
-
-fn static int erase_prev_glyph(weird(char, 1) buf, weird(int, 1) cpos) {
-    if buf == null || cpos == null || cpos[0] <= 0 return 0
+fn int erase_prev_glyph(weird(char, 1) buf, weird(int, 1) cpos) {
+    if cpos[0] <= 0 { return 0; }
     auto start = cpos[0]
-    while true {
+    while start > 0 {
         start--
-        if start <= 0 || is_beginning_utf8((unsigned char)buf[start]) break
+        if 0 == (buf[start] & 0x80) || 0xC0 == (buf[start] & 0xC0) {
+            break;
+        }
     }
     unsigned int uc = 0
-    utf8_to_unicode((weird(unsigned char, 1))buf, (unsigned int)start, (unsigned int)(cpos[0] - start), weird(unsigned int, 1)(&uc))
+    utf8_to_unicode((weird(unsigned char, 1))buf, (unsigned int)start, (unsigned int)(cpos[0] - start), (weird(unsigned int, 1))(&uc));
     auto width = mystrnlen_raw_w(uc)
     cpos[0] = start
-    while width-- > 0 {
-        TTputc((int)'\b')
-        TTputc((int)' ')
-        TTputc((int)'\b')
-        if ttcol > 0 ttcol--
+    while width > 0 {
+        TTputc(8); // '\b'
+        TTputc(32); // ' '
+        TTputc(8); // '\b'
+        if ttcol > 0 { ttcol--; }
+        width--
     }
     return 1
 }
 
-fn int minibuf_input(string prompt, weird(char, 1) buffer, int nbuf) {
-    auto cpos = 0
-    auto c = 0
-    mlforce(prompt)
-    while true {
-        c = getcmd()
-        if c == (int)'\r' || c == (int)'\n' break
-        if c == (int)0x07 { // Ctrl+G
-            return ABORT
-        }
-        if c == (int)'\b' || c == 0x7F {
-            erase_prev_glyph(buffer, weird(int, 1)(&cpos))
-            continue
-        }
-        if cpos < nbuf - 1 {
-            buffer[cpos++] = (char)c
-            TTputc(c)
-            ttcol++
-        }
-    }
-    buffer[cpos] = 0
-    return TRUE
-}
 
 fn int getcmd() {
     return TTgetc()

@@ -2,121 +2,123 @@
 @import std/mem
 @import "estruct.margo"
 @import "globals.margo"
+@import "util.margo"
 
-weird(FILE, 1) ffp = null
+weird(FILE, 1) ffp = NULL
 int eofflag = FALSE
 
-fn int ffropen(string fn) {
-    ffp = fopen(fn, "r")
-    if ffp == null return FIOFNF
-    eofflag = FALSE
+fn int ffropen(string fname) {
+    ffp = namo_c_fopen(fname, "r");
+    if ffp == NULL { return FIOFNF; }
+    eofflag = FALSE;
     return FIOSUC
 }
 
-fn int ffwopen(string fn) {
-    ffp = fopen(fn, "w")
-    if ffp == null {
-        mlwrite("Cannot open file for writing")
-        return FIOERR
+fn int ffwopen(string fname) {
+    ffp = namo_c_fopen(fname, "w");
+    if ffp == NULL {
+        mlwrite("Cannot open file for writing");
+        return FIOERR;
     }
     return FIOSUC
 }
 
 fn int ffclose() {
-    if fline != null {
-        free(fline)
-        fline = null
+    if fline != NULL {
+        free(fline);
+        fline = NULL;
     }
-    eofflag = FALSE
+    eofflag = FALSE;
     if fclose(ffp) != 0 {
-        mlwrite("Error closing file")
-        return FIOERR
+        mlwrite("Error closing file");
+        return FIOERR;
     }
     return FIOSUC
 }
 
 fn int ffputline(string buf, int nbuf) {
     for i=0; <nbuf; ++ {
-        fputc(buf[i] & 0xFF, ffp)
+        fputc((int)buf[i] & 0xFF, ffp);
     }
-    fputc('\n', ffp)
-    if ferror(ffp) {
-        mlwrite("Write I/O error")
-        return FIOERR
+    fputc(10, ffp); // '\n'
+    if ferror(ffp) != 0 {
+        mlwrite("Write I/O error");
+        return FIOERR;
     }
     return FIOSUC
 }
 
 fn int ffgetline() {
-    if eofflag return FIOEOF
+    if eofflag { return FIOEOF; }
 
     if flen > NSTRING {
-        free(fline)
-        fline = null
+        free(fline);
+        fline = NULL;
     }
 
-    if fline == null {
-        flen = NSTRING
-        fline = alloc(flen)
-        if fline == null return FIOMEM
+    if fline == NULL {
+        flen = NSTRING;
+        fline = alloc(flen);
+        if fline == NULL { return FIOMEM; }
     }
 
     auto i = 0
     auto c = 0
 
-    if !nullflag {
-        if fgets(fline, NSTRING, ffp) == null {
-            i = 0
-            c = -1 // EOF
+    if nullflag == 0 {
+        if fgets(fline, NSTRING, ffp) == NULL {
+            i = 0;
+            c = -1; // EOF
         } else {
-            i = strlen(fline)
-            c = 0
+            i = (int)strlen(fline);
+            c = 0;
             if i > 0 {
-                c = fline[i-1]
-                if c == '\n' || c == '\r' {
-                    i--
+                c = (int)fline[i-1];
+                if c == 10 || c == 13 { // '\n' || '\r'
+                    i--;
                 }
             }
         }
     } else {
-        i = 0
-        c = fgetc(ffp)
+        i = 0;
+        c = fgetc(ffp);
     }
 
-    while c != -1 && c != '\n' {
-        if c != 0 && c != '\r' {
-            fline[i++] = c
+    while c != -1 && c != 10 { // -1 is EOF, 10 is '\n'
+        if c != 0 && c != 13 { // 13 is '\r'
+            fline[i] = (char)c;
+            i++;
             if i >= flen {
-                auto tmpline = alloc(flen + NSTRING)
-                if tmpline == null return FIOMEM
-                memcpy(tmpline, fline, flen)
-                flen += NSTRING
-                free(fline)
-                fline = tmpline
+                auto tmpline = alloc(flen + NSTRING);
+                if tmpline == NULL { return FIOMEM; }
+                memcpy(tmpline, fline, (size_t)flen);
+                flen += NSTRING;
+                free(fline);
+                fline = tmpline;
             }
         }
-        c = fgetc(ffp)
+        c = fgetc(ffp);
     }
 
     if c == -1 {
-        if ferror(ffp) {
-            mlwrite("File read error")
-            return FIOERR
+        if ferror(ffp) != 0 {
+            mlwrite("File read error");
+            return FIOERR;
         }
         if i != 0 {
-            eofflag = TRUE
+            eofflag = TRUE;
         } else {
-            return FIOEOF
+            return FIOEOF;
         }
     }
 
-    fline[i] = 0
+    fline[i] = (char)0;
     return FIOSUC
 }
 
 fn int fexist(string fname) {
-    auto fp = fopen(fname, "r")
-    if fp == null return FALSE
-    fclose(fp)
+    auto fp = namo_c_fopen(fname, "r");
+    if fp == NULL { return FALSE; }
+    fclose(fp);
     return TRUE
 }

@@ -4,47 +4,51 @@
 @import "globals.margo"
 @import "line.margo"
 
+extern fn int kinsert(int c)
+extern fn void lchange(int flag)
+
 fn static int namo_resolve_region(weird(region, 1) rp) {
-    if curwp->w_markp == null {
-        mlwrite("No mark set in this window")
-        return FALSE
+    if NULL == curwp->w_markp {
+        mlwrite("No mark set in this window");
+        return FALSE;
     }
     return getregion(rp)
 }
 
 fn static void namo_prime_kill_buffer() {
-    if (lastflag & CFKILL) == 0 kdelete()
-    thisflag |= CFKILL
+    if 0 == (lastflag & CFKILL) { kdelete(); }
+    thisflag |= CFKILL;
 }
 
 fn static int namo_copy_region_to_kill(weird(region, 1) rp) {
     auto linep = rp->r_linep
     auto loffs = rp->r_offset
     auto remaining = rp->r_size
-    while remaining-- > 0 {
-        if linep == curbp->b_linep return FALSE
+    while remaining > 0 {
+        if linep == curbp->b_linep { return FALSE; }
         if loffs == llength(linep) {
-            if kinsert('\n') != TRUE return FALSE
-            linep = lforw(linep)
-            loffs = 0
+            if FALSE == kinsert((int)'\n') { return FALSE; }
+            linep = lforw(linep);
+            loffs = 0;
         } else {
-            if kinsert(lgetc(linep, loffs)) != TRUE return FALSE
-            loffs++
+            if FALSE == kinsert(lgetc(linep, loffs)) { return FALSE; }
+            loffs++;
         }
+        remaining--;
     }
     return TRUE
 }
 
 fn int kill_region_namo(int f, int n) {
     region r
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if namo_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
-    namo_prime_kill_buffer()
-    if namo_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
-    curwp->w_dotp = r.r_linep
-    curwp->w_doto = r.r_offset
-    if ldelete(r.r_size, FALSE) != TRUE return FALSE
-    curwp->w_flag |= (char)WFHARD
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if FALSE == namo_resolve_region((weird(region, 1))(&r)) { return FALSE; }
+    namo_prime_kill_buffer();
+    if FALSE == namo_copy_region_to_kill((weird(region, 1))(&r)) { return FALSE; }
+    curwp->w_dotp = r.r_linep;
+    curwp->w_doto = r.r_offset;
+    if FALSE == ldelete(r.r_size, FALSE) { return FALSE; }
+    curwp->w_flag = (char)((int)curwp->w_flag | WFHARD)
     return TRUE
 }
 
@@ -54,10 +58,10 @@ fn int killregion(int f, int n) {
 
 fn int copy_region_namo(int f, int n) {
     region r
-    if namo_resolve_region(weird(region, 1)(&r)) != TRUE return FALSE
-    namo_prime_kill_buffer()
-    if namo_copy_region_to_kill(weird(region, 1)(&r)) != TRUE return FALSE
-    mlwrite("(region copied)")
+    if FALSE == namo_resolve_region((weird(region, 1))(&r)) { return FALSE; }
+    namo_prime_kill_buffer();
+    if FALSE == namo_copy_region_to_kill((weird(region, 1))(&r)) { return FALSE; }
+    mlwrite("(region copied)");
     return TRUE
 }
 
@@ -67,61 +71,65 @@ fn int copyregion(int f, int n) {
 
 fn int lowerregion(int f, int n) {
     region r
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if getregion(weird(region, 1)(&r)) != TRUE return FALSE
-    lchange(WFHARD)
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if FALSE == getregion((weird(region, 1))(&r)) { return FALSE; }
+    lchange(WFHARD);
     auto linep = r.r_linep
     auto loffs = r.r_offset
-    while r.r_size-- > 0 {
+    auto rem = r.r_size
+    while rem > 0 {
         if loffs == llength(linep) {
-            linep = lforw(linep)
-            loffs = 0
+            linep = lforw(linep);
+            loffs = 0;
         } else {
-            auto c = (unsigned char)lgetc(linep, loffs)
-            if c >= (unsigned char)'A' && c <= (unsigned char)'Z' {
-                lputc(linep, loffs, (int)(c + (unsigned char)'a' - (unsigned char)'A'))
+            auto c = lgetc(linep, loffs);
+            if c >= (int)'A' && c <= (int)'Z' {
+                lputc(linep, loffs, c + 32); // 'a' - 'A'
             }
-            loffs++
+            loffs++;
         }
+        rem--;
     }
     return TRUE
 }
 
 fn int upperregion(int f, int n) {
     region r
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if getregion(weird(region, 1)(&r)) != TRUE return FALSE
-    lchange(WFHARD)
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if FALSE == getregion((weird(region, 1))(&r)) { return FALSE; }
+    lchange(WFHARD);
     auto linep = r.r_linep
     auto loffs = r.r_offset
-    while r.r_size-- > 0 {
+    auto rem = r.r_size
+    while rem > 0 {
         if loffs == llength(linep) {
-            linep = lforw(linep)
-            loffs = 0
+            linep = lforw(linep);
+            loffs = 0;
         } else {
-            auto c = (unsigned char)lgetc(linep, loffs)
-            if c >= (unsigned char)'a' && c <= (unsigned char)'z' {
-                lputc(linep, loffs, (int)(c - (unsigned char)'a' + (unsigned char)'A'))
+            auto c = lgetc(linep, loffs);
+            if c >= (int)'a' && c <= (int)'z' {
+                lputc(linep, loffs, c - 32); // 'A' - 'a'
             }
-            loffs++
+            loffs++;
         }
+        rem--;
     }
     return TRUE
 }
 
 fn int getregion(weird(region, 1) rp) {
-    if curwp->w_markp == null {
-        mlwrite("No mark set in this window")
-        return FALSE
+    if NULL == curwp->w_markp {
+        mlwrite("No mark set in this window");
+        return FALSE;
     }
     if curwp->w_dotp == curwp->w_markp {
-        rp->r_linep = curwp->w_dotp
+        rp->r_linep = curwp->w_dotp;
         if curwp->w_doto < curwp->w_marko {
-            rp->r_offset = curwp->w_doto
-            rp->r_size = (long)(curwp->w_marko - curwp->w_doto)
+            rp->r_offset = curwp->w_doto;
+            rp->r_size = (long)(curwp->w_marko - curwp->w_doto);
         } else {
-            rp->r_offset = curwp->w_marko
-            rp->r_size = (long)(curwp->w_doto - curwp->w_marko)
+            rp->r_offset = curwp->w_marko;
+            rp->r_size = (long)(curwp->w_doto - curwp->w_marko);
         }
         return TRUE
     }
@@ -131,26 +139,26 @@ fn int getregion(weird(region, 1) rp) {
     auto fsize = (long)(llength(flp) - curwp->w_doto + 1)
     while flp != curbp->b_linep || lback(blp) != curbp->b_linep {
         if flp != curbp->b_linep {
-            flp = lforw(flp)
+            flp = lforw(flp);
             if flp == curwp->w_markp {
-                rp->r_linep = curwp->w_dotp
-                rp->r_offset = curwp->w_doto
-                rp->r_size = fsize + (long)curwp->w_marko
+                rp->r_linep = curwp->w_dotp;
+                rp->r_offset = curwp->w_doto;
+                rp->r_size = fsize + (long)curwp->w_marko;
                 return TRUE
             }
-            fsize += (long)(llength(flp) + 1)
+            fsize += (long)(llength(flp) + 1);
         }
         if lback(blp) != curbp->b_linep {
-            blp = lback(blp)
-            bsize += (long)(llength(blp) + 1)
+            blp = lback(blp);
+            bsize += (long)(llength(blp) + 1);
             if blp == curwp->w_markp {
-                rp->r_linep = blp
-                rp->r_offset = curwp->w_marko
-                rp->r_size = bsize - (long)curwp->w_marko
+                rp->r_linep = blp;
+                rp->r_offset = curwp->w_marko;
+                rp->r_size = bsize - (long)curwp->w_marko;
                 return TRUE
             }
         }
     }
-    mlwrite("Bug: lost mark")
+    mlwrite("Bug: lost mark");
     return FALSE
 }

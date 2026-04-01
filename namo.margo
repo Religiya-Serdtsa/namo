@@ -1,12 +1,3 @@
-@import "estruct.margo"
-@import "globals.margo"
-@import "utf8.margo"
-@import "util.margo"
-@import "version.margo"
-@import "usage.margo"
-@import "wrapper.margo"
-@import "fileio.margo"
-@import "line.margo"
-@import "buffer.margo"
-@import "window.margo"
-@import "basic.margo"
+// namo.margo
+// This file is now primarily for core logic that isn't in other modules.
+// Imports are handled by the main entry point.

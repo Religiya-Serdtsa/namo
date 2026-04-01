@@ -1,22 +1,55 @@
 @import "estruct.margo"
 
 int fillcol = 72
-string execstr = null
-char golabel[1024] // NPAT
+string execstr = NULL
+char golabel[NPAT]
 int execlevel = 0
 int eolexist = TRUE
 int revexist = FALSE
 int flickcode = FALSE
 
-string modename[] = [
-    "WRAP", "CMODE", "SPELL", "EXACT", "VIEW", "OVER",
-    "MAGIC", "ASAVE", "UTF-8"
-]
+const int MODE_NAME_COUNT = 9
+const int DNAME_COUNT = 10
+string modename[MODE_NAME_COUNT]
+string mode2name[MODE_NAME_COUNT]
+string dname[DNAME_COUNT]
+int globals_tables_inited = FALSE
 
-string mode2name[] = [
-    "Wrap", "Cmode", "Spell", "Exact", "View", "Over",
-    "Magic", "Asave", "utf-8"
-]
+fn void globals_init_tables() {
+    if globals_tables_inited return
+    modename[0] = "WRAP"
+    modename[1] = "CMODE"
+    modename[2] = "SPELL"
+    modename[3] = "EXACT"
+    modename[4] = "VIEW"
+    modename[5] = "OVER"
+    modename[6] = "MAGIC"
+    modename[7] = "ASAVE"
+    modename[8] = "UTF-8"
+
+    mode2name[0] = "Wrap"
+    mode2name[1] = "Cmode"
+    mode2name[2] = "Spell"
+    mode2name[3] = "Exact"
+    mode2name[4] = "View"
+    mode2name[5] = "Over"
+    mode2name[6] = "Magic"
+    mode2name[7] = "Asave"
+    mode2name[8] = "utf-8"
+
+    dname[0] = "if"
+    dname[1] = "else"
+    dname[2] = "endif"
+    dname[3] = "goto"
+    dname[4] = "return"
+    dname[5] = "endm"
+    dname[6] = "while"
+    dname[7] = "endwhile"
+    dname[8] = "break"
+    dname[9] = "force"
+
+    globals_tables_inited = TRUE
+}
 
 char modecode[] = "WCSEVOMYAU"
 int gmode = 0
@@ -32,39 +65,40 @@ int mstore = FALSE
 int discmd = TRUE
 int disinp = TRUE
 
-weird(buffer, 1) bstore = null
+weird(buffer, 1) bstore = NULL
 int vtrow = 0
 int vtcol = 0
 int ttrow = HUGE
 int ttcol = HUGE
 int lbound = 0
 int taboff = 0
-int metac = CONTROL | '['
-int ctlxc = CONTROL | 'X'
-int reptc = CONTROL | 'U'
+int metac = CONTROL | (int)'['
+int ctlxc = CONTROL | (int)'X'
+int reptc = CONTROL | (int)'U'
 int abortc = 0x1F
 
 int quotec = 0x11
 int tab_width = 7
-weird(void, 1) kbufp = null // struct kill*
-weird(void, 1) kbufh = null // struct kill*
-weird(window, 1) swindow = null
+weird(struct kill, 1) kbufp = NULL
+weird(struct kill, 1) kbufh = NULL
+int kused = 0
+weird(window, 1) swindow = NULL
 int kbdmode = STOP
 int kbdrep = 0
 int restflag = FALSE
 int lastkey = 0
 int seed = 0
-long envram = 0
+long envram = 0L
 int macbug = FALSE
 int cmdstatus = TRUE
 char palstr[49] = ""
 int saveflag = 0
-string fline = null
+string fline = NULL
 int flen = 0
 int rval = 0
 int nullflag = FALSE
 
-weird(terminal, 1) term = null
+weird(terminal, 1) term = NULL
 
 int justflag = FALSE
 int overlap = 0
@@ -75,38 +109,31 @@ int curcol = 0
 int thisflag = 0
 int lastflag = 0
 int curgoal = 0
-weird(window, 1) curwp = null
-weird(buffer, 1) curbp = null
-weird(buffer, 1) bheadp = null
-weird(buffer, 1) blistp = null
+weird(window, 1) curwp = NULL
+weird(buffer, 1) curbp = NULL
+weird(buffer, 1) bheadp = NULL
+weird(buffer, 1) blistp = NULL
 
-char pat[1024] // NPAT
-char tap[1024] // NPAT
-char rpat[1024] // NPAT
+char pat[NPAT]
+char tap[NPAT]
+char rpat[NPAT]
 
-string patmatch = null
-weird(line, 1) matchline = null
+string patmatch = NULL
+weird(line, 1) matchline = NULL
 int matchoff = 0
 int cutln_active = FALSE
 int confirmshell = TRUE
 int makebackup = TRUE
 int removebackup = FALSE
 
-weird(line, 1) indent_start_lp = null
-weird(line, 1) indent_end_lp = null
+weird(line, 1) indent_start_lp = NULL
+weird(line, 1) indent_end_lp = NULL
 int indent_range_type = 0
 int indent_selection_active = FALSE
 
-string dname[] = [
-    "if", "else", "endif",
-    "goto", "return", "endm",
-    "while", "endwhile", "break",
-    "force"
-]
-
-int kbdm[2048] // NKBDM
-weird(int, 1) kbdptr = null
-weird(int, 1) kbdend = null
+int kbdm[NKBDM]
+weird(int, 1) kbdptr = NULL
+weird(int, 1) kbdend = NULL
 
 unsigned int matchlen = 0
 unsigned int mlenold = 0

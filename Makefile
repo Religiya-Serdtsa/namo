@@ -62,6 +62,27 @@ HDR += scraper.h
 
 MARGO_SRC = $(SRC:.c=.margo)
 
+USE_MARGO ?= 0
+MARGO_ENTRY ?= main.margo
+MARGO_CLANG_WRAPPER := $(abspath scripts/margo_clang_wrapper.sh)
+MARGO_REAL_CLANG ?= clang
+MARGO_SOURCES := $(wildcard *.margo)
+MARGO_BRIDGED_STEMS ?= display
+
+ifeq ($(USE_MARGO),1)
+	MARGO_PORTED_STEMS := $(basename $(notdir $(MARGO_SOURCES)))
+	MARGO_REPLACED_C := $(filter $(addsuffix .c,$(MARGO_PORTED_STEMS)),$(SRC))
+	ifneq ($(strip $(MARGO_BRIDGED_STEMS)),)
+		MARGO_BRIDGED_C := $(filter $(addsuffix .c,$(MARGO_BRIDGED_STEMS)),$(MARGO_REPLACED_C))
+		MARGO_REPLACED_C := $(filter-out $(MARGO_BRIDGED_C),$(MARGO_REPLACED_C))
+	endif
+	BUILD_SRC := $(filter-out $(MARGO_REPLACED_C),$(SRC))
+else
+	BUILD_SRC := $(SRC)
+endif
+
+BUILD_OBJ := $(BUILD_SRC:.c=.o)
+
 CC?=gcc
 WARNINGS=-Wall -Wstrict-prototypes -Wuninitialized
 
@@ -158,9 +179,30 @@ ifneq ($(strip $(HUNSPELL_LIBS)),)
 	LDLIBS += $(HUNSPELL_LIBS)
 endif
 
-$(PROGRAM): $(OBJ)
+MARGO_EXTRA_CFLAGS_VAL := $(strip -I. $(DEFINES))
+MARGO_EXTRA_LIBS_VAL := $(strip $(LDFLAGS) $(LDLIBS))
+MARGO_EXTRA_OBJS_VAL := $(strip $(BUILD_OBJ))
+
+MARGO_ENV := REAL_CLANG="$(MARGO_REAL_CLANG)"
+ifneq ($(MARGO_EXTRA_CFLAGS_VAL),)
+	MARGO_ENV += MARGO_EXTRA_CFLAGS="$(MARGO_EXTRA_CFLAGS_VAL)"
+endif
+ifneq ($(MARGO_EXTRA_OBJS_VAL),)
+	MARGO_ENV += MARGO_EXTRA_OBJS="$(MARGO_EXTRA_OBJS_VAL)"
+endif
+ifneq ($(MARGO_EXTRA_LIBS_VAL),)
+	MARGO_ENV += MARGO_EXTRA_LIBS="$(MARGO_EXTRA_LIBS_VAL)"
+endif
+
+ifeq ($(USE_MARGO),1)
+$(PROGRAM): $(BUILD_OBJ) $(MARGO_SOURCES) $(MARGO)
+	$(E) "  MARGO    " $@
+	$(Q) $(MARGO_ENV) $(MARGO) build $(MARGO_ENTRY) -o $@ --clang $(MARGO_CLANG_WRAPPER)
+else
+$(PROGRAM): $(BUILD_OBJ)
 	$(E) "  LINK    " $@
-	$(Q) $(CC) $(LDFLAGS) $(DEFINES) -o $@ $(OBJ) $(LDLIBS)
+	$(Q) $(CC) $(LDFLAGS) $(DEFINES) -o $@ $(BUILD_OBJ) $(LDLIBS)
+endif
 
 .c.o:
 	$(E) "  CC      " $@

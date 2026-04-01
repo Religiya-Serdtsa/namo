@@ -5,7 +5,7 @@
 
 fn void namo_get_user_data_dir(weird(char, 1) out, int cap) {
     auto home = getenv("HOME")
-    if home == null {
+    if home == NULL {
         mystrscpy(out, "/tmp", cap)
         return
     }
@@ -14,7 +14,7 @@ fn void namo_get_user_data_dir(weird(char, 1) out, int cap) {
 
 fn void namo_get_user_config_dir(weird(char, 1) out, int cap) {
     auto home = getenv("HOME")
-    if home == null {
+    if home == NULL {
         mystrscpy(out, "/tmp", cap)
         return
     }
@@ -22,7 +22,7 @@ fn void namo_get_user_config_dir(weird(char, 1) out, int cap) {
 }
 
 fn void namo_path_join(weird(char, 1) out, int cap, string a, string b) {
-    if a == null || a[0] == 0 {
+    if a == NULL || a[0] == 0 {
         mystrscpy(out, b, cap)
         return
     }
@@ -35,8 +35,8 @@ fn void namo_path_join(weird(char, 1) out, int cap, string a, string b) {
 }
 
 fn bool namo_file_exists(string path) {
-    auto f = fopen(path, "r")
-    if f == null return false
+    auto f = namo_c_fopen(path, "r")
+    if f == NULL return false
     fclose(f)
     return true
 }
@@ -45,7 +45,9 @@ fn void namo_normalize_path(weird(char, 1) path) {
     // Basic normalization: convert backslashes to forward slashes
     auto i = 0
     while path[i] != 0 {
-        if path[i] == '\\' path[i] = '/'
+        if path[i] == '\\' {
+            path[i] = '/'
+        }
         i++
     }
 }

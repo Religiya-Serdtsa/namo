@@ -8,220 +8,322 @@
 @import "utf8.margo"
 @import "util.margo"
 
+extern fn int backline(int f, int n)
+extern fn int forwline(int f, int n)
+extern fn void gotobob(int f, int n)
+extern fn void gotoeob(int f, int n)
+extern fn int backpage(int f, int n)
+extern fn int forwpage(int f, int n)
+extern fn int insspace(int f, int n)
+extern fn int indent_cancel(int f, int n)
+extern fn int insert_tab(int f, int n)
+extern fn int insert_newline(int f, int n)
+extern fn int completion_menu_command(int f, int n)
+extern fn int outdent_start_set(int f, int n)
+extern fn int outdent_end_set(int f, int n)
+extern fn int indent_start_set(int f, int n)
+extern fn int indent_end_set(int f, int n)
+extern fn int g_prefix_handler(int f, int n)
+extern fn int command_mode_activate_command(int f, int n)
+extern fn int namo_help_command(int f, int n)
+extern fn int filesave(int f, int n)
+extern fn int filefind(int f, int n)
+extern fn int quit(int f, int n)
+extern fn int namo_search_engine(int f, int n)
+extern fn int sed_replace_command(int f, int n)
+extern fn int cutln_start_copy(int f, int n)
+extern fn int cutln_end_copy(int f, int n)
+extern fn int cutln_start_cut(int f, int n)
+extern fn int cutln_end_cut(int f, int n)
+extern fn int cutln_cut_current_line(int f, int n)
+extern fn int yank(int f, int n)
+extern fn int reserve_jump_1(int f, int n)
+extern fn int reserve_jump_2(int f, int n)
+extern fn int reserve_jump_3(int f, int n)
+extern fn int reserve_jump_4(int f, int n)
+extern fn int reserve_jump_fallback_1(int f, int n)
+extern fn int reserve_jump_fallback_2(int f, int n)
+extern fn int reserve_jump_fallback_3(int f, int n)
+extern fn int reserve_jump_fallback_4(int f, int n)
+extern fn int reserve_jump_numeric_mode(int f, int n)
+
 int tabsize = 7
 
 fn static int get_indent(weird(line, 1) lp) {
-    auto nicol = 0
-    auto len = llength(lp)
+    auto nicol = 0;
+    auto len = llength(lp);
     for i=0; <len; ++ {
-        auto c = lgetc(lp, i)
-        if c != ' ' && c != 0x09 break
-        if c == 0x09 nicol = next_tab_stop(nicol, tab_width)
-        else nicol++
+        auto c = lgetc(lp, i);
+        if 32 != c && 0x09 != c { break; }
+        if 0x09 == c {
+            nicol = next_tab_stop(nicol, tab_width);
+        } else {
+            nicol++;
+        }
     }
     return nicol
 }
 
 fn static void set_indent(int target) {
-    auto cur = get_indent(curwp->w_dotp)
+    auto cur = get_indent(curwp->w_dotp);
     if cur == target {
-        curwp->w_doto = 0
+        curwp->w_doto = 0;
         while curwp->w_doto < llength(curwp->w_dotp) {
-            auto ch = lgetc(curwp->w_dotp, curwp->w_doto)
-            if ch != ' ' && ch != 0x09 break
-            curwp->w_doto++
+            auto ch = lgetc(curwp->w_dotp, curwp->w_doto);
+            if 32 != ch && 0x09 != ch { break; }
+            curwp->w_doto++;
         }
         return
     }
-    curwp->w_doto = 0
+    curwp->w_doto = 0;
     while curwp->w_doto < llength(curwp->w_dotp) {
-        auto ch = lgetc(curwp->w_dotp, curwp->w_doto)
-        if ch != ' ' && ch != 0x09 break
-        ldelchar(1, FALSE)
+        auto ch = lgetc(curwp->w_dotp, curwp->w_doto);
+        if 32 != ch && 0x09 != ch { break; }
+        ldelchar(1L, FALSE);
     }
     if target > 0 {
-        // if namo_cfg.soft_tab
         for i=0; <target; ++ {
-            linsert(1, (int)' ')
+            linsert(1, 32);
         }
     }
-    curwp->w_doto = 0
+    curwp->w_doto = 0;
     while curwp->w_doto < llength(curwp->w_dotp) {
-        auto ch2 = lgetc(curwp->w_dotp, curwp->w_doto)
-        if ch2 != ' ' && ch2 != 0x09 break
-        curwp->w_doto++
+        auto ch2 = lgetc(curwp->w_dotp, curwp->w_doto);
+        if 32 != ch2 && 0x09 != ch2 { break; }
+        curwp->w_doto++;
     }
 }
 
 fn int forwdel(int f, int n) {
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if n < 0 return backdel(f, -n)
-    if f != FALSE {
-        if (lastflag & CFKILL) == 0 kdelete()
-        thisflag |= CFKILL
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if n < 0 { return backdel(f, -n); }
+    if FALSE != f {
+        if 0 == (lastflag & CFKILL) { kdelete(); }
+        thisflag |= CFKILL;
     }
     return ldelchar((long)n, f)
 }
 
 fn int backdel(int f, int n) {
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if n < 0 return forwdel(f, -n)
-    if f != FALSE {
-        if (lastflag & CFKILL) == 0 kdelete()
-        thisflag |= CFKILL
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if n < 0 { return forwdel(f, -n); }
+    if FALSE != f {
+        if 0 == (lastflag & CFKILL) { kdelete(); }
+        thisflag |= CFKILL;
     }
-    if backchar(f, n) == TRUE return ldelchar((long)n, f)
+    if TRUE == backchar(f, n) { return ldelchar((long)n, f); }
     return FALSE
 }
 
 fn int killtext(int f, int n) {
-    if (curbp->b_mode & MDVIEW) != 0 return rdonly()
-    if (lastflag & CFKILL) == 0 kdelete()
-    thisflag |= CFKILL
-    auto chunk = 0L
-    if f == FALSE {
-        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto)
-        if chunk == 0 chunk = 1
-    } else if n == 0 {
-        chunk = (long)curwp->w_doto
-        curwp->w_doto = 0
+    if 0 != (curbp->b_mode & MDVIEW) { return rdonly(); }
+    if 0 == (lastflag & CFKILL) { kdelete(); }
+    thisflag |= CFKILL;
+    auto chunk = 0L;
+    if FALSE == f {
+        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto);
+        if 0L == chunk {
+            chunk = 1L;
+        }
+    } else if 0 == n {
+        chunk = (long)curwp->w_doto;
+        curwp->w_doto = 0;
     } else if n > 0 {
-        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto + 1)
-        auto nextp = lforw(curwp->w_dotp)
-        while --n > 0 {
-            if nextp == curbp->b_linep return FALSE
-            chunk += (long)(llength(nextp) + 1)
-            nextp = lforw(nextp)
+        chunk = (long)(llength(curwp->w_dotp) - curwp->w_doto + 1);
+        auto nextp = lforw(curwp->w_dotp);
+        while n > 1 {
+            if nextp == curbp->b_linep { return FALSE; }
+            chunk += (long)(llength(nextp) + 1);
+            nextp = lforw(nextp);
+            n--;
         }
     } else {
-        mlwrite("neg kill")
+        mlwrite("neg kill");
         return FALSE
     }
     return ldelete(chunk, TRUE)
 }
 
-fn int setemode(int f, int n) { return adjustmode(TRUE, FALSE) }
-fn int delmode(int f, int n) { return adjustmode(FALSE, FALSE) }
-fn int setgmode(int f, int n) { return adjustmode(TRUE, TRUE) }
-fn int delgmode(int f, int n) { return adjustmode(FALSE, TRUE) }
-
 fn int adjustmode(int kind, int global) {
     char prompt[64]
     char cbuf[1024]
-    if global != 0 strcpy(prompt, "Global mode to ")
-    else strcpy(prompt, "Mode to ")
-    if kind == TRUE strcat(prompt, "add: ")
-    else strcat(prompt, "delete: ")
-    auto status = minibuf_input(prompt, cbuf, 1023)
-    if status != TRUE return status
-    for i=0; <(int)strlen(cbuf); ++ {
-        if cbuf[i] >= 'a' && cbuf[i] <= 'z' cbuf[i] -= 32
+    if 0 != global {
+        strcpy(prompt, "Global mode to ");
+    } else {
+        strcpy(prompt, "Mode to ");
     }
-    for i=0; <9; ++ { // NUMMODES
-        if strcmp((string)cbuf, modename[i]) == 0 {
-            if kind == TRUE {
-                if global != 0 gmode |= (1 << i)
-                else curbp->b_mode |= (1 << i)
-            } else {
-                if global != 0 gmode &= ~(1 << i)
-                else curbp->b_mode &= ~(1 << i)
-            }
-            if global == 0 upmode()
-            mlerase()
-            return TRUE
+    if TRUE == kind {
+        strcat(prompt, "add: ");
+    } else {
+        strcat(prompt, "delete: ");
+    }
+    auto status = minibuf_input(prompt, (weird(char, 1))cbuf, 1023);
+    if TRUE != status { return status; }
+    for i=0; <(int)strlen(cbuf); ++ {
+        if cbuf[i] >= 'a' && cbuf[i] <= 'z' {
+            cbuf[i] = (char)((int)cbuf[i] - 32);
         }
     }
-    mlwrite("No such mode!")
+    for i=0; <9; ++ { // NUMMODES
+        if 0 == strcmp((string)cbuf, modename[i]) {
+            if TRUE == kind {
+                if 0 != global {
+                    gmode |= (1 << i);
+                } else {
+                    curbp->b_mode |= (1 << i);
+                }
+            } else {
+                if 0 != global {
+                    gmode &= ~(1 << i);
+                } else {
+                    curbp->b_mode &= ~(1 << i);
+                }
+            }
+            if 0 == global { upmode(); }
+            mlerase();
+            return TRUE;
+        }
+    }
+    mlwrite("No such mode!");
     return FALSE
 }
 
+fn int setemode(int f, int n) { return adjustmode(TRUE, FALSE); }
+fn int delmode(int f, int n) { return adjustmode(FALSE, FALSE); }
+fn int setgmode(int f, int n) { return adjustmode(TRUE, TRUE); }
+fn int delgmode(int f, int n) { return adjustmode(FALSE, TRUE); }
+
 fn int clrmes(int f, int n) {
-    mlforce("")
+    mlforce("");
     return TRUE
 }
 
 fn int writemsg(int f, int n) {
     char buf[1024]
     char nbuf[2048]
-    auto status = minibuf_input("Message to write: ", buf, 1023)
-    if status != TRUE return status
-    auto sp = 0
-    auto np = 0
-    while buf[sp] != 0 {
-        nbuf[np++] = buf[sp]
-        if buf[sp] == '%' nbuf[np++] = '%'
-        sp++
+    auto status = minibuf_input("Message to write: ", (weird(char, 1))buf, 1023);
+    if TRUE != status { return status; }
+    auto sp = 0;
+    auto np = 0;
+    while 0 != buf[sp] {
+        nbuf[np] = buf[sp];
+        np++;
+        if '%' == buf[sp] {
+            nbuf[np] = (char)'%';
+            np++;
+        }
+        sp++;
     }
-    nbuf[np] = 0
-    mlforce((string)nbuf)
+    nbuf[np] = (char)0;
+    mlforce((string)nbuf);
     return TRUE
 }
 
 fn int getfence(int f, int n) {
-    auto oldlp = curwp->w_dotp
-    auto oldoff = curwp->w_doto
-    auto ch = 0
-    if oldoff == llength(oldlp) ch = '\n'
-    else ch = lgetc(oldlp, oldoff)
-    auto ofence = 0
-    auto sdir = FORWARD
-    if ch == '(' { ofence = ')'; sdir = FORWARD }
-    else if ch == '{' { ofence = '}'; sdir = FORWARD }
-    else if ch == '[' { ofence = ']'; sdir = FORWARD }
-    else if ch == ')' { ofence = '('; sdir = REVERSE }
-    else if ch == '}' { ofence = '{'; sdir = REVERSE }
-    else if ch == ']' { ofence = '['; sdir = REVERSE }
-    else {
-        TTbeep()
+    auto oldlp = curwp->w_dotp;
+    auto oldoff = curwp->w_doto;
+    auto ch = 0;
+    if oldoff == llength(oldlp) {
+        ch = 10; // '\n'
+    } else {
+        ch = lgetc(oldlp, oldoff);
+    }
+    auto ofence = 0;
+    auto sdir = FORWARD;
+    if ch == 40 { // '('
+        ofence = 41; // ')'
+        sdir = FORWARD;
+    } else if ch == 123 { // '{'
+        ofence = 125; // '}'
+        sdir = FORWARD;
+    } else if ch == 91 { // '['
+        ofence = 93; // ']'
+        sdir = FORWARD;
+    } else if ch == 41 { // ')'
+        ofence = 40; // '('
+        sdir = REVERSE;
+    } else if ch == 125 { // '}'
+        ofence = 123; // '{'
+        sdir = REVERSE;
+    } else if ch == 93 { // ']'
+        ofence = 91; // '['
+        sdir = REVERSE;
+    } else {
+        TTbeep();
         return FALSE
     }
-    auto count = 1
-    if sdir == REVERSE backchar(FALSE, 1)
-    else forwchar(FALSE, 1)
-    while count > 0 {
-        auto c = 0
-        if curwp->w_doto == llength(curwp->w_dotp) c = '\n'
-        else c = lgetc(curwp->w_dotp, curwp->w_doto)
-        if c == ch count++
-        if c == ofence count--
-        if sdir == FORWARD forwchar(FALSE, 1)
-        else backchar(FALSE, 1)
-        if boundry(curwp->w_dotp, curwp->w_doto, sdir) break
+    auto count = 1;
+    if sdir == REVERSE {
+        backchar(FALSE, 1);
+    } else {
+        forwchar(FALSE, 1);
     }
-    if count == 0 {
-        if sdir == FORWARD backchar(FALSE, 1)
-        else forwchar(FALSE, 1)
-        curwp->w_flag |= (char)WFMOVE
+    while count > 0 {
+        auto c = 0;
+        if curwp->w_doto == llength(curwp->w_dotp) {
+            c = 10; // '\n'
+        } else {
+            c = lgetc(curwp->w_dotp, curwp->w_doto);
+        }
+        if c == ch {
+            count++;
+        } else if c == ofence {
+            count--;
+        }
+        if sdir == FORWARD {
+            forwchar(FALSE, 1);
+        } else {
+            backchar(FALSE, 1);
+        }
+        if 0 != boundry(curwp->w_dotp, curwp->w_doto, sdir) { break; }
+    }
+    if 0 == count {
+        if sdir == FORWARD {
+            backchar(FALSE, 1);
+        } else {
+            forwchar(FALSE, 1);
+        }
+        curwp->w_flag = (char)((int)curwp->w_flag | WFMOVE);
         return TRUE
     }
-    curwp->w_dotp = oldlp
-    curwp->w_doto = oldoff
-    TTbeep()
+    curwp->w_dotp = oldlp;
+    curwp->w_doto = oldoff;
+    TTbeep();
     return FALSE
 }
 
 fn int istring(int f, int n) {
     char tstring[1024]
-    auto status = mlreplyt("String to insert<META>: ", tstring, 1023, metac)
-    if status != TRUE return status
-    if f == FALSE n = 1
-    if n < 0 n = -n
-    while n-- > 0 {
-        status = linstr((string)tstring)
-        if status != TRUE break
+    auto status = mlreplyt("String to insert<META>: ", (weird(char, 1))tstring, 1023, metac);
+    if TRUE != status { return status; }
+    if FALSE == f {
+        n = 1;
+    }
+    if n < 0 {
+        n = -n;
+    }
+    while n > 0 {
+        status = linstr((string)tstring);
+        if TRUE != status { break; }
+        n--;
     }
     return status
 }
 
 fn int ovstring(int f, int n) {
     char tstring[1024]
-    auto status = mlreplyt("String to overwrite<META>: ", tstring, 1023, metac)
-    if status != TRUE return status
-    if f == FALSE n = 1
-    if n < 0 n = -n
-    while n-- > 0 {
-        status = lover((string)tstring)
-        if status != TRUE break
+    auto status = mlreplyt("String to overwrite<META>: ", (weird(char, 1))tstring, 1023, metac);
+    if TRUE != status { return status; }
+    if FALSE == f {
+        n = 1;
+    }
+    if n < 0 {
+        n = -n;
+    }
+    while n > 0 {
+        status = lover((string)tstring);
+        if TRUE != status { break; }
+        n--;
     }
     return status
 }

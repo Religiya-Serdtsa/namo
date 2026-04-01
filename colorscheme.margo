@@ -3,257 +3,276 @@
 @import std/stdlib
 @import "estruct.margo"
 @import "util.margo"
+@import "platform.margo"
 
-enum HighlightStyleID {
-    HL_NORMAL = 0,
-    HL_COMMENT,
-    HL_STRING,
-    HL_NUMBER,
-    HL_BRACKET,
-    HL_OPERATOR,
-    HL_KEYWORD,
-    HL_TYPE,
-    HL_FUNCTION,
-    HL_FLOW,
-    HL_PREPROC,
-    HL_RETURN,
-    HL_ESCAPE,
-    HL_CONTROL,
-    HL_TERNARY,
-    HL_ERROR,
-    HL_NOTICE,
-    HL_SELECTION,
-    HL_HEADER,
-    HL_MD_BOLD,
-    HL_MD_ITALIC,
-    HL_MD_UNDERLINE,
-    HL_LINENUM,
-    HL_COUNT
-}
+typedef int HighlightStyleID;
+const HighlightStyleID HL_NORMAL = 0
+const HighlightStyleID HL_COMMENT = 1
+const HighlightStyleID HL_STRING = 2
+const HighlightStyleID HL_NUMBER = 3
+const HighlightStyleID HL_BRACKET = 4
+const HighlightStyleID HL_OPERATOR = 5
+const HighlightStyleID HL_KEYWORD = 6
+const HighlightStyleID HL_TYPE = 7
+const HighlightStyleID HL_FUNCTION = 8
+const HighlightStyleID HL_FLOW = 9
+const HighlightStyleID HL_PREPROC = 10
+const HighlightStyleID HL_RETURN = 11
+const HighlightStyleID HL_ESCAPE = 12
+const HighlightStyleID HL_CONTROL = 13
+const HighlightStyleID HL_TERNARY = 14
+const HighlightStyleID HL_ERROR = 15
+const HighlightStyleID HL_NOTICE = 16
+const HighlightStyleID HL_SELECTION = 17
+const HighlightStyleID HL_HEADER = 18
+const HighlightStyleID HL_MD_BOLD = 19
+const HighlightStyleID HL_MD_ITALIC = 20
+const HighlightStyleID HL_MD_UNDERLINE = 21
+const HighlightStyleID HL_LINENUM = 22
+const HighlightStyleID HL_COUNT = 23
 
 struct HighlightStyle {
-    int fg
-    int bg
-    bool bold
-    bool underline
-    bool italic
-}
+    int fg;
+    int bg;
+    bool bold;
+    bool underline;
+    bool italic;
+};
+typedef struct HighlightStyle HighlightStyle;
 
 static char current_scheme_name[64] = "default"
 static HighlightStyle styles[HL_COUNT]
 
 fn static void set_default_scheme() {
-    styles[HL_NORMAL] = (HighlightStyle){-1, -1, false, false, false}
-    styles[HL_COMMENT] = (HighlightStyle){8, -1, false, false, false}
-    styles[HL_STRING] = (HighlightStyle){2, -1, false, false, false}
-    styles[HL_NUMBER] = (HighlightStyle){5, -1, false, false, false}
-    styles[HL_BRACKET] = (HighlightStyle){6, -1, false, false, false}
-    styles[HL_OPERATOR] = (HighlightStyle){6, -1, false, false, false}
-    styles[HL_KEYWORD] = (HighlightStyle){3, -1, true, false, false}
-    styles[HL_TYPE] = (HighlightStyle){6, -1, false, false, false}
-    styles[HL_FUNCTION] = (HighlightStyle){4, -1, false, false, false}
-    styles[HL_FLOW] = (HighlightStyle){3, -1, true, false, false}
-    styles[HL_PREPROC] = (HighlightStyle){1, -1, false, false, false}
-    styles[HL_RETURN] = (HighlightStyle){9, -1, true, false, false}
-    styles[HL_ESCAPE] = (HighlightStyle){14, -1, false, false, false}
-    styles[HL_CONTROL] = (HighlightStyle){9, -1, false, true, false}
-    styles[HL_TERNARY] = (HighlightStyle){3, -1, true, false, false}
-    styles[HL_ERROR] = (HighlightStyle){9, -1, false, false, false}
-    styles[HL_NOTICE] = (HighlightStyle){208, -1, true, false, false}
-    styles[HL_SELECTION] = (HighlightStyle){0, 11, false, false, false}
-    styles[HL_HEADER] = (HighlightStyle){4, -1, true, false, false}
-    styles[HL_MD_BOLD] = (HighlightStyle){-1, -1, true, false, false}
-    styles[HL_MD_ITALIC] = (HighlightStyle){6, -1, false, false, true}
-    styles[HL_MD_UNDERLINE] = (HighlightStyle){-1, -1, false, true, false}
-    styles[HL_LINENUM] = (HighlightStyle){8, -1, false, false, false}
+    styles[HL_NORMAL].fg = -1; styles[HL_NORMAL].bg = -1; styles[HL_NORMAL].bold = false; styles[HL_NORMAL].underline = false; styles[HL_NORMAL].italic = false;
+    styles[HL_COMMENT].fg = 8; styles[HL_COMMENT].bg = -1; styles[HL_COMMENT].bold = false; styles[HL_COMMENT].underline = false; styles[HL_COMMENT].italic = false;
+    styles[HL_STRING].fg = 2; styles[HL_STRING].bg = -1; styles[HL_STRING].bold = false; styles[HL_STRING].underline = false; styles[HL_STRING].italic = false;
+    styles[HL_NUMBER].fg = 5; styles[HL_NUMBER].bg = -1; styles[HL_NUMBER].bold = false; styles[HL_NUMBER].underline = false; styles[HL_NUMBER].italic = false;
+    styles[HL_BRACKET].fg = 6; styles[HL_BRACKET].bg = -1; styles[HL_BRACKET].bold = false; styles[HL_BRACKET].underline = false; styles[HL_BRACKET].italic = false;
+    styles[HL_OPERATOR].fg = 6; styles[HL_OPERATOR].bg = -1; styles[HL_OPERATOR].bold = false; styles[HL_OPERATOR].underline = false; styles[HL_OPERATOR].italic = false;
+    styles[HL_KEYWORD].fg = 3; styles[HL_KEYWORD].bg = -1; styles[HL_KEYWORD].bold = true; styles[HL_KEYWORD].underline = false; styles[HL_KEYWORD].italic = false;
+    styles[HL_TYPE].fg = 6; styles[HL_TYPE].bg = -1; styles[HL_TYPE].bold = false; styles[HL_TYPE].underline = false; styles[HL_TYPE].italic = false;
+    styles[HL_FUNCTION].fg = 4; styles[HL_FUNCTION].bg = -1; styles[HL_FUNCTION].bold = false; styles[HL_FUNCTION].underline = false; styles[HL_FUNCTION].italic = false;
+    styles[HL_FLOW].fg = 3; styles[HL_FLOW].bg = -1; styles[HL_FLOW].bold = true; styles[HL_FLOW].underline = false; styles[HL_FLOW].italic = false;
+    styles[HL_PREPROC].fg = 1; styles[HL_PREPROC].bg = -1; styles[HL_PREPROC].bold = false; styles[HL_PREPROC].underline = false; styles[HL_PREPROC].italic = false;
+    styles[HL_RETURN].fg = 9; styles[HL_RETURN].bg = -1; styles[HL_RETURN].bold = true; styles[HL_RETURN].underline = false; styles[HL_RETURN].italic = false;
+    styles[HL_ESCAPE].fg = 14; styles[HL_ESCAPE].bg = -1; styles[HL_ESCAPE].bold = false; styles[HL_ESCAPE].underline = false; styles[HL_ESCAPE].italic = false;
+    styles[HL_CONTROL].fg = 9; styles[HL_CONTROL].bg = -1; styles[HL_CONTROL].bold = false; styles[HL_CONTROL].underline = true; styles[HL_CONTROL].italic = false;
+    styles[HL_TERNARY].fg = 3; styles[HL_TERNARY].bg = -1; styles[HL_TERNARY].bold = true; styles[HL_TERNARY].underline = false; styles[HL_TERNARY].italic = false;
+    styles[HL_ERROR].fg = 9; styles[HL_ERROR].bg = -1; styles[HL_ERROR].bold = false; styles[HL_ERROR].underline = false; styles[HL_ERROR].italic = false;
+    styles[HL_NOTICE].fg = 208; styles[HL_NOTICE].bg = -1; styles[HL_NOTICE].bold = true; styles[HL_NOTICE].underline = false; styles[HL_NOTICE].italic = false;
+    styles[HL_SELECTION].fg = 0; styles[HL_SELECTION].bg = 11; styles[HL_SELECTION].bold = false; styles[HL_SELECTION].underline = false; styles[HL_SELECTION].italic = false;
+    styles[HL_HEADER].fg = 4; styles[HL_HEADER].bg = -1; styles[HL_HEADER].bold = true; styles[HL_HEADER].underline = false; styles[HL_HEADER].italic = false;
+    styles[HL_MD_BOLD].fg = -1; styles[HL_MD_BOLD].bg = -1; styles[HL_MD_BOLD].bold = true; styles[HL_MD_BOLD].underline = false; styles[HL_MD_BOLD].italic = false;
+    styles[HL_MD_ITALIC].fg = 6; styles[HL_MD_ITALIC].bg = -1; styles[HL_MD_ITALIC].bold = false; styles[HL_MD_ITALIC].underline = false; styles[HL_MD_ITALIC].italic = true;
+    styles[HL_MD_UNDERLINE].fg = -1; styles[HL_MD_UNDERLINE].bg = -1; styles[HL_MD_UNDERLINE].bold = false; styles[HL_MD_UNDERLINE].underline = true; styles[HL_MD_UNDERLINE].italic = false;
+    styles[HL_LINENUM].fg = 8; styles[HL_LINENUM].bg = -1; styles[HL_LINENUM].bold = false; styles[HL_LINENUM].underline = false; styles[HL_LINENUM].italic = false;
 }
 
 fn static int parse_color(string val) {
-    if strcmp(val, "default") == 0 return -1
-    if val[0] == '#' {
-        int r, g, b
-        if sscanf(val + 1, "%02x%02x%02x", &r, &g, &b) == 3 {
-            return 0x01000000 | (r << 16) | (g << 8) | b
+    if 0 == strcmp(val, "default") { return -1; }
+    if 35 == (int)val[0] { // '#'
+        int r, g, b;
+        if 3 == sscanf(val + 1, "%02x%02x%02x", &r, &g, &b) {
+            return 0x01000000 | (r << 16) | (g << 8) | b;
         }
     }
     auto offset = 0
     auto p = val
-    if strncmp(p, "bright_", 7) == 0 {
-        offset = 8
-        p += 7
+    if 0 == strncmp(p, "bright_", 7) {
+        offset = 8;
+        p = p + 7;
     }
-    if strcmp(p, "black") == 0 return 0 + offset
-    if strcmp(p, "red") == 0 return 1 + offset
-    if strcmp(p, "green") == 0 return 2 + offset
-    if strcmp(p, "yellow") == 0 return 3 + offset
-    if strcmp(p, "blue") == 0 return 4 + offset
-    if strcmp(p, "magenta") == 0 return 5 + offset
-    if strcmp(p, "cyan") == 0 return 6 + offset
-    if strcmp(p, "white") == 0 return 7 + offset
+    if 0 == strcmp(p, "black") { return 0 + offset; }
+    if 0 == strcmp(p, "red") { return 1 + offset; }
+    if 0 == strcmp(p, "green") { return 2 + offset; }
+    if 0 == strcmp(p, "yellow") { return 3 + offset; }
+    if 0 == strcmp(p, "blue") { return 4 + offset; }
+    if 0 == strcmp(p, "magenta") { return 5 + offset; }
+    if 0 == strcmp(p, "cyan") { return 6 + offset; }
+    if 0 == strcmp(p, "white") { return 7 + offset; }
     return -1
 }
 
 fn static void parse_attributes(string value, weird(HighlightStyle, 1) style) {
     auto token = strtok(value, " ")
-    while token != null {
-        if strncmp(token, "fg=", 3) == 0 style->fg = parse_color(token + 3)
-        else if strncmp(token, "bg=", 3) == 0 style->bg = parse_color(token + 3)
-        else if strcmp(token, "bold=true") == 0 style->bold = true
-        else if strcmp(token, "underline=true") == 0 style->underline = true
-        else if strcmp(token, "italic=true") == 0 style->italic = true
-        token = strtok(null, " ")
+    while NULL != token {
+        if 0 == strncmp(token, "fg=", 3) {
+            style->fg = parse_color(token + 3);
+        } else if 0 == strncmp(token, "bg=", 3) {
+            style->bg = parse_color(token + 3);
+        } else if 0 == strcmp(token, "bold=true") {
+            style->bold = true;
+        } else if 0 == strcmp(token, "underline=true") {
+            style->underline = true;
+        } else if 0 == strcmp(token, "italic=true") {
+            style->italic = true;
+        }
+        token = strtok(NULL, " ");
     }
 }
 
 fn static bool is_safe_name(string name) {
-    if name == null return false
-    for i=0; <(int)strlen(name); ++ {
-        auto c = name[i]
-        if !isalnum((unsigned char)c) && c != '.' && c != '_' && c != '-' return false
+    if NULL == name { return false; }
+    auto len = (int)strlen(name);
+    for i=0; <len; ++ {
+        auto c = (int)name[i];
+        if FALSE == isletter(c) && 46 != c && 95 != c && 45 != c { return false; } // '.', '_', '-'
     }
     return true
 }
 
 fn static void load_scheme_file(string path) {
     auto f = fopen(path, "r")
-    if f == null return
+    if NULL == f { return; }
 
-    char line[256]
+    char line[256];
     bool in_styles = false
 
-    while fgets(line, 256, f) != null {
+    while NULL != fgets(line, 256, f) {
         auto p = line
-        while p[0] != 0 && isspace((unsigned char)p[0]) p++
-
-        if p[0] == 0 || p[0] == ';' || p[0] == '#' continue
-
-        auto len = (int)strlen(p)
-        while len > 0 && isspace((unsigned char)p[len-1]) {
-            p[len-1] = 0
-            len--
+        while 0 != (int)p[0] && 0 != isspace((int)p[0] & 0xFF) {
+            p = p + 1;
         }
 
-        if p[0] == '[' {
-            if strcmp(p, "[styles]") == 0 in_styles = true
-            else in_styles = false
+        if 0 == (int)p[0] || 59 == (int)p[0] || 35 == (int)p[0] { continue; } // ';', '#'
+
+        auto len = (int)strlen(p);
+        while len > 0 && 0 != isspace((int)p[len-1] & 0xFF) {
+            p[len-1] = (char)0;
+            len--;
+        }
+
+        if 91 == (int)p[0] { // '['
+            if 0 == strcmp(p, "[styles]") {
+                in_styles = true;
+            } else {
+                in_styles = false;
+            }
             continue
         }
 
-        if !in_styles continue
+        if FALSE == in_styles { continue; }
 
-        auto eq = strchr(p, '=')
-        if eq == null continue
-        eq[0] = 0
+        auto eq = strchr(p, 61); // '='
+        if NULL == eq { continue; }
+        eq[0] = (char)0;
         auto key = p
         auto val = eq + 1
 
-        while val[0] != 0 && isspace((unsigned char)val[0]) val++
+        while 0 != (int)val[0] && 0 != isspace((int)val[0] & 0xFF) {
+            val = val + 1;
+        }
 
-        auto key_len = (int)strlen(key)
-        while key_len > 0 && isspace((unsigned char)key[key_len-1]) {
-            key[key_len-1] = 0
-            key_len--
+        auto key_len = (int)strlen(key);
+        while key_len > 0 && 0 != isspace((int)key[key_len-1] & 0xFF) {
+            key[key_len-1] = (char)0;
+            key_len--;
         }
 
         auto id = HL_COUNT
-        if strcmp(key, "normal") == 0 id = HL_NORMAL
-        else if strcmp(key, "comment") == 0 id = HL_COMMENT
-        else if strcmp(key, "string") == 0 id = HL_STRING
-        else if strcmp(key, "number") == 0 id = HL_NUMBER
-        else if strcmp(key, "bracket") == 0 id = HL_BRACKET
-        else if strcmp(key, "operator") == 0 id = HL_OPERATOR
-        else if strcmp(key, "keyword") == 0 id = HL_KEYWORD
-        else if strcmp(key, "type") == 0 id = HL_TYPE
-        else if strcmp(key, "function") == 0 id = HL_FUNCTION
-        else if strcmp(key, "flow") == 0 id = HL_FLOW
-        else if strcmp(key, "preproc") == 0 id = HL_PREPROC
-        else if strcmp(key, "return") == 0 id = HL_RETURN
-        else if strcmp(key, "escape") == 0 id = HL_ESCAPE
-        else if strcmp(key, "control") == 0 id = HL_CONTROL
-        else if strcmp(key, "ternary") == 0 id = HL_TERNARY
-        else if strcmp(key, "error") == 0 id = HL_ERROR
-        else if strcmp(key, "notice") == 0 id = HL_NOTICE
-        else if strcmp(key, "selection") == 0 id = HL_SELECTION
-        else if strcmp(key, "header") == 0 id = HL_HEADER
-        else if strcmp(key, "md_bold") == 0 id = HL_MD_BOLD
-        else if strcmp(key, "md_italic") == 0 id = HL_MD_ITALIC
-        else if strcmp(key, "md_underline") == 0 id = HL_MD_UNDERLINE
-        else if strcmp(key, "linenum") == 0 id = HL_LINENUM
+        if 0 == strcmp(key, "normal") { id = HL_NORMAL; }
+        if 0 == strcmp(key, "comment") { id = HL_COMMENT; }
+        if 0 == strcmp(key, "string") { id = HL_STRING; }
+        if 0 == strcmp(key, "number") { id = HL_NUMBER; }
+        if 0 == strcmp(key, "bracket") { id = HL_BRACKET; }
+        if 0 == strcmp(key, "operator") { id = HL_OPERATOR; }
+        if 0 == strcmp(key, "keyword") { id = HL_KEYWORD; }
+        if 0 == strcmp(key, "type") { id = HL_TYPE; }
+        if 0 == strcmp(key, "function") { id = HL_FUNCTION; }
+        if 0 == strcmp(key, "flow") { id = HL_FLOW; }
+        if 0 == strcmp(key, "preproc") { id = HL_PREPROC; }
+        if 0 == strcmp(key, "return") { id = HL_RETURN; }
+        if 0 == strcmp(key, "escape") { id = HL_ESCAPE; }
+        if 0 == strcmp(key, "control") { id = HL_CONTROL; }
+        if 0 == strcmp(key, "ternary") { id = HL_TERNARY; }
+        if 0 == strcmp(key, "error") { id = HL_ERROR; }
+        if 0 == strcmp(key, "notice") { id = HL_NOTICE; }
+        if 0 == strcmp(key, "selection") { id = HL_SELECTION; }
+        if 0 == strcmp(key, "header") { id = HL_HEADER; }
+        if 0 == strcmp(key, "md_bold") { id = HL_MD_BOLD; }
+        if 0 == strcmp(key, "md_italic") { id = HL_MD_ITALIC; }
+        if 0 == strcmp(key, "md_underline") { id = HL_MD_UNDERLINE; }
+        if 0 == strcmp(key, "linenum") { id = HL_LINENUM; }
 
-        if id != HL_COUNT {
-            parse_attributes((string)val, weird(HighlightStyle, 1)(&styles[id]))
+        if HL_COUNT != id {
+            parse_attributes((string)val, (weird(HighlightStyle, 1))(&styles[id]));
         }
     }
-    fclose(f)
+    fclose(f);
 
-    if styles[HL_NORMAL].bg != -1 {
+    if -1 != styles[HL_NORMAL].bg {
         for i=0; <(int)HL_COUNT; ++ {
-            if i == (int)HL_NORMAL || i == (int)HL_SELECTION continue
-            if styles[i].bg == -1 styles[i].bg = styles[HL_NORMAL].bg
+            if i != (int)HL_NORMAL && i != (int)HL_SELECTION {
+                if styles[i].bg == -1 {
+                    styles[i].bg = styles[HL_NORMAL].bg;
+                }
+            }
         }
     }
 }
 
 fn void colorscheme_init(string requested_name) {
-    set_default_scheme()
-    char name[64] = ""
+    set_default_scheme();
+    char name[64];
+    mystrscpy(name, "default", 64);
     auto env_scheme = namo_getenv("NAMO_COLORSCHEME")
-    if env_scheme != null && env_scheme[0] != 0 && is_safe_name(env_scheme) {
-        mystrscpy(name, env_scheme, 64)
-    } else if requested_name != null && requested_name[0] != 0 && is_safe_name(requested_name) {
-        mystrscpy(name, requested_name, 64)
+    if NULL != env_scheme && 0 != (int)env_scheme[0] && TRUE == is_safe_name(env_scheme) {
+        mystrscpy(name, env_scheme, 64);
     } else {
-        strcpy(name, "default")
+        if NULL != requested_name && 0 != (int)requested_name[0] && TRUE == is_safe_name(requested_name) {
+            mystrscpy(name, requested_name, 64);
+        }
     }
 
-    if strcmp((string)name, "default") == 0 return
+    if 0 == strcmp((string)name, "default") { return; }
 
-    char dir[512]
-    char path[1024]
-    char file_name[64 + 12]
+    char dir[512];
+    char path[1024];
+    char file_name[76]; // 64 + 12
 
-    namo_get_user_config_dir(dir, 512)
-    namo_path_join(dir, 512, dir, "colorscheme")
+    namo_get_user_config_dir(dir, 512);
+    namo_path_join(dir, 512, (string)dir, "colorscheme");
 
-    snprintf(file_name, 64+12, "%s.namocolor", name)
-    namo_path_join(path, 1024, dir, file_name)
-    if namo_file_exists(path) {
-        load_scheme_file((string)path)
-        mystrscpy(current_scheme_name, (string)name, 64)
+    snprintf(file_name, 76, "%s.namocolor", (string)name);
+    namo_path_join(path, 1024, (string)dir, (string)file_name);
+    if TRUE == namo_file_exists((string)path) {
+        load_scheme_file((string)path);
+        mystrscpy(current_scheme_name, (string)name, 64);
         return
     }
 
-    snprintf(file_name, 64+12, "%s.ini", name)
-    namo_path_join(path, 1024, dir, file_name)
-    if namo_file_exists(path) {
-        load_scheme_file((string)path)
-        mystrscpy(current_scheme_name, (string)name, 64)
+    snprintf(file_name, 76, "%s.ini", (string)name);
+    namo_path_join(path, 1024, (string)dir, (string)file_name);
+    if TRUE == namo_file_exists((string)path) {
+        load_scheme_file((string)path);
+        mystrscpy(current_scheme_name, (string)name, 64);
         return
     }
 
-    namo_get_user_data_dir(dir, 512)
-    namo_path_join(dir, 512, dir, "colorscheme")
+    namo_get_user_data_dir(dir, 512);
+    namo_path_join(dir, 512, (string)dir, "colorscheme");
 
-    snprintf(file_name, 64+12, "%s.namocolor", name)
-    namo_path_join(path, 1024, dir, file_name)
-    if namo_file_exists(path) {
-        load_scheme_file((string)path)
-        mystrscpy(current_scheme_name, (string)name, 64)
+    snprintf(file_name, 76, "%s.namocolor", (string)name);
+    namo_path_join(path, 1024, (string)dir, (string)file_name);
+    if TRUE == namo_file_exists((string)path) {
+        load_scheme_file((string)path);
+        mystrscpy(current_scheme_name, (string)name, 64);
         return
     }
 
-    snprintf(file_name, 64+12, "%s.ini", name)
-    namo_path_join(path, 1024, dir, file_name)
-    if namo_file_exists(path) {
-        load_scheme_file((string)path)
-        mystrscpy(current_scheme_name, (string)name, 64)
+    snprintf(file_name, 76, "%s.ini", (string)name);
+    namo_path_join(path, 1024, (string)dir, (string)file_name);
+    if TRUE == namo_file_exists((string)path) {
+        load_scheme_file((string)path);
+        mystrscpy(current_scheme_name, (string)name, 64);
         return
     }
 }
 
 fn HighlightStyle colorscheme_get(HighlightStyleID id) {
-    if (int)id < 0 || (int)id >= (int)HL_COUNT return styles[HL_NORMAL]
-    return styles[(int)id]
+    if 0 > id || id >= HL_COUNT { return styles[HL_NORMAL]; }
+    return styles[id]
 }
 
 fn string colorscheme_get_name() {

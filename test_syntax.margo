@@ -1,0 +1,5 @@
+@import std/io
+fn start(int c, weird(char, 2) v) {
+    print("test")
+    return 0
+}

@@ -1,30 +1,30 @@
 @import c/wchar
 
 fn unsigned int utf8_to_unicode(weird(unsigned char, 1) line, unsigned int index, unsigned int len, weird(unsigned int, 1) res) {
-    if line == null || res == null || index >= len return 0
+    if line == NULL || res == NULL || index >= len return 0
 
     auto c = line[index]
     res[0] = c
 
     if c < 0x80 return 1
-    if (c & 0xC0) == 0x80 return 1
+    if ((c & 0xC0) == 0x80) return 1
 
     auto available = len - index
-    if (c & 0xE0) == 0xC0 {
+    if ((c & 0xE0) == 0xC0) {
         if available < 2 goto invalid
         auto c1 = line[index + 1]
-        if (c1 & 0xC0) != 0x80 goto invalid
+        if ((c1 & 0xC0) != 0x80) goto invalid
         auto value = ((unsigned int)(c & 0x1F) << 6) | (unsigned int)(c1 & 0x3F)
         if value < 0x80 goto invalid
         res[0] = value
         return 2
     }
 
-    if (c & 0xF0) == 0xE0 {
+    if ((c & 0xF0) == 0xE0) {
         if available < 3 goto invalid
         auto c1 = line[index + 1]
         auto c2 = line[index + 2]
-        if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 goto invalid
+        if ((c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80) goto invalid
         auto value = ((unsigned int)(c & 0x0F) << 12) | ((unsigned int)(c1 & 0x3F) << 6) | (unsigned int)(c2 & 0x3F)
         if value < 0x800 goto invalid
         if value >= 0xD800 && value <= 0xDFFF goto invalid
@@ -32,12 +32,12 @@ fn unsigned int utf8_to_unicode(weird(unsigned char, 1) line, unsigned int index
         return 3
     }
 
-    if (c & 0xF8) == 0xF0 {
+    if ((c & 0xF8) == 0xF0) {
         if available < 4 goto invalid
         auto c1 = line[index + 1]
         auto c2 = line[index + 2]
         auto c3 = line[index + 3]
-        if (c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80 goto invalid
+        if ((c1 & 0xC0) != 0x80 || (c2 & 0xC0) != 0x80 || (c3 & 0xC0) != 0x80) goto invalid
         auto value = ((unsigned int)(c & 0x07) << 18) | ((unsigned int)(c1 & 0x3F) << 12) | ((unsigned int)(c2 & 0x3F) << 6) | (unsigned int)(c3 & 0x3F)
         if value < 0x10000 || value > 0x10FFFF goto invalid
         res[0] = value
