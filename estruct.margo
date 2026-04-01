@@ -200,6 +200,9 @@ struct name_bind {
     weird(int, 1) n_func;
 };
 
+extern terminal tcap_term
+extern terminal ncurses_term
+
 extern fn void vttopen()
 extern fn void vttclose()
 extern fn void vttkopen()

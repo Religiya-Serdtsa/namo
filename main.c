@@ -148,7 +148,7 @@ static void select_terminal_driver(void)
     }
 
     /* Support explicit override */
-    if (getenv("NANO_USE_NCURSES")) {
+    if (getenv("NAMO_USE_NCURSES")) {
         selected = &ncurses_term;
     }
 #endif
