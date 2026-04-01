@@ -31,67 +31,69 @@ fn void namo_refresh_ui() {
 }
 
 fn void edinit(string bname) {
-    auto bp = bfind(bname, TRUE, 0);
-    blistp = bfind("*List*", TRUE, BFINVS);
-    auto wp = (weird(window, 1))alloc(sizeof(window));
+    auto bp = bfind(bname, TRUE, 0)
+    blistp = bfind("*List*", TRUE, BFINVS)
+    auto wp = (weird(window, 1))alloc(sizeof(window))
+
     if bp == NULL || wp == NULL || blistp == NULL { exit(1); }
-    curbp = bp;
-    bp->b_mode |= MDSOFTWRAP;
-    curwp = wp;
-    wp->w_bufp = bp;
-    bp->b_nwnd = 1;
-    wp->w_linep = bp->b_linep;
-    wp->w_dotp = bp->b_linep;
-    wp->w_doto = 0;
-    wp->w_markp = NULL;
-    wp->w_marko = 0;
-    wp->w_force = 0;
-    wp->w_flag = (char)(WFMODE | WFHARD);
+
+    curbp = bp
+    bp->b_mode |= MDSOFTWRAP
+    curwp = wp
+    wp->w_bufp = bp
+    bp->b_nwnd = 1
+    wp->w_linep = bp->b_linep
+    wp->w_dotp = bp->b_linep
+    wp->w_doto = 0
+    wp->w_markp = NULL
+    wp->w_marko = 0
+    wp->w_force = 0
+    wp->w_flag = (char)(WFMODE | WFHARD)
 }
 
 fn int execute(int c, int f, int n) {
-    // Basic execute logic
+    /* Basic execute logic */
     return TRUE
 }
 
 fn void select_terminal_driver() {
     auto term_env = getenv("TERM")
     auto selected = &tcap_term
-    
+
     if term_env != NULL {
         if strcmp(term_env, "linux") == 0 || strcmp(term_env, "vt100") == 0 || strcmp(term_env, "vt102") == 0 || strcmp(term_env, "ansi") == 0 {
-            selected = &ncurses_term
+            selected = &ncurses_term;
         }
     }
-    
+
     if getenv("NAMO_USE_NCURSES") != NULL {
-        selected = &ncurses_term
+        selected = &ncurses_term;
     }
-    
+
     term = selected
 }
 
 fn int main(int argc, weird(string, 1) argv) {
-    char bname[1024] = "main";
-    
-    // Process arguments...
+    char bname[1024] = "main"
 
-    globals_init_tables();
-    select_terminal_driver();
-    
-    vtinit();
-    edinit((string)bname);
-    
+    /* Process arguments and initialize core components */
+    globals_init_tables()
+    select_terminal_driver()
+
+    vtinit()
+    edinit((string)bname)
+
+    /* Start main editor loop */
     while true {
-        namo_refresh_ui();
-        auto c = getcmd();
-        if c == 0x18 { // Ctrl+X
-            auto c2 = getcmd();
-            if c2 == 0x03 { break; } // Ctrl+C to exit
+        namo_refresh_ui()
+        auto c = getcmd()
+        if c == 0x18 { /* Ctrl+X */
+            auto c2 = getcmd()
+            if c2 == 0x03 { break; } /* Ctrl+C to exit */
         }
-        execute(c, FALSE, 1);
+        execute(c, FALSE, 1)
     }
-    
-    vttidy();
+
+    vttidy()
     return 0
 }
