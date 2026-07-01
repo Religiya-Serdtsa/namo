@@ -9,6 +9,7 @@
 @import "version.margo"
 @import "usage.margo"
 @import "wrapper.margo"
+@import "display.margo"
 @import "fileio.margo"
 @import "line.margo"
 @import "buffer.margo"

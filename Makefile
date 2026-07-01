@@ -66,7 +66,7 @@ MARGO_ENTRY ?= main.margo
 MARGO_CLANG_WRAPPER := $(abspath scripts/margo_clang_wrapper.sh)
 MARGO_REAL_CLANG ?= clang
 MARGO_SOURCES := $(wildcard *.margo)
-MARGO_BRIDGED_STEMS ?= display
+MARGO_BRIDGED_STEMS ?=
 
 MARGO_PORTED_STEMS := $(basename $(notdir $(MARGO_SOURCES)))
 MARGO_REPLACED_C := $(filter $(addsuffix .c,$(MARGO_PORTED_STEMS)),$(SRC))
