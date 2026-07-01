@@ -14,9 +14,9 @@
 /* Note: Since we are using fallbacks, we don't strictly need curses.h/term.h
  * but keep them if other parts of the project require their definitions.
  */
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
 
 #define MARGIN  8
 #define SCRSIZ  64

@@ -16,19 +16,19 @@
 #include <unistd.h>
 #endif
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "highlight.h"
-#include "completion.h"
-#include "lsp_facade.h"
-#include "lsp_client.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "highlight.mh"
+#include "completion.mh"
+#include "lsp_facade.mh"
+#include "lsp_client.mh"
 #include "cJSON.h"
-#include "util.h"
-#include "utf8.h"
-#include "scraper.h"
-#include "nanox.h"
+#include "util.mh"
+#include "utf8.mh"
+#include "scraper.mh"
+#include "nanox.mh"
 
 completion_state_t completion_state;
 typedef struct {

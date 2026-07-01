@@ -17,13 +17,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "utf8.h"
-#include "util.h"
-#include "completion.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "utf8.mh"
+#include "util.mh"
+#include "completion.mh"
 
 /* ====================================================================
  * MINIBUFFER WINDOW SYSTEM

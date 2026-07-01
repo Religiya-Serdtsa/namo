@@ -1,7 +1,7 @@
 #ifndef CURSOR_H_
 #define CURSOR_H_
 
-#include "line.h"
+#include "line.mh"
 
 struct cursor {
     struct line *linep;

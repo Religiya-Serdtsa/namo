@@ -64,11 +64,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "util.h"
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
+#include "util.mh"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
 
 /*
  * The variables magical and rmagical determine if there

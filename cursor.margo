@@ -1,8 +1,8 @@
 @import godmode
 
 @style c {
-#include "cursor.h"
-#include "utf8.h"
+#include "cursor.mh"
+#include "utf8.mh"
 
 void cursor_init(struct cursor *c, struct line *lp, int offset)
 {

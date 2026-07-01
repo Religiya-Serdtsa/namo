@@ -24,11 +24,11 @@
 #include <sys/ioctl.h>
 #include <time.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "utf8.h"
-#include "paste_slot.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "utf8.mh"
+#include "paste_slot.mh"
 
 extern struct terminal *term;
 

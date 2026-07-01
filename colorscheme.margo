@@ -1,9 +1,9 @@
 @import godmode
 
 @style c {
-#include "colorscheme.h"
-#include "platform.h"
-#include "util.h"
+#include "colorscheme.mh"
+#include "platform.mh"
+#include "util.mh"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

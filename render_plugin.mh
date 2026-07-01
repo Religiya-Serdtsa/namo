@@ -1,8 +1,8 @@
 #ifndef RENDER_PLUGIN_H
 #define RENDER_PLUGIN_H
 
-#include "estruct.h"
-#include "highlight.h"
+#include "estruct.mh"
+#include "highlight.mh"
 
 typedef struct {
     struct window *wp;

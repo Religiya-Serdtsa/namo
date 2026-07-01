@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "mymemory.h"
+#include "mymemory.mh"
 
 #include <limits.h>
 #include <lz4.h>
@@ -15,7 +15,7 @@
 #include <malloc.h>
 #endif
 
-#include "nanox.h"
+#include "nanox.mh"
 
 #define PROXY_CHUNK_SIZE 16384
 #define COLD_MIN_BYTES 256

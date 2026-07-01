@@ -11,11 +11,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "util.h"
-#include "platform.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "util.mh"
+#include "platform.mh"
 
 #include <sys/errno.h>
 

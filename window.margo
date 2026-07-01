@@ -10,11 +10,11 @@
 
 #include <stdio.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "wrapper.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "wrapper.mh"
 
 /*
  * Reposition dot in the current window to line "n". If the argument is

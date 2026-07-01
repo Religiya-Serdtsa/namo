@@ -8,8 +8,8 @@
 #include <termios.h>
 #include <string.h>
 #include <errno.h>
-#include "estruct.h"
-#include "edef.h"
+#include "estruct.mh"
+#include "edef.mh"
 
 extern struct terminal *term;
 extern struct terminal tcap_term;

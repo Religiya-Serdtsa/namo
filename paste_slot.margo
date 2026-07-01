@@ -14,14 +14,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <limits.h>
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "highlight.h"
-#include "line.h"
-#include "utf8.h"
-#include "util.h"
-#include "video.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "highlight.mh"
+#include "line.mh"
+#include "utf8.mh"
+#include "util.mh"
+#include "video.mh"
 
 extern void vtputc(int c);
 extern struct video **vscreen;

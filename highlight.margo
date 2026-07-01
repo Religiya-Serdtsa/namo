@@ -9,13 +9,13 @@
 #include <limits.h>
 #include <regex.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "line.h"
-#include "highlight.h"
-#include "colorscheme.h"
-#include "platform.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "line.mh"
+#include "highlight.mh"
+#include "colorscheme.mh"
+#include "platform.mh"
+#include "util.mh"
 
 #ifdef USE_WINDOWS
 #include <windows.h>

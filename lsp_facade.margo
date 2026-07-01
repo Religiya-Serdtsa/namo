@@ -3,12 +3,12 @@
 @style c {
 #include <stdio.h>
 #include <stdlib.h>
-#include "estruct.h"
-#include "edef.h"
-#include "line.h"
-#include "lsp_facade.h"
-#include "scraper.h"
-#include "nanox.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "line.mh"
+#include "lsp_facade.mh"
+#include "scraper.mh"
+#include "nanox.mh"
 
 /* Forward declarations for subsystem functions currently in completion.c */
 extern int completion_should_use_lsp(void);

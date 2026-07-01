@@ -1,14 +1,14 @@
 #ifndef LINE_H_
 #define LINE_H_
 
-#include "utf8.h"
+#include "utf8.mh"
 #include <stdatomic.h>
 #ifdef _Atomic
 #undef _Atomic
 #endif
 #include <stdint.h>
-#include "highlight.h"
-#include "mymemory.h"
+#include "highlight.mh"
+#include "mymemory.mh"
 
 /*
  * All text is kept in circularly linked lists of "struct line" structures. These

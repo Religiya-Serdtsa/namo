@@ -7,11 +7,11 @@
 #include <ctype.h>
 #include <math.h>
 
-#include "colors_engine.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "util.h"
+#include "colors_engine.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "util.mh"
 
 #define FORMAT_HEX3 1
 #define FORMAT_HEX6 2

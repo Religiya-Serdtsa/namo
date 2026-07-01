@@ -1,7 +1,7 @@
 #ifndef VIBLOCK_STRATEGY_H_
 #define VIBLOCK_STRATEGY_H_
 
-#include "estruct.h"
+#include "estruct.mh"
 
 typedef struct ViblockStrategy ViblockStrategy;
 

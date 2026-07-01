@@ -5,11 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "raw_sig.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "raw_sig.mh"
+#include "util.mh"
 
 #define MAX_SIG_BUF 1024
 

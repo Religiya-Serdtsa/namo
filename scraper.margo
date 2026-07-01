@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "scraper.h"
+#include "scraper.mh"
 
 #include <pthread.h>
 #include <errno.h>

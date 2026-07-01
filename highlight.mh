@@ -1,7 +1,7 @@
 #ifndef HIGHLIGHT_H_
 #define HIGHLIGHT_H_
 
-#include "colorscheme.h"
+#include "colorscheme.mh"
 #include <stddef.h>
 #include <stdbool.h>
 

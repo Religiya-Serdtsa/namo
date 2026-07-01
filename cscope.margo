@@ -10,12 +10,12 @@
 #include <sys/stat.h>
 #include <dirent.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "utf8.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "utf8.mh"
+#include "util.mh"
 
 #define MAX_MATCHES 50
 #define MAX_WORD_LEN 64

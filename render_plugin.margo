@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "render_plugin.h"
+#include "render_plugin.mh"
 #include <stdlib.h>
 #include <string.h>
 

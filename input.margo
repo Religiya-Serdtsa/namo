@@ -14,12 +14,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "wrapper.h"
-
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "wrapper.mh"
+#include "util.mh"
 
 extern struct name_bind names[];
 extern struct terminal  *term;

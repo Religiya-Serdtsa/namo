@@ -7,7 +7,7 @@
  * Nano-inspired UI helpers for MicroEmacs (nanox layer)
  */
 
-#include "nanox.h"
+#include "nanox.mh"
 
 #include <ctype.h>
 #include <stdio.h>
@@ -16,18 +16,18 @@
 #include <strings.h>
 #include <unistd.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "util.h"
-#include "version.h"
-#include "highlight.h"
-#include "platform.h"
-#include "colorscheme.h"
-#include "paste_slot.h"
-#include "scraper.h"
-#include "video.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "util.mh"
+#include "version.mh"
+#include "highlight.mh"
+#include "platform.mh"
+#include "colorscheme.mh"
+#include "paste_slot.mh"
+#include "scraper.mh"
+#include "video.mh"
 
 extern struct video **vscreen;
 extern struct terminal *term;

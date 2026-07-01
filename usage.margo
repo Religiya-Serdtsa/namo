@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "usage.h"
+#include "usage.mh"
 
 #include <stdarg.h>
 #include <stdio.h>

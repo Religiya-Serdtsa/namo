@@ -1,7 +1,7 @@
 #ifndef COMPLETION_H
 #define COMPLETION_H
 
-#include "estruct.h"
+#include "estruct.mh"
 
 #define MAX_COMPLETIONS 100
 #define MAX_COMPLETION_LEN 128

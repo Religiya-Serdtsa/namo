@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "platform.h"
+#include "platform.mh"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

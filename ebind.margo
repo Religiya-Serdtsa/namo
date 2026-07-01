@@ -11,7 +11,7 @@
 #ifndef EBIND_H_
 #define EBIND_H_
 
-#include "line.h"
+#include "line.mh"
 
 /*
  * Command table.

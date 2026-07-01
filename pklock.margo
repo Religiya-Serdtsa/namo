@@ -7,9 +7,9 @@
  */
 
 #define _GNU_SOURCE
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
 
 #include <sys/types.h>
 #include <sys/stat.h>

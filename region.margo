@@ -12,10 +12,10 @@
 
 #include <stdio.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
 
 static int nanox_resolve_region(struct region *region)
 {

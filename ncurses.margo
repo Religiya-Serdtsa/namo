@@ -14,10 +14,10 @@
 #include <string.h>
 #include <wchar.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "utf8.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "utf8.mh"
 
 #define MARGIN  8
 #define SCRSIZ  64

@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "estruct.h"
-#include "edef.h"
-#include "line.h"
-#include "efunc.h"
-#include "viblock_strategy.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "line.mh"
+#include "efunc.mh"
+#include "viblock_strategy.mh"
+#include "util.mh"
 
 extern int line_index_from_top(struct line *target);
 extern int line_offset_for_column(struct line *lp, int target_col, int *actual_col);

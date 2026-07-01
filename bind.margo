@@ -14,12 +14,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "epath.h"
-#include "line.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "epath.mh"
+#include "line.mh"
+#include "util.mh"
 
 extern struct key_tab keytab[];
 extern struct name_bind names[];

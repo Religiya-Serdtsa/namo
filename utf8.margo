@@ -1,7 +1,7 @@
 @import godmode
 
 @style c {
-#include "utf8.h"
+#include "utf8.mh"
 #include <wchar.h>
 
 /*

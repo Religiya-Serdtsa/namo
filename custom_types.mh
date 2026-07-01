@@ -1,7 +1,7 @@
 #ifndef CUSTOM_TYPES_H_
 #define CUSTOM_TYPES_H_
 
-#include "estruct.h"
+#include "estruct.mh"
 
 void custom_types_mark_dirty(struct buffer *bp);
 void custom_types_ensure(struct buffer *bp);

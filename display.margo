@@ -20,18 +20,18 @@
 #include <ctype.h>
 #include <unistd.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "version.h"
-#include "nanox.h"
-#include "wrapper.h"
-#include "utf8.h"
-#include "util.h"
-#include "highlight.h"
-#include "video.h"
-#include "render_plugin.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "version.mh"
+#include "nanox.mh"
+#include "wrapper.mh"
+#include "utf8.mh"
+#include "util.mh"
+#include "highlight.mh"
+#include "video.mh"
+#include "render_plugin.mh"
 
 extern struct terminal *term;
 

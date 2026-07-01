@@ -9,8 +9,8 @@
  *  modified by Petri Kutvonen
  */
 
-#include "nanox.h"
-#include "edef.h"
+#include "nanox.mh"
+#include "edef.mh"
 
 /* External function declarations. */
 

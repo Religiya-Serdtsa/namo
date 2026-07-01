@@ -9,11 +9,11 @@
 #include <sys/wait.h>
 #include <pthread.h>
 
-#include "estruct.h"
+#include "estruct.mh"
 #include "cJSON.h"
-#include "lsp_client.h"
-#include "edef.h"
-#include "nanox.h"
+#include "lsp_client.mh"
+#include "edef.mh"
+#include "nanox.mh"
 
 #define LSP_RBUF_SZ 65536
 

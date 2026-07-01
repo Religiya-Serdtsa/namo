@@ -19,10 +19,10 @@
 
 
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
 
 /*
  * Attach a buffer to a window. The

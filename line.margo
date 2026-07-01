@@ -16,17 +16,17 @@
  *
  */
 
-#include "line.h"
+#include "line.mh"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "utf8.h"
-#include "nanox.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "utf8.mh"
+#include "nanox.mh"
 
 extern struct kill *kbufp;
 

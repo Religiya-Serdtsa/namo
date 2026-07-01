@@ -125,17 +125,17 @@
 /* Make global definitions not external. */
 // #define    maindef
 
-#include "estruct.h"                /* Global structures and defines. */
-#include "efunc.h"                  /* Function declarations and name table. */
-#include "ebind.h"                  /* Default key bindings. */
-#include "edef.h"
-#include "version.h"
-#include "nanox.h"                  /* Added for Nanox specific declarations */
-#include "mymemory.h"
-#include "completion.h"
-#include "lsp_client.h"
-#include "scraper.h"
-#include "command_mode.h"           /* F1 command mode */
+#include "estruct.mh"                /* Global structures and defines. */
+#include "efunc.mh"                  /* Function declarations and name table. */
+#include "ebind.mh"                  /* Default key bindings. */
+#include "edef.mh"
+#include "version.mh"
+#include "nanox.mh"                  /* Added for Nanox specific declarations */
+#include "mymemory.mh"
+#include "completion.mh"
+#include "lsp_client.mh"
+#include "scraper.mh"
+#include "command_mode.mh"           /* F1 command mode */
 
 #include <signal.h>
 static void emergencyexit(int);

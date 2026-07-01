@@ -51,14 +51,14 @@ ifeq ($(USE_NCURSES),1)
         DEFINES += -DUSE_NCURSES
 endif
 
-HDR=    command_mode.h completion.h ebind.h edef.h efunc.h epath.h estruct.h evar.h line.h paste_slot.h usage.h \
-        utf8.h util.h version.h wrapper.h namo.h
+HDR=    command_mode.mh completion.mh ebind.mh edef.mh efunc.mh epath.mh estruct.mh evar.mh line.mh paste_slot.mh usage.mh \
+        utf8.mh util.mh version.mh wrapper.mh namo.mh
 
 # DO NOT ADD OR MODIFY ANY LINES ABOVE THIS -- make source creates them
 
 SRC += scraper.c
 OBJ += scraper.o
-HDR += scraper.h
+HDR += scraper.mh
 
 MARGO_SRC = $(SRC:.c=.margo)
 
@@ -288,9 +288,9 @@ source:
 	@mv makefile makefile.bak
 	@echo "# makefile for emacs, updated `date`" >makefile
 	@echo '' >>makefile
-	@echo SRC=`ls *.c` >>makefile
-	@echo OBJ=`ls *.c | sed s/c$$/o/` >>makefile
-	@echo HDR=`ls *.h` >>makefile
+	@echo SRC=`ls *.margo` >>makefile
+	@echo OBJ=`ls *.margo | sed s/margo$$/o/` >>makefile
+	@echo HDR=`ls *.mh` >>makefile
 	@echo '' >>makefile
 	@sed -n -e '/^# DO NOT ADD OR MODIFY/,$$p' <makefile.bak >>makefile
 

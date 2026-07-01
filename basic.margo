@@ -15,12 +15,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "estruct.h"
-#include "edef.h"
-#include "efunc.h"
-#include "line.h"
-#include "utf8.h"
-#include "util.h"
+#include "estruct.mh"
+#include "edef.mh"
+#include "efunc.mh"
+#include "line.mh"
+#include "utf8.mh"
+#include "util.mh"
 
 /*
  * This routine, given a pointer to a struct line, and the current cursor goal
@@ -50,7 +50,7 @@ static int getgoal(struct line *dlp)
 /*
  * Move the cursor to the beginning of the current line.
  */
-#include "cursor.h"
+#include "cursor.mh"
 
 int gotobol(int f, int n)
 {
