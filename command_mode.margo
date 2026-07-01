@@ -1,0 +1,1920 @@
+@import godmode
+
+@style c {
+/* command_mode.c - F1 command mode implementation */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <ctype.h>
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
+#include "estruct.h"
+#include "edef.h"
+#include "efunc.h"
+#include "line.h"
+#include "command_mode.h"
+#include "viblock_strategy.h"
+#include "multi_cursor.h"
+#include "utf8.h"
+#include "util.h"
+#include "colorscheme.h"
+#include "raw_sig.h"
+#include "nanox.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <limits.h>
+
+#define CMD_BUF_SIZE 256
+#define REPLACE_PREVIEW 48
+
+
+
+
+
+
+
+
+static int parse_sed_expression(const char *expr, char *pattern, size_t pat_sz,
+    char *replacement, size_t rep_sz, int *is_global, int *is_caseless);
+static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_data *match_data,
+    const char *replacement, size_t repl_len, int is_global, int *total_count);
+static size_t utf8_advance(const char *text, size_t len, size_t offset);
+static void build_preview(const char *text, size_t len, char *dest, size_t dest_sz);
+static char *splice_text(char *text, size_t text_len, size_t start, size_t end,
+    const char *replacement, size_t repl_len, size_t *new_len);
+int line_index_from_top(struct line *target);
+static void restore_cursor_to_index(int index, int offset);
+
+
+
+int line_offset_for_column(struct line *lp, int target_col, int *actual_col);
+
+static void command_mode_prompt(void);
+static void execute_command(const char *input);
+static void command_mode_trim(char *text);
+static int command_mode_parse_line_range(const char *text, int *start_line, int *end_line);
+static int command_mode_apply_indent_lint(void);
+static int command_mode_handle_lint_command(const char *input);
+static int command_mode_handle_set_nr_command(const char *input);
+
+static int command_mode_handle_flip_command(const char *input);
+static int command_mode_apply_indent_lint(void);
+static int command_mode_total_lines(void);
+static struct line *command_mode_line_at_number(int number);
+
+static struct buffer *find_buffer_by_path(const char *path)
+{
+    struct buffer *bp;
+
+    if (!path || !*path)
+        return NULL;
+
+    for (bp = bheadp; bp != NULL; bp = bp->b_bufp) {
+        if (strcmp(bp->b_fname, path) == 0)
+            return bp;
+    }
+
+    return NULL;
+}
+
+static int find_slot_for_buffer(struct buffer *bp)
+{
+    int max_slots = nanox_slot_capacity();
+
+    if (!bp || !bp->b_fname[0])
+        return -1;
+
+    for (int i = 0; i < max_slots; ++i) {
+        if (file_reserve[i][0] && strcmp(file_reserve[i], bp->b_fname) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
+static bool path_is_reserved_elsewhere(const char *path, int current_slot)
+{
+    int max_slots = nanox_slot_capacity();
+
+    if (!path || !*path)
+        return false;
+
+    for (int i = 0; i < max_slots; ++i) {
+        if (i == current_slot || !file_reserve[i][0])
+            continue;
+        if (strcmp(file_reserve[i], path) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+static const char *find_nextfile_startup_target(const char *start_path, int slot, int n)
+{
+    size_t total = nanox_startup_file_count();
+    size_t start_idx = 0;
+    int direction = (n > 0) ? 1 : -1;
+    int remaining = (n > 0) ? n : -n;
+    bool found_start = false;
+
+    if (!start_path || !*start_path || total == 0)
+        return NULL;
+
+    for (size_t i = 0; i < total; ++i) {
+        const char *path = nanox_startup_file_at(i);
+        if (path && strcmp(path, start_path) == 0) {
+            start_idx = i;
+            found_start = true;
+            break;
+        }
+    }
+
+    if (!found_start)
+        return NULL;
+
+    size_t idx = start_idx;
+    for (size_t scanned = 0; scanned < total * 2; ++scanned) {
+        idx = (direction > 0)
+            ? ((idx + 1) % total)
+            : ((idx + total - 1) % total);
+
+        if (idx == start_idx)
+            break;
+
+        const char *candidate = nanox_startup_file_at(idx);
+        if (!candidate || !*candidate)
+            continue;
+        if (path_is_reserved_elsewhere(candidate, slot))
+            continue;
+
+        if (--remaining == 0)
+            return candidate;
+    }
+
+    return NULL;
+}
+
+static void execute_nextfile(int n) {
+    if (n == 0) {
+        mlwrite("nextfile step cannot be 0");
+        return;
+    }
+
+    int max_slots = nanox_slot_capacity();
+    int slot = -1;
+    struct buffer *start_bp = NULL;
+    struct buffer *curr = NULL;
+    const char *start_path = NULL;
+    const char *target_path = NULL;
+    int steps = (n > 0) ? n : -n;
+
+    if (last_slot_index >= 0 && last_slot_index < max_slots && file_reserve[last_slot_index][0]) {
+        start_bp = find_buffer_by_path(file_reserve[last_slot_index]);
+        if (start_bp != NULL) {
+            slot = last_slot_index;
+            start_path = file_reserve[last_slot_index];
+        }
+    }
+
+    if (start_bp == NULL) {
+        slot = find_slot_for_buffer(curbp);
+        if (slot >= 0) {
+            start_bp = curbp;
+            start_path = curbp->b_fname;
+        }
+    }
+
+    if (slot < 0 || start_path == NULL || start_path[0] == '\0') {
+        mlwrite("nextfile requires an active slot-backed file");
+        return;
+    }
+
+    target_path = find_nextfile_startup_target(start_path, slot, n);
+    if (target_path != NULL) {
+        mystrscpy(file_reserve[slot], target_path, PATH_MAX);
+        last_slot_index = slot;
+
+        curr = find_buffer_by_path(target_path);
+        if (curr != NULL) {
+            swbuffer(curr);
+        } else if (getfile(file_reserve[slot], TRUE) != TRUE) {
+            mlwrite("Could not open: %s", file_reserve[slot]);
+            return;
+        }
+
+        mlwrite("Switched to: %s", file_reserve[slot]);
+        return;
+    }
+
+    if (start_bp == NULL) {
+        mlwrite("nextfile requires an active slot-backed file");
+        return;
+    }
+
+    curr = start_bp;
+
+    while (steps > 0) {
+        if (n > 0) {
+            /* Forward */
+            curr = curr->b_bufp;
+            if (curr == NULL) curr = bheadp;
+        } else {
+            /* Backward */
+            struct buffer *scan = bheadp;
+            if (curr == bheadp) {
+                while (scan->b_bufp != NULL) scan = scan->b_bufp;
+                curr = scan;
+            } else {
+                while (scan != NULL && scan->b_bufp != curr) scan = scan->b_bufp;
+                curr = scan;
+            }
+        }
+
+        if (curr == start_bp) {
+            mlwrite("No more files available outside slots");
+            return;
+        }
+
+        /* Eligibility check: not internal AND not in any slot (except current if we're moving from it) */
+        if (!(curr->b_flag & BFINVS) && curr->b_fname[0] != '\0') {
+            if (!path_is_reserved_elsewhere(curr->b_fname, slot)) {
+                steps--;
+            }
+        }
+    }
+
+    if (slot >= 0 && slot < max_slots) {
+        mystrscpy(file_reserve[slot], curr->b_fname, PATH_MAX);
+    }
+    last_slot_index = slot;
+    swbuffer(curr);
+    mlwrite("Switched to: %s", curr->b_fname[0] ? curr->b_fname : curr->b_bname);
+}
+
+static void command_mode_write_segment(const char *text, const HighlightStyle *style, int *col)
+{
+    if (!text || !*text || !style || !col || !term)
+        return;
+
+    TTsetcolors(style->fg, style->bg);
+    TTsetattrs(style->bold, style->underline, style->italic);
+
+    const unsigned char *bytes = (const unsigned char *)text;
+    int len = (int)strlen(text);
+    int idx = 0;
+
+    while (idx < len && *col < term->t_ncol) {
+        unicode_t uc;
+        int consumed = utf8_to_unicode(bytes, idx, len, &uc);
+        if (consumed <= 0)
+            break;
+        int width = mystrnlen_raw_w(uc);
+        if (*col + width > term->t_ncol)
+            break;
+        TTputc(uc);
+        *col += width;
+        idx += consumed;
+    }
+}
+
+void command_mode_draw_status(const char *status, const char *input, bool show_cursor)
+{
+    if (!discmd || !term)
+        return;
+
+    HighlightStyle normal = colorscheme_get(HL_NORMAL);
+    HighlightStyle label = colorscheme_get(HL_NOTICE);
+    HighlightStyle status_style = colorscheme_get(HL_HEADER);
+    HighlightStyle input_style = colorscheme_get(HL_FUNCTION);
+
+    movecursor(term->t_nrow, 0);
+    int col = 0;
+
+    command_mode_write_segment("F1 ", &label, &col);
+    command_mode_write_segment("Command ", &label, &col);
+
+    if (status && *status)
+        command_mode_write_segment(status, &status_style, &col);
+
+    if (input && *input) {
+        if (status && *status)
+            command_mode_write_segment(" ", &status_style, &col);
+        command_mode_write_segment(input, &input_style, &col);
+    }
+
+    if (show_cursor)
+        command_mode_write_segment("_", &input_style, &col);
+
+    TTsetcolors(normal.fg, normal.bg);
+    TTsetattrs(normal.bold, normal.underline, normal.italic);
+    while (col < term->t_ncol) {
+        TTputc(' ');
+        col++;
+    }
+
+    TTsetcolors(-1, -1);
+    TTsetattrs(0, 0, 0);
+    TTflush();
+    mpresf = TRUE;
+}
+
+
+
+/* Initialize command mode system */
+void command_mode_init(void) {
+    viblock_reset();
+}
+
+/* Activate F1 command mode */
+void command_mode_activate(void) {
+    command_mode_prompt();
+}
+
+/* Execute goto line command */
+static void execute_goto_line(int line_num) {
+    int total_lines = 0;
+    struct line *lp;
+    
+    /* Count total lines in buffer */
+    for (lp = lforw(curbp->b_linep); lp != curbp->b_linep; lp = lforw(lp)) {
+        total_lines++;
+    }
+    
+    /* Clamp to valid range */
+    if (line_num < 1) line_num = 1;
+    if (line_num > total_lines) line_num = total_lines;
+    
+    /* Go to the line */
+    curwp->w_dotp = lforw(curbp->b_linep);
+    curwp->w_doto = 0;
+    
+    for (int i = 1; i < line_num && lforw(curwp->w_dotp) != curbp->b_linep; i++) {
+        curwp->w_dotp = lforw(curwp->w_dotp);
+    }
+    
+    curwp->w_flag |= WFMOVE;
+    mlwrite("Line %d of %d", line_num, total_lines);
+}
+
+/* Execute help command */
+static void execute_help(void) {
+    /* Force complete screen reset before showing help */
+    sgarbf = TRUE;
+    update(TRUE);
+    
+    /* Call existing help function */
+    nanox_traditional_help_command(FALSE, 1);
+}
+
+
+
+/* Parse and execute command */
+static void command_mode_trim(char *text)
+{
+    if (!text)
+        return;
+
+    char *start = text;
+    while (*start && isspace((unsigned char)*start))
+        start++;
+
+    if (start != text)
+        memmove(text, start, strlen(start) + 1);
+
+    size_t len = strlen(text);
+    while (len > 0 && isspace((unsigned char)text[len - 1]))
+        len--;
+    text[len] = '\0';
+}
+
+static void command_mode_prompt(void)
+{
+    char input[CMD_BUF_SIZE];
+    int status = minibuf_input("Command Mode: ", input, sizeof(input));
+    if (status == TRUE)
+        execute_command(input);
+    nanox_request_underbar_redraw();
+}
+
+static int command_mode_handle_lint_command(const char *input)
+{
+    char buffer[CMD_BUF_SIZE];
+    mystrscpy(buffer, input, sizeof(buffer));
+    command_mode_trim(buffer);
+
+    if (!(strcasecmp(buffer, "lint") == 0 || strcasecmp(buffer, "tidy") == 0))
+        return FALSE;
+
+    command_mode_apply_indent_lint();
+    return TRUE;
+}
+
+static int command_mode_handle_build_command(void) {
+    char dir[PATH_MAX];
+    char check_path[PATH_MAX + 64];
+    char cmd_str[PATH_MAX * 2 + 128];
+    int found = FALSE;
+
+    if (curbp->b_fname && curbp->b_fname[0]) {
+        char abs_path[PATH_MAX];
+        if (realpath(curbp->b_fname, abs_path)) {
+            char *last_slash = strrchr(abs_path, '/');
+            if (last_slash) {
+                if (last_slash == abs_path) {
+                    strcpy(dir, "/");
+                } else {
+                    *last_slash = '\0';
+                    strcpy(dir, abs_path);
+                }
+            } else {
+                if (getcwd(dir, sizeof(dir)) == NULL)
+                    dir[0] = '\0';
+            }
+        } else {
+            char *last_slash = strrchr(curbp->b_fname, '/');
+            if (last_slash) {
+                size_t len = last_slash - curbp->b_fname;
+                if (len >= sizeof(dir)) len = sizeof(dir) - 1;
+                memcpy(dir, curbp->b_fname, len);
+                dir[len] = '\0';
+            } else {
+                if (getcwd(dir, sizeof(dir)) == NULL)
+                    dir[0] = '\0';
+            }
+        }
+    } else {
+        if (getcwd(dir, sizeof(dir)) == NULL)
+            dir[0] = '\0';
+    }
+
+    if (dir[0] != '\0') {
+        char last_dir[PATH_MAX] = "";
+        while (strcmp(dir, last_dir) != 0) {
+            strcpy(last_dir, dir);
+
+            // 1. Cargo.toml -> cargo build
+            snprintf(check_path, sizeof(check_path), "%s/Cargo.toml", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cargo build", dir);
+                found = TRUE;
+                break;
+            }
+
+            // 2. Makefile or makefile -> make
+            snprintf(check_path, sizeof(check_path), "%s/Makefile", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && make", dir);
+                found = TRUE;
+                break;
+            }
+            snprintf(check_path, sizeof(check_path), "%s/makefile", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && make", dir);
+                found = TRUE;
+                break;
+            }
+
+            // 3. CMakeLists.txt -> cmake build
+            snprintf(check_path, sizeof(check_path), "%s/CMakeLists.txt", dir);
+            if (access(check_path, F_OK) == 0) {
+                char build_dir[PATH_MAX + 16];
+                snprintf(build_dir, sizeof(build_dir), "%s/build", dir);
+                struct stat st;
+                if (stat(build_dir, &st) == 0 && S_ISDIR(st.st_mode)) {
+                    snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cmake --build build", dir);
+                } else {
+                    snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cmake -B build && cmake --build build", dir);
+                }
+                found = TRUE;
+                break;
+            }
+
+            // Climb up
+            char *last_slash = strrchr(dir, '/');
+            if (last_slash) {
+                if (last_slash == dir) {
+                    strcpy(dir, "/");
+                } else {
+                    *last_slash = '\0';
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Fallback: single file compilation based on extension
+    if (!found && curbp->b_fname && curbp->b_fname[0]) {
+        const char *ext = strrchr(curbp->b_fname, '.');
+        if (ext) {
+            char basename_no_ext[PATH_MAX];
+            strcpy(basename_no_ext, curbp->b_fname);
+            char *ext_dot = strrchr(basename_no_ext, '.');
+            if (ext_dot) *ext_dot = '\0';
+
+            if (strcmp(ext, ".rs") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "rustc \"%s\"", curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".c") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "gcc -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".cpp") == 0 || strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "g++ -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".go") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "go build \"%s\"", curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".f") == 0 || strcmp(ext, ".f90") == 0 || strcmp(ext, ".f95") == 0 ||
+                       strcmp(ext, ".f03") == 0 || strcmp(ext, ".f08") == 0 || strcmp(ext, ".for") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "gfortran -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            }
+        }
+    }
+
+    if (!found) {
+        mlwrite("No build configuration (Cargo.toml, Makefile, CMakeLists.txt) or supported single source file found.");
+        return FALSE;
+    }
+
+    // Execute build command
+    mlwrite("Running build: %s", cmd_str);
+    TTflush();
+    TTclose();
+    TTkclose();
+
+    int ret = system(cmd_str);
+    (void)ret;
+
+    fflush(stdout);
+    TTopen();
+
+    mlputs("(End) Press Space/Enter to continue");
+    TTflush();
+    int s;
+    while ((s = tgetc()) != '\r' && s != '\n' && s != ' ') ;
+
+    TTkopen();
+    sgarbf = TRUE;
+    nanox_request_underbar_redraw();
+    return TRUE;
+}
+
+static void execute_command(const char *input) {
+    if (input == NULL || *input == '\0') {
+        mlwrite("Empty command");
+        return;
+    }
+
+    char buffer[CMD_BUF_SIZE];
+    mystrscpy(buffer, input, sizeof(buffer));
+    command_mode_trim(buffer);
+
+    if (buffer[0] == '\0') {
+        mlwrite("Empty command");
+        return;
+    }
+
+    char *cmd = buffer;
+    if (cmd[0] == ':') {
+        cmd++;
+        while (*cmd && isspace((unsigned char)*cmd)) cmd++;
+    }
+
+    if (command_mode_handle_lint_command(cmd))
+        return;
+    if (command_mode_handle_set_nr_command(cmd))
+        return;
+    if (command_mode_handle_flip_command(cmd))
+        return;
+
+    /* Check for build command */
+    if (strcasecmp(cmd, "build") == 0) {
+        command_mode_handle_build_command();
+        return;
+    }
+
+    /* Check for AI copilot completion command */
+    if (strcasecmp(cmd, "ai") == 0 || strcasecmp(cmd, "aiComplete") == 0) {
+        extern int ai_complete(int f, int n);
+        ai_complete(FALSE, 1);
+        return;
+    }
+
+    /* Check for file tree commands */
+    if (strcasecmp(cmd, "openFileTree") == 0 || strcasecmp(cmd, "openFileView") == 0) {
+        extern bool file_tree_active;
+        extern void file_tree_init_workspace(void);
+        file_tree_active = true;
+        file_tree_init_workspace();
+        sgarbf = TRUE;
+        curwp->w_flag |= WFHARD | WFMODE;
+        update(TRUE);
+        return;
+    }
+    if (strcasecmp(cmd, "closeFileTree") == 0 || strcasecmp(cmd, "closeFileView") == 0) {
+        extern bool file_tree_active;
+        file_tree_active = false;
+        sgarbf = TRUE;
+        curwp->w_flag |= WFHARD | WFMODE;
+        update(TRUE);
+        return;
+    }
+    if (strcasecmp(cmd, "runFileTree") == 0) {
+        extern void command_mode_run_file_tree(void);
+        command_mode_run_file_tree();
+        return;
+    }
+
+    /* nextfile command */
+    if (strncasecmp(cmd, "nextfile", 8) == 0 && (cmd[8] == ' ' || cmd[8] == '\0')) {
+        int n = 1;
+        char *args = cmd + 8;
+        while (*args && isspace((unsigned char)*args)) args++;
+        if (*args != '\0') {
+            n = atoi(args);
+        }
+        execute_nextfile(n);
+        return;
+    }
+
+    /* Check for multi-cursor command */
+    if (strncasecmp(cmd, "cursor", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) {
+        char *args = cmd + 6;
+        while (*args && isspace((unsigned char)*args)) args++;
+        
+        if (strncasecmp(args, "create", 6) == 0) {
+            args += 6;
+            while (*args && isspace((unsigned char)*args)) args++;
+            int count = atoi(args);
+            if (count > 1) {
+                multi_cursor_create(count);
+                mlwrite("Created %d cursors", count);
+            }
+        } else if (strncasecmp(args, "select", 6) == 0) {
+            args += 6;
+            while (*args && isspace((unsigned char)*args)) args++;
+            int index = atoi(args);
+            if (index >= 1) {
+                if (multi_cursor_select(index)) {
+                    mlwrite("Selected cursor %d", index);
+                } else {
+                    mlwrite("Invalid cursor index");
+                }
+            }
+        } else if (strncasecmp(args, "single", 6) == 0) {
+            multi_cursor_single();
+            mlwrite("Returned to single cursor mode");
+        } else {
+            mlwrite("Unknown cursor command");
+        }
+        return;
+    }
+
+    /* file command */
+    if (strncasecmp(cmd, "file", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) {
+        const char *args = cmd + 4;
+        while (*args && isspace((unsigned char)*args)) args++;
+        if (strncasecmp(args, "raw-sig", 7) == 0 && (args[7] == ' ' || args[7] == '\0')) {
+            const char *sig_args = args + 7;
+            while (*sig_args && isspace((unsigned char)*sig_args)) sig_args++;
+            command_mode_handle_raw_sig(sig_args);
+            return;
+        }
+    }
+
+    /* filename command */
+    if (strncasecmp(cmd, "filename", 8) == 0) {
+        char *args = cmd + 8;
+        while (*args && isspace((unsigned char)*args))
+            args++;
+        if (strcasecmp(args, "realpath") == 0) {
+            char full_path[PATH_MAX];
+            if (realpath(curbp->b_fname, full_path)) {
+                mlwrite("File: %s", full_path);
+            } else {
+                mlwrite("File: %s (could not resolve realpath)", curbp->b_fname);
+            }
+        } else if (*args == '\0') {
+            mlwrite("File: %s", curbp->b_fname[0] ? curbp->b_fname : "[No Name]");
+        } else {
+            mlwrite("Usage: filename [realpath]");
+        }
+        return;
+    }
+    
+    /* Check if it's a number (goto line) */
+    int is_number = 1;
+    for (char *p = cmd; *p; ++p) {
+        if (!isdigit((unsigned char)*p)) {
+            is_number = 0;
+            break;
+        }
+    }
+    
+    if (is_number) {
+        int line_num = atoi(cmd);
+        execute_goto_line(line_num);
+    }
+    /* Check for colors command */
+    else if (strncasecmp(cmd, "colors", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) {
+        const char *args = cmd + 6;
+        while (*args && isspace((unsigned char)*args)) args++;
+        extern int command_mode_handle_colors_command(const char *input);
+        command_mode_handle_colors_command(args);
+    }
+    /* Check for Help command (case insensitive) */
+    else if (strcasecmp(cmd, "help") == 0 || strcasecmp(cmd, "h") == 0) {
+        execute_help();
+    }
+    else if (strcasecmp(cmd, "viblock-edit") == 0 || strcasecmp(cmd, "viblock edit") == 0) {
+        viblock_start(BLOCK_MODE_EDIT, 0);
+    }
+    else if (strcasecmp(cmd, "viblock-replace") == 0 || strcasecmp(cmd, "viblock replace") == 0) {
+        viblock_start(BLOCK_MODE_REPLACE, 0);
+    }
+    else {
+        mlwrite("Unknown command: %s", cmd);
+    }
+}
+
+/* Cleanup command mode */
+void command_mode_cleanup(void) {
+    viblock_reset();
+}
+
+/* Command mode activation wrapper for key binding */
+int command_mode_activate_command(int f, int n) {
+    command_mode_activate();
+    return TRUE;
+}
+
+/* --- Sed-style replace command implementation --- */
+
+static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_sz, const char *label)
+{
+    size_t idx = 0;
+    const char *p = *pp;
+
+    if (dest_sz == 0)
+        return FALSE;
+
+    while (*p && *p != delim) {
+        unsigned char c = (unsigned char)*p++;
+        if (c == '\\') {
+            if (*p == '\0') {
+                mlwrite("Unterminated %s", label);
+                return FALSE;
+            }
+            char next = *p++;
+            switch (next) {
+            case 'n': c = '\n'; break;
+            case 't': c = '\t'; break;
+            case 'r': c = '\r'; break;
+            case '\\':
+                if (idx + 2 >= dest_sz) {
+                    mlwrite("%s too long", label);
+                    return FALSE;
+                }
+                dest[idx++] = '\\';
+                dest[idx++] = '\\';
+                continue;
+            default:
+                /* Keep the backslash for regex escapes (\., \(, \), etc.)
+                 * and for escaped delimiters (\/).  PCRE2 will interpret
+                 * them as literal characters. */
+                if (idx + 2 >= dest_sz) {
+                    mlwrite("%s too long", label);
+                    return FALSE;
+                }
+                dest[idx++] = '\\';
+                dest[idx++] = next;
+                continue;
+            }
+        }
+        if (idx + 1 >= dest_sz) {
+            mlwrite("%s too long", label);
+            return FALSE;
+        }
+        dest[idx++] = (char)c;
+    }
+
+    if (*p != delim) {
+        mlwrite("Unterminated %s", label);
+        return FALSE;
+    }
+
+    dest[idx] = '\0';
+    *pp = p + 1;
+    return TRUE;
+}
+
+static int parse_sed_expression(const char *expr, char *pattern, size_t pat_sz,
+    char *replacement, size_t rep_sz, int *is_global, int *is_caseless)
+{
+    const char *p = expr;
+    int global = FALSE;
+    int caseless = FALSE;
+
+    while (*p && isspace((unsigned char)*p))
+        p++;
+
+    if (*p != 's' && *p != 'S') {
+        mlwrite("Expression must begin with s/");
+        return FALSE;
+    }
+
+    p++;
+    char delim = *p++;
+    if (delim == '\0') {
+        mlwrite("Missing delimiter");
+        return FALSE;
+    }
+
+    if (!read_sed_chunk(&p, delim, pattern, pat_sz, "pattern"))
+        return FALSE;
+    if (pattern[0] == '\0') {
+        mlwrite("Empty pattern");
+        return FALSE;
+    }
+    if (!read_sed_chunk(&p, delim, replacement, rep_sz, "replacement"))
+        return FALSE;
+
+    while (*p) {
+        unsigned char c = (unsigned char)*p++;
+        if (isspace(c))
+            continue;
+        if (c == 'g' || c == 'G')
+            global = TRUE;
+        else if (c == 'i' || c == 'I')
+            caseless = TRUE;
+        else {
+            mlwrite("Unknown flag '%c'", c);
+            return FALSE;
+        }
+    }
+
+    if (strchr(pattern, '\n') != NULL) {
+        mlwrite("Multi-line patterns are not supported");
+        return FALSE;
+    }
+    if (strchr(replacement, '\n') != NULL) {
+        mlwrite("Multi-line replacements are not supported");
+        return FALSE;
+    }
+
+    *is_global = global;
+    *is_caseless = caseless;
+    return TRUE;
+}
+
+static size_t utf8_advance(const char *text, size_t len, size_t offset)
+{
+    if (offset >= len)
+        return len;
+
+    size_t next = offset + 1;
+    while (next < len && ((unsigned char)text[next] & 0xC0) == 0x80)
+        next++;
+    return next;
+}
+
+static void build_preview(const char *text, size_t len, char *dest, size_t dest_sz)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    size_t di = 0;
+    size_t i = 0;
+
+    if (dest_sz == 0)
+        return;
+
+    while (i < len && di < dest_sz - 1) {
+        unsigned char c = (unsigned char)text[i++];
+        if (c == '\n') {
+            if (di + 2 >= dest_sz)
+                break;
+            dest[di++] = '\\';
+            dest[di++] = 'n';
+        } else if (c == '\t') {
+            if (di + 2 >= dest_sz)
+                break;
+            dest[di++] = '\\';
+            dest[di++] = 't';
+        } else if (c < 0x20 || c == 0x7F) {
+            if (di + 4 >= dest_sz)
+                break;
+            dest[di++] = '\\';
+            dest[di++] = 'x';
+            dest[di++] = hex[(c >> 4) & 0xF];
+            dest[di++] = hex[c & 0xF];
+        } else {
+            dest[di++] = (char)c;
+        }
+    }
+
+    if (i < len && di + 4 < dest_sz) {
+        dest[di++] = '.';
+        dest[di++] = '.';
+        dest[di++] = '.';
+    }
+
+    dest[di] = '\0';
+}
+
+static char *splice_text(char *text, size_t text_len, size_t start, size_t end,
+    const char *replacement, size_t repl_len, size_t *new_len)
+{
+    size_t tail = text_len - end;
+    size_t next_len = text_len - (end - start) + repl_len;
+    char *result = malloc(next_len + 1);
+
+    if (result == NULL)
+        return NULL;
+
+    if (start > 0)
+        memcpy(result, text, start);
+    if (repl_len)
+        memcpy(result + start, replacement, repl_len);
+    if (tail)
+        memcpy(result + start + repl_len, text + end, tail);
+
+    result[next_len] = '\0';
+    free(text);
+    *new_len = next_len;
+    return result;
+}
+
+int line_index_from_top(struct line *target)
+{
+    struct line *lp = lforw(curbp->b_linep);
+    int idx = 0;
+
+    while (lp != curbp->b_linep) {
+        if (lp == target)
+            return idx;
+        lp = lforw(lp);
+        idx++;
+    }
+    return -1;
+}
+
+static void restore_cursor_to_index(int index, int offset)
+{
+    struct line *lp = lforw(curbp->b_linep);
+    int idx = 0;
+
+    while (lp != curbp->b_linep && idx < index) {
+        lp = lforw(lp);
+        idx++;
+    }
+
+    if (lp == curbp->b_linep) {
+        struct line *last = lback(lp);
+        if (last != curbp->b_linep)
+            lp = last;
+    }
+
+    curwp->w_dotp = lp;
+    if (lp != curbp->b_linep) {
+        if (offset > lp->used)
+            offset = lp->used;
+        curwp->w_doto = offset;
+    } else {
+        curwp->w_doto = 0;
+    }
+    curwp->w_flag |= WFMOVE;
+}
+
+void restore_saved_cursor(int index, int offset)
+{
+    if (index < 0) {
+        curwp->w_flag |= WFMOVE;
+        return;
+    }
+    restore_cursor_to_index(index, offset);
+}
+
+static int command_mode_total_lines(void)
+{
+    int total = 0;
+    struct line *lp = lforw(curbp->b_linep);
+    while (lp != curbp->b_linep) {
+        total++;
+        lp = lforw(lp);
+    }
+    return total;
+}
+
+static struct line *command_mode_line_at_number(int number)
+{
+    struct line *lp = lforw(curbp->b_linep);
+    int idx = 1;
+    while (lp != curbp->b_linep && idx < number) {
+        lp = lforw(lp);
+        idx++;
+    }
+    if (lp == curbp->b_linep)
+        return NULL;
+    return lp;
+}
+
+static int command_mode_parse_line_range(const char *text, int *start_line, int *end_line)
+{
+    if (!text || !start_line || !end_line)
+        return FALSE;
+
+    char buffer[CMD_BUF_SIZE];
+    mystrscpy(buffer, text, sizeof(buffer));
+
+    char *dash = strchr(buffer, '-');
+    if (!dash)
+        return FALSE;
+
+    *dash = '\0';
+    char *left = buffer;
+    char *right = dash + 1;
+
+    command_mode_trim(left);
+    command_mode_trim(right);
+
+    if (*left == '\0' || *right == '\0')
+        return FALSE;
+
+    char *endptr;
+    long start = strtol(left, &endptr, 10);
+    if (*endptr != '\0')
+        return FALSE;
+    long end = strtol(right, &endptr, 10);
+    if (*endptr != '\0')
+        return FALSE;
+
+    if (start > end) {
+        long tmp = start;
+        start = end;
+        end = tmp;
+    }
+
+    if (start < 1)
+        start = 1;
+    if (end < 1)
+        end = 1;
+
+    *start_line = (int)start;
+    *end_line = (int)end;
+    return TRUE;
+}
+
+static int command_mode_get_indent(const struct line *lp)
+{
+    int col = 0;
+    int i;
+    int len = llength(lp);
+    for (i = 0; i < len; ++i) {
+        int c = lgetc(lp, i);
+        if (c != ' ' && c != '\t')
+            break;
+        if (c == '\t')
+            col = nextab(col);
+        else
+            col++;
+    }
+    return col;
+}
+
+static int command_mode_is_blank_line(const struct line *lp)
+{
+    int i;
+    int len = llength(lp);
+    for (i = 0; i < len; ++i) {
+        int c = lgetc(lp, i);
+        if (c != ' ' && c != '\t')
+            return FALSE;
+    }
+    return TRUE;
+}
+
+static int command_mode_detect_indent_step(void)
+{
+    struct line *lp;
+    int freq[9];
+    int prev_indent = -1;
+    int i;
+    int best = tab_width;
+    int best_count = 0;
+
+    for (i = 0; i < 9; i++)
+        freq[i] = 0;
+
+    for (lp = lforw(curbp->b_linep); lp != curbp->b_linep; lp = lforw(lp)) {
+        if (llength(lp) > 0 && lgetc(lp, 0) == '\t')
+            return (tab_width > 0) ? tab_width : 1;
+    }
+
+    for (lp = lforw(curbp->b_linep); lp != curbp->b_linep; lp = lforw(lp)) {
+        if (!command_mode_is_blank_line(lp)) {
+            int ind = command_mode_get_indent(lp);
+            if (prev_indent >= 0 && ind > prev_indent) {
+                int delta = ind - prev_indent;
+                if (delta >= 1 && delta <= 8)
+                    freq[delta]++;
+            }
+            prev_indent = ind;
+        }
+    }
+
+    for (i = 1; i <= 8; i++) {
+        if (freq[i] > best_count) {
+            best_count = freq[i];
+            best = i;
+        }
+    }
+    if (best <= 0)
+        best = 1;
+    return best;
+}
+
+static int command_mode_line_starts_with_closing_block(const struct line *lp)
+{
+    int i = 0;
+    int len = llength(lp);
+    char word[32];
+    int wlen = 0;
+    char *ext = strrchr(curbp->b_fname, '.');
+
+    while (i < len) {
+        int c = lgetc(lp, i);
+        if (c != ' ' && c != '\t')
+            break;
+        i++;
+    }
+    if (i >= len)
+        return FALSE;
+
+    {
+        int c = lgetc(lp, i);
+        if (c == '}' || c == ')' || c == ']')
+            return TRUE;
+    }
+
+    while (i < len && wlen < (int)sizeof(word) - 1) {
+        int c = lgetc(lp, i);
+        if (c == ' ' || c == '\t' || c == '\n' ||
+            c == '(' || c == '{' || c == '[' || c == ')' || c == '}' || c == ']')
+            break;
+        word[wlen++] = (char)c;
+        i++;
+    }
+    word[wlen] = '\0';
+    if (wlen == 0 || ext == NULL)
+        return FALSE;
+
+    if (strcasecmp(ext, ".sh") == 0 || strcasecmp(ext, ".bash") == 0) {
+        if (strcmp(word, "fi") == 0 || strcmp(word, "done") == 0 ||
+            strcmp(word, "esac") == 0 || strcmp(word, "else") == 0 ||
+            strcmp(word, "elif") == 0)
+            return TRUE;
+    } else if (strcasecmp(ext, ".py") == 0) {
+        if (strcmp(word, "else") == 0 || strcmp(word, "elif") == 0 ||
+            strcmp(word, "except") == 0 || strcmp(word, "finally") == 0)
+            return TRUE;
+    } else if (strcasecmp(ext, ".lua") == 0) {
+        if (strcmp(word, "end") == 0 || strcmp(word, "else") == 0 ||
+            strcmp(word, "elseif") == 0 || strcmp(word, "until") == 0)
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
+static int command_mode_line_ends_with_open_block(const struct line *lp)
+{
+    int i;
+    int len = llength(lp);
+
+    for (i = len - 1; i >= 0; --i) {
+        int c = lgetc(lp, i);
+        if (c == ' ' || c == '\t')
+            continue;
+        return (c == '{' || c == '(' || c == '[') ? TRUE : FALSE;
+    }
+    return FALSE;
+}
+
+static int command_mode_set_indent_on_line(struct line *lp, int target)
+{
+    int ch;
+
+    if (target < 0)
+        target = 0;
+    curwp->w_dotp = lp;
+    curwp->w_doto = 0;
+
+    while (curwp->w_doto < llength(curwp->w_dotp)) {
+        ch = lgetc(curwp->w_dotp, curwp->w_doto);
+        if (ch != ' ' && ch != '\t')
+            break;
+        if (ldelchar(1, FALSE) != TRUE)
+            return FALSE;
+    }
+
+    if (target > 0) {
+        if (nanox_cfg.soft_tab) {
+            int i;
+            for (i = 0; i < target; ++i) {
+                if (linsert(1, ' ') != TRUE)
+                    return FALSE;
+            }
+        } else {
+            int step = tab_width;
+            int tabs;
+            int spaces;
+            if (step <= 0)
+                step = 1;
+            tabs = target / step;
+            spaces = target % step;
+            while (tabs--) {
+                if (linsert(1, '\t') != TRUE)
+                    return FALSE;
+            }
+            while (spaces--) {
+                if (linsert(1, ' ') != TRUE)
+                    return FALSE;
+            }
+        }
+    }
+    return TRUE;
+}
+
+static int command_mode_apply_indent_lint(void)
+{
+    int total = command_mode_total_lines();
+    int step;
+    int changed = 0;
+    int original_index = line_index_from_top(curwp->w_dotp);
+    int original_offset = curwp->w_doto;
+    struct line *lp;
+    struct line *prev_code = NULL;
+
+    if (curbp->b_mode & MDVIEW)
+        return rdonly();
+
+    if (total <= 0) {
+        mlwrite("Buffer is empty");
+        return FALSE;
+    }
+
+    step = command_mode_detect_indent_step();
+    if (step <= 0)
+        step = 1;
+
+    for (lp = lforw(curbp->b_linep); lp != curbp->b_linep; lp = lforw(lp)) {
+        int target;
+
+        if (command_mode_is_blank_line(lp))
+            continue;
+
+        target = prev_code ? command_mode_get_indent(prev_code) : 0;
+        if (prev_code && command_mode_line_ends_with_open_block(prev_code))
+            target += step;
+        if (command_mode_line_starts_with_closing_block(lp))
+            target -= step;
+        if (target < 0)
+            target = 0;
+
+        if (command_mode_get_indent(lp) != target) {
+            if (command_mode_set_indent_on_line(lp, target) != TRUE) {
+                restore_saved_cursor(original_index, original_offset);
+                return FALSE;
+            }
+            changed++;
+        }
+
+        prev_code = lp;
+    }
+
+    restore_saved_cursor(original_index, original_offset);
+    if (changed > 0)
+        lchange(WFHARD);
+    mlwrite("lint tidy applied (%d line%s, step %d)", changed, (changed == 1) ? "" : "s", step);
+    return TRUE;
+}
+
+static int command_mode_parse_numbering_prefix(const unsigned char *text, int len,
+    int *indent_end, int *content_start, char *suffix, size_t suffix_sz)
+{
+    int i = 0;
+    int j;
+    int k;
+    size_t si = 0;
+    char delim;
+
+    while (i < len && (text[i] == ' ' || text[i] == '\t'))
+        i++;
+    if (indent_end)
+        *indent_end = i;
+
+    j = i;
+    while (j < len && isdigit(text[j]))
+        j++;
+    if (j == i || j >= len)
+        return FALSE;
+
+    delim = (char)text[j];
+    if (!(delim == '.' || delim == ':' || delim == ')'))
+        return FALSE;
+
+    k = j + 1;
+    while (k < len && (text[k] == ' ' || text[k] == '\t'))
+        k++;
+    if (content_start)
+        *content_start = k;
+
+    if (suffix && suffix_sz > 0) {
+        suffix[si++] = delim;
+        if (k == j + 1) {
+            if (si < suffix_sz - 1)
+                suffix[si++] = ' ';
+        } else {
+            int t;
+            for (t = j + 1; t < k && si < suffix_sz - 1; ++t)
+                suffix[si++] = (char)text[t];
+        }
+        suffix[si] = '\0';
+    }
+    return TRUE;
+}
+
+static int command_mode_line_number_of(struct line *target)
+{
+    int line = 1;
+    struct line *lp = lforw(curbp->b_linep);
+    while (lp != curbp->b_linep) {
+        if (lp == target)
+            return line;
+        lp = lforw(lp);
+        line++;
+    }
+    return -1;
+}
+
+static int command_mode_guess_numbering_suffix(int start_line, int end_line, char *suffix, size_t suffix_sz)
+{
+    struct line *lp = command_mode_line_at_number(start_line);
+    int line = start_line;
+    struct {
+        char value[8];
+        int count;
+    } candidates[8];
+    int candidate_count = 0;
+    int best = -1;
+
+    if (!lp || !suffix || suffix_sz == 0)
+        return FALSE;
+
+    while (lp != curbp->b_linep && line <= end_line) {
+        char current[8];
+        if (command_mode_parse_numbering_prefix(ltext(lp), llength(lp), NULL, NULL, current, sizeof(current))) {
+            int i;
+            int found = -1;
+            for (i = 0; i < candidate_count; ++i) {
+                if (strcmp(candidates[i].value, current) == 0) {
+                    found = i;
+                    break;
+                }
+            }
+            if (found >= 0) {
+                candidates[found].count++;
+            } else if (candidate_count < 8) {
+                mystrscpy(candidates[candidate_count].value, current, sizeof(candidates[candidate_count].value));
+                candidates[candidate_count].count = 1;
+                candidate_count++;
+            }
+        }
+        lp = lforw(lp);
+        line++;
+    }
+
+    if (candidate_count == 0) {
+        mystrscpy(suffix, ". ", suffix_sz);
+        return TRUE;
+    }
+
+    {
+        int i;
+        for (i = 0; i < candidate_count; ++i) {
+            if (best < 0 || candidates[i].count > candidates[best].count)
+                best = i;
+        }
+    }
+    mystrscpy(suffix, candidates[best].value, suffix_sz);
+    return TRUE;
+}
+
+int command_mode_apply_numbering_range(int start_line, int end_line, int reverse)
+{
+    int total = command_mode_total_lines();
+    int line;
+    int changed = 0;
+    int original_index = line_index_from_top(curwp->w_dotp);
+    int original_offset = curwp->w_doto;
+    struct line *lp;
+    char suffix[8];
+
+    if (curbp->b_mode & MDVIEW)
+        return rdonly();
+
+    if (total <= 0) {
+        mlwrite("Buffer is empty");
+        return FALSE;
+    }
+
+    if (start_line < 1)
+        start_line = 1;
+    if (end_line < 1)
+        end_line = 1;
+    if (start_line > total)
+        start_line = total;
+    if (end_line > total)
+        end_line = total;
+    if (start_line > end_line) {
+        int tmp = start_line;
+        start_line = end_line;
+        end_line = tmp;
+    }
+
+    if (!command_mode_guess_numbering_suffix(start_line, end_line, suffix, sizeof(suffix))) {
+        mlwrite("Failed to detect numbering format");
+        return FALSE;
+    }
+
+    lp = command_mode_line_at_number(start_line);
+    if (!lp) {
+        mlwrite("Invalid range");
+        return FALSE;
+    }
+
+    line = start_line;
+    while (lp != curbp->b_linep && line <= end_line) {
+        int len = llength(lp);
+        char *text = malloc((size_t)len + 1);
+        int indent_end = 0;
+        int content_start = 0;
+        int new_number = reverse ? (end_line - (line - start_line)) : (start_line + (line - start_line));
+        char number_buf[32];
+        int number_len;
+        int suffix_len = (int)strlen(suffix);
+        int new_len;
+        char *new_text;
+        struct line *next = lforw(lp);
+
+        if (!text) {
+            restore_saved_cursor(original_index, original_offset);
+            mlwrite("%%Out of memory");
+            return FALSE;
+        }
+        memcpy(text, ltext(lp), (size_t)len);
+        text[len] = '\0';
+
+        if (!command_mode_parse_numbering_prefix((unsigned char *)text, len, &indent_end, &content_start, NULL, 0))
+            content_start = indent_end;
+
+        snprintf(number_buf, sizeof(number_buf), "%d", new_number);
+        number_len = (int)strlen(number_buf);
+        new_len = indent_end + number_len + suffix_len + (len - content_start);
+        new_text = malloc((size_t)new_len + 1);
+        if (!new_text) {
+            free(text);
+            restore_saved_cursor(original_index, original_offset);
+            mlwrite("%%Out of memory");
+            return FALSE;
+        }
+
+        if (indent_end > 0)
+            memcpy(new_text, text, (size_t)indent_end);
+        memcpy(new_text + indent_end, number_buf, (size_t)number_len);
+        memcpy(new_text + indent_end + number_len, suffix, (size_t)suffix_len);
+        if (len - content_start > 0)
+            memcpy(new_text + indent_end + number_len + suffix_len, text + content_start, (size_t)(len - content_start));
+        new_text[new_len] = '\0';
+
+        curwp->w_dotp = lp;
+        curwp->w_doto = 0;
+        if (ldelete(llength(lp), FALSE) != TRUE ||
+            (new_len > 0 && linsert_block(new_text, new_len) != TRUE)) {
+            free(new_text);
+            free(text);
+            restore_saved_cursor(original_index, original_offset);
+            return FALSE;
+        }
+
+        free(new_text);
+        free(text);
+        changed++;
+        lp = next;
+        line++;
+    }
+
+    restore_saved_cursor(original_index, original_offset);
+    if (changed > 0)
+        lchange(WFHARD);
+    mlwrite("viblock-set-nr applied: lines %d-%d (%s)", start_line, end_line, reverse ? "reverse" : "forward");
+    return TRUE;
+}
+
+static int command_mode_handle_set_nr_command(const char *input)
+{
+    const char *name1 = "viblock-set-nr";
+    const char *name2 = "vibloc-set-nr";
+    size_t cmd_len = 0;
+    const char *args = NULL;
+    char range[64];
+    char opt1[32];
+    int parsed;
+    int consumed = 0;
+    int start_line;
+    int end_line;
+    int reverse = FALSE;
+
+    if (strncasecmp(input, name1, strlen(name1)) == 0) {
+        cmd_len = strlen(name1);
+    } else if (strncasecmp(input, name2, strlen(name2)) == 0) {
+        cmd_len = strlen(name2);
+    } else {
+        return FALSE;
+    }
+
+    args = input + cmd_len;
+    if (*args && !isspace((unsigned char)*args))
+        return FALSE;
+    while (*args && isspace((unsigned char)*args))
+        args++;
+    if (*args == '\0') {
+        viblock_start(BLOCK_MODE_SET_NR, FALSE);
+        return TRUE;
+    }
+
+    range[0] = '\0';
+    opt1[0] = '\0';
+    parsed = sscanf(args, "%63s %31s %n", range, opt1, &consumed);
+    if (parsed == 1 && opt1[0] == '\0' &&
+        (strcasecmp(range, "rev") == 0 || strcasecmp(range, "reverse") == 0)) {
+        viblock_start(BLOCK_MODE_SET_NR, TRUE);
+        return TRUE;
+    }
+    if (parsed < 1 || parsed > 2) {
+        mlwrite("[viblock-set-nr syntax: viblock-set-nr start-end [rev]]");
+        return TRUE;
+    }
+    while (args[consumed] != '\0') {
+        if (!isspace((unsigned char)args[consumed])) {
+            mlwrite("[viblock-set-nr syntax: viblock-set-nr start-end [rev]]");
+            return TRUE;
+        }
+        consumed++;
+    }
+    if (!command_mode_parse_line_range(range, &start_line, &end_line)) {
+        mlwrite("[viblock-set-nr range must be start-end]");
+        return TRUE;
+    }
+    if (parsed == 2) {
+        if (strcasecmp(opt1, "rev") == 0 || strcasecmp(opt1, "reverse") == 0) {
+            reverse = TRUE;
+        } else {
+            mlwrite("[viblock-set-nr option must be rev]");
+            return TRUE;
+        }
+    }
+
+    command_mode_apply_numbering_range(start_line, end_line, reverse);
+    return TRUE;
+}
+
+int command_mode_swap_ranges(int first_start, int first_end, int second_start, int second_end)
+{
+    struct line *a_start = command_mode_line_at_number(first_start);
+    struct line *a_end = command_mode_line_at_number(first_end);
+    struct line *b_start = command_mode_line_at_number(second_start);
+    struct line *b_end = command_mode_line_at_number(second_end);
+    struct line *pre_a;
+    struct line *post_a;
+    struct line *pre_b;
+    struct line *post_b;
+    int adjacent;
+    int cursor_line = command_mode_line_number_of(curwp->w_dotp);
+    int cursor_off = curwp->w_doto;
+
+    if (!a_start || !a_end || !b_start || !b_end) {
+        mlwrite("Invalid line range");
+        return FALSE;
+    }
+
+    pre_a = lback(a_start);
+    post_a = lforw(a_end);
+    pre_b = lback(b_start);
+    post_b = lforw(b_end);
+    adjacent = (post_a == b_start);
+
+    lforw(pre_a) = b_start;
+    lback(b_start) = pre_a;
+
+    if (adjacent) {
+        lforw(b_end) = a_start;
+        lback(a_start) = b_end;
+    } else {
+        lforw(b_end) = post_a;
+        lback(post_a) = b_end;
+        lforw(pre_b) = a_start;
+        lback(a_start) = pre_b;
+    }
+
+    lforw(a_end) = post_b;
+    lback(post_b) = a_end;
+
+    if (cursor_line >= 1)
+        restore_cursor_to_index(cursor_line - 1, cursor_off);
+    lchange(WFHARD);
+    curwp->w_flag |= WFMOVE | WFHARD | WFMODE;
+    return TRUE;
+}
+
+static int command_mode_handle_flip_command(const char *input)
+{
+    const char *name = "viblock-flip";
+    size_t cmd_len = strlen(name);
+    const char *args = input + cmd_len;
+    char range1[64];
+    char range2[64];
+    char extra[32];
+    int parsed;
+    int start1;
+    int end1;
+    int start2;
+    int end2;
+    int total;
+
+    if (strncasecmp(input, name, cmd_len) != 0)
+        return FALSE;
+    if (*args && !isspace((unsigned char)*args))
+        return FALSE;
+    while (*args && isspace((unsigned char)*args))
+        args++;
+    if (*args == '\0') {
+        mlwrite("[viblock-flip syntax: viblock-flip a-b c-d]");
+        return TRUE;
+    }
+
+    range1[0] = '\0';
+    range2[0] = '\0';
+    extra[0] = '\0';
+    parsed = sscanf(args, "%63s %63s %31s", range1, range2, extra);
+    if (parsed != 2) {
+        mlwrite("[viblock-flip syntax: viblock-flip a-b c-d]");
+        return TRUE;
+    }
+    if (!command_mode_parse_line_range(range1, &start1, &end1) ||
+        !command_mode_parse_line_range(range2, &start2, &end2)) {
+        mlwrite("[viblock-flip range must be start-end]");
+        return TRUE;
+    }
+
+    total = command_mode_total_lines();
+    if (total <= 0) {
+        mlwrite("Buffer is empty");
+        return TRUE;
+    }
+
+    if (start1 < 1) start1 = 1;
+    if (start2 < 1) start2 = 1;
+    if (end1 > total) end1 = total;
+    if (end2 > total) end2 = total;
+
+    if (!(end1 < start2 || end2 < start1)) {
+        mlwrite("[viblock-flip requires non-overlapping ranges]");
+        return TRUE;
+    }
+
+    if (start2 < start1) {
+        int swap_temp;
+        swap_temp = start1; start1 = start2; start2 = swap_temp;
+        swap_temp = end1; end1 = end2; end2 = swap_temp;
+    }
+
+    if (command_mode_swap_ranges(start1, end1, start2, end2) == TRUE)
+        mlwrite("viblock-flip applied: %d-%d <-> %d-%d", start1, end1, start2, end2);
+    return TRUE;
+}
+
+
+
+
+
+int line_offset_for_column(struct line *lp, int target_col, int *actual_col)
+{
+    int len = llength(lp);
+    int idx = 0;
+    int col = 0;
+
+    while (idx < len) {
+        unicode_t c;
+        int bytes = utf8_to_unicode(ltext(lp), idx, len, &c);
+        int next_col;
+
+        if (bytes <= 0)
+            break;
+        next_col = next_column(col, c, tab_width);
+        if (next_col > target_col)
+            break;
+        idx += bytes;
+        col = next_col;
+    }
+
+    if (actual_col)
+        *actual_col = col;
+    return idx;
+}
+
+
+
+int command_mode_block_is_active(void) { return viblock_is_active(); }
+
+int command_mode_block_selection_contains(struct line *lp, int col_start, int col_end) { return viblock_selection_contains(lp, col_start, col_end); }
+
+
+
+
+
+int command_mode_block_handle_key(int c, int f, int n) { return viblock_handle_key(c, f, n); }
+
+static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_data *match_data,
+    const char *replacement, size_t repl_len, int is_global, int *total_count)
+{
+    char *text = malloc(lp->used + 1);
+    size_t text_len = lp->used;
+    size_t search_offset = 0;
+    int changed = FALSE;
+
+    if (text == NULL) {
+        mlwrite("%%Out of memory");
+        return FALSE;
+    }
+
+    memcpy(text, ltext(lp), text_len);
+    text[text_len] = '\0';
+
+    while (search_offset <= text_len) {
+        int rc = pcre2_match(code, (PCRE2_SPTR)text, text_len, search_offset, 0, match_data, NULL);
+        if (rc < 0)
+            break;
+
+        PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
+        size_t match_start = ovector[0];
+        size_t match_end = ovector[1];
+
+        int zero_width = (match_start == match_end);
+
+        int accept = is_global;
+        if (!is_global) {
+            char match_preview[REPLACE_PREVIEW];
+            char repl_preview[REPLACE_PREVIEW];
+            char prompt[REPLACE_PREVIEW * 2 + 32];
+
+            curwp->w_dotp = lp;
+            curwp->w_doto = (int)match_start;
+            curwp->w_flag |= WFMOVE;
+            update(FALSE);
+
+            build_preview(text + match_start, match_end - match_start, match_preview, sizeof(match_preview));
+            build_preview(replacement, repl_len, repl_preview, sizeof(repl_preview));
+            snprintf(prompt, sizeof(prompt), "Replace '%s' with '%s'", match_preview, repl_preview);
+            accept = mlyesno(prompt);
+        }
+
+        size_t next_offset = match_end;
+
+        if (accept == TRUE) {
+            changed = TRUE;
+            (*total_count)++;
+            size_t new_len;
+            char *new_text = splice_text(text, text_len, match_start, match_end, replacement, repl_len, &new_len);
+            if (new_text == NULL) {
+                mlwrite("%%Out of memory");
+                free(text);
+                return FALSE;
+            }
+            text = new_text;
+            text_len = new_len;
+            next_offset = match_start + repl_len;
+        }
+
+        if (zero_width && next_offset == match_start) {
+            next_offset = utf8_advance(text, text_len, match_start);
+            if (next_offset == match_start)
+                next_offset++;
+        }
+
+        if (next_offset > text_len)
+            break;
+
+        search_offset = next_offset;
+    }
+
+    if (changed) {
+        curwp->w_dotp = lp;
+        curwp->w_doto = 0;
+        ldelete(llength(lp), FALSE);
+        if (text_len > 0)
+            linsert_block(text, (int)text_len);
+    }
+
+    free(text);
+    return TRUE;
+}
+
+int sed_replace_command(int f, int n)
+{
+    char expr[NSTRING];
+    char pattern[NPAT];
+    char replacement[NSTRING];
+    int is_global = FALSE;
+    int is_caseless = FALSE;
+    int status;
+    int total = 0;
+    int original_index;
+    int original_offset;
+    pcre2_code *code;
+    pcre2_match_data *match_data;
+    int errornumber;
+    PCRE2_SIZE erroffset;
+    uint32_t options = PCRE2_UTF | PCRE2_UCP | PCRE2_MULTILINE;
+    size_t repl_len;
+
+    if (curbp->b_mode & MDVIEW) {
+        int ro = rdonly();
+        nanox_request_underbar_redraw();
+        return ro;
+    }
+
+    status = minibuf_input("sed replace: ", expr, sizeof(expr));
+    if (status != TRUE) {
+        nanox_request_underbar_redraw();
+        return status;
+    }
+
+    if (!parse_sed_expression(expr, pattern, sizeof(pattern), replacement, sizeof(replacement), &is_global, &is_caseless)) {
+        nanox_request_underbar_redraw();
+        return FALSE;
+    }
+
+    if (is_caseless)
+        options |= PCRE2_CASELESS;
+
+    code = pcre2_compile((PCRE2_SPTR)pattern, PCRE2_ZERO_TERMINATED, options, &errornumber, &erroffset, NULL);
+    if (code == NULL) {
+        char errbuf[128];
+        pcre2_get_error_message(errornumber, (PCRE2_UCHAR *)errbuf, sizeof(errbuf));
+        mlwrite("Regex error at %d: %s", (int)erroffset, errbuf);
+        nanox_request_underbar_redraw();
+        return FALSE;
+    }
+
+    match_data = pcre2_match_data_create_from_pattern(code, NULL);
+    if (match_data == NULL) {
+        pcre2_code_free(code);
+        mlwrite("%%Out of memory");
+        nanox_request_underbar_redraw();
+        return FALSE;
+    }
+
+    original_index = line_index_from_top(curwp->w_dotp);
+    original_offset = curwp->w_doto;
+    repl_len = strlen(replacement);
+
+    struct line *lp = lforw(curbp->b_linep);
+    while (lp != curbp->b_linep) {
+        struct line *next = lforw(lp);
+        if (!apply_regex_to_line(lp, code, match_data, replacement, repl_len, is_global, &total)) {
+            pcre2_match_data_free(match_data);
+            pcre2_code_free(code);
+            restore_saved_cursor(original_index, original_offset);
+            nanox_request_underbar_redraw();
+            return FALSE;
+        }
+        lp = next;
+    }
+
+    pcre2_match_data_free(match_data);
+    pcre2_code_free(code);
+
+    restore_saved_cursor(original_index, original_offset);
+
+    if (total == 0)
+        mlwrite("No matches for pattern");
+    else
+        mlwrite("Replaced %d occurrence%s", total, total == 1 ? "" : "s");
+
+    nanox_request_underbar_redraw();
+    return TRUE;
+}
+
+}

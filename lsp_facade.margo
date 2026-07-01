@@ -7,6 +7,7 @@
 #include "edef.h"
 #include "line.h"
 #include "lsp_facade.h"
+#include "scraper.h"
 #include "nanox.h"
 
 /* Forward declarations for subsystem functions currently in completion.c */
@@ -17,7 +18,7 @@ extern int is_python_file(const char *fname);
 extern int is_node_file(const char *fname);
 extern int resolve_java_class_name(const char *owner, char *resolved, size_t resolved_sz);
 extern void add_java_member_matches(const char *class_name, const char *prefix);
-extern void add_runtime_module_matches(int lang_type, const char *owner, const char *prefix);
+extern void add_runtime_module_matches(scraper_lang_t lang_type, const char *owner, const char *prefix);
 
 /* Scraper language types (from scraper.h) */
 #define SCRAPER_LANG_PYTHON 1

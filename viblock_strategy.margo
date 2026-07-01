@@ -14,7 +14,7 @@
 extern int line_index_from_top(struct line *target);
 extern int line_offset_for_column(struct line *lp, int target_col, int *actual_col);
 extern void restore_saved_cursor(int index, int offset);
-extern void command_mode_draw_status(const char *status, const char *hint, int is_error);
+extern void command_mode_draw_status(const char *status, const char *hint, bool show_cursor);
 extern int command_mode_apply_numbering_range(int start_line, int end_line, int reverse);
 extern int command_mode_swap_ranges(int start1, int end1, int start2, int end2);
 
