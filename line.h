@@ -2,7 +2,13 @@
 #define LINE_H_
 
 #include "utf8.h"
+#include <stdatomic.h>
+#ifdef _Atomic
+#undef _Atomic
+#endif
+#include <stdint.h>
 #include "highlight.h"
+#include "mymemory.h"
 
 /*
  * All text is kept in circularly linked lists of "struct line" structures. These
@@ -13,23 +19,30 @@
  * additions will include update hints, and a list of marks into the line.
  */
 struct line {
-    struct line *l_fp;          /* Link to the next line        */
-    struct line *l_bp;          /* Link to the previous line    */
-    int l_size;             /* Allocated size               */
-    int l_used;             /* Used size                    */
-    HighlightState hl_start_state;
-    HighlightState hl_end_state;
-    unsigned char l_text[1];             /* A bunch of characters.       */
+    _Atomic(struct line *) next;          /* 8 bytes */
+    _Atomic(struct line *) prev;          /* 8 bytes */
+    MemoryHandle l_handle;                /* 8 bytes */
+    HighlightState hl_start_state;        /* 112 bytes */
+    HighlightState hl_end_state;          /* 112 bytes */
+    _Atomic int size;                     /* 4 bytes */
+    _Atomic int used;                     /* 4 bytes */
+    uint32_t l_offset;                    /* 4 bytes */
+    char l_diag;                          /* 1 byte */
+    char _padding[3];                     /* 3 bytes manual padding for 8-byte alignment */
 };
 
-#define lforw(lp)       ((lp)->l_fp)
-#define lback(lp)       ((lp)->l_bp)
-#define lgetc(lp, n)    ((lp)->l_text[(n)]&0xFF)
-#define lputc(lp, n, c) ((lp)->l_text[(n)]=(c))
-#define llength(lp)     ((lp)->l_used)
+#define ltext(lp)       (((unsigned char * restrict)handle_deref((lp)->l_handle)) + (lp)->l_offset)
+
+#define lforw(lp)       ((lp)->next)
+#define lback(lp)       ((lp)->prev)
+#define lgetc(lp, n)    (ltext(lp)[(n)]&0xFF)
+#define lputc(lp, n, c) (ltext(lp)[(n)]=(c))
+#define llength(lp)     ((lp)->used)
 
 extern void lfree(struct line *lp);
+extern void lmark_dirty(struct line *lp);
 extern void lchange(int flag);
+extern int l_unshare(struct line *lp);
 extern int insspace(int f, int n);
 extern int linstr(char *instr);
 extern int linsert(int n, int c);

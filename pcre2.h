@@ -1,5 +1,5 @@
-#ifndef NAMO_LOCAL_PCRE2_H_
-#define NAMO_LOCAL_PCRE2_H_
+#ifndef NANOX_LOCAL_PCRE2_H_
+#define NANOX_LOCAL_PCRE2_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -61,4 +61,4 @@ void pcre2_match_data_free_8(pcre2_match_data *match_data);
 }
 #endif
 
-#endif /* NAMO_LOCAL_PCRE2_H_ */
+#endif /* NANOX_LOCAL_PCRE2_H_ */

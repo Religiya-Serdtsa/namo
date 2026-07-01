@@ -1,16 +1,21 @@
 #include "scraper.h"
 
 #include <pthread.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <time.h>
+#include <sys/select.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 
 #define SCRAPER_MAX_SYMBOLS      512
 #define SCRAPER_MAX_ENTRIES       64
 #define SCRAPER_READ_LIMIT     16384
+#define SCRAPER_CHILD_TIMEOUT_SEC 3
 
 typedef struct {
     char *module;
@@ -42,7 +47,9 @@ static pthread_cond_t job_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t worker_thread;
 static int worker_started = 0;
 
-static const char python_script[] =
+/* Non-const arrays: execv() requires writable pointers, but the interpreters
+ * do not modify these script buffers. */
+static char python_script[] =
     "import importlib,sys\n"
     "mod=sys.argv[1]\n"
     "try:\n"
@@ -52,7 +59,7 @@ static const char python_script[] =
     "except Exception:\n"
     "    pass\n";
 
-static const char node_script[] =
+static char node_script[] =
     "const mod=process.argv[1];\n"
     "try {\n"
     "  const m=require(mod);\n"
@@ -180,6 +187,12 @@ static int run_child_process(const char *prog, char *const argv[],
                              char *output, size_t outsz)
 {
     int pipefd[2];
+    int child_done = 0;
+    int stream_eof = 0;
+    int timed_out = 0;
+    time_t start_time;
+    int status = 0;
+    pid_t wait_rc;
     if (!output || outsz == 0)
         return -1;
     output[0] = '\0';
@@ -204,16 +217,85 @@ static int run_child_process(const char *prog, char *const argv[],
         _exit(127);
     }
     close(pipefd[1]);
-    size_t total = 0;
-    ssize_t nr;
-    while (total < outsz - 1 &&
-           (nr = read(pipefd[0], output + total, outsz - 1 - total)) > 0) {
-        total += (size_t)nr;
+    if (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) < 0) {
+        close(pipefd[0]);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        return -1;
     }
+
+    start_time = time(NULL);
+    if (start_time == (time_t)-1) {
+        close(pipefd[0]);
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        return -1;
+    }
+    size_t total = 0;
+    while (!timed_out) {
+        wait_rc = waitpid(pid, &status, WNOHANG);
+        if (wait_rc == pid)
+            child_done = 1;
+        else if (wait_rc < 0) {
+            if (errno == EINTR)
+                continue;
+            if (errno == ECHILD)
+                child_done = 1;
+            else
+                break;
+        }
+
+        fd_set rfds;
+        struct timeval tv;
+        FD_ZERO(&rfds);
+        FD_SET(pipefd[0], &rfds);
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;
+
+        int sel = select(pipefd[0] + 1, &rfds, NULL, NULL, &tv);
+        if (sel > 0 && FD_ISSET(pipefd[0], &rfds)) {
+            char discard[256];
+            ssize_t nr;
+            char *dst = discard;
+            size_t room = sizeof(discard);
+            if (total < outsz - 1) {
+                dst = output + total;
+                room = outsz - 1 - total;
+            }
+            nr = read(pipefd[0], dst, room);
+            if (nr > 0) {
+                if (total < outsz - 1)
+                    total += (size_t)nr;
+            } else if (nr == 0) {
+                stream_eof = 1;
+            } else if (errno != EAGAIN && errno != EINTR) {
+                stream_eof = 1;
+            }
+        } else if (sel < 0 && errno != EINTR) {
+            break;
+        }
+
+        if (child_done && stream_eof)
+            break;
+
+        time_t now = time(NULL);
+        if (now == (time_t)-1 || now - start_time >= SCRAPER_CHILD_TIMEOUT_SEC) {
+            timed_out = 1;
+            break;
+        }
+    }
+
     output[total] = '\0';
     close(pipefd[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
+
+    if (timed_out) {
+        kill(pid, SIGKILL);
+        waitpid(pid, NULL, 0);
+        return -1;
+    }
+    if (!child_done)
+        waitpid(pid, &status, 0);
+
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0)
         return -1;
     return (int)total;
@@ -222,19 +304,30 @@ static int run_child_process(const char *prog, char *const argv[],
 static int run_language_command(scraper_lang_t lang, const char *module,
                                 char *buffer, size_t bufsz)
 {
+    char *module_copy;
+    int rc;
+
     if (!module || !*module)
         return -1;
+
+    module_copy = strdup(module);
+    if (module_copy == NULL)
+        return -1;
+
     if (lang == SCRAPER_LANG_PYTHON) {
-        char *const argv[] = { "python3", "-c", (char *)python_script,
-                               (char *)module, NULL };
-        return run_child_process("python3", argv, buffer, bufsz);
+        char *const argv[] = { "python3", "-c", python_script,
+                               module_copy, NULL };
+        rc = run_child_process("python3", argv, buffer, bufsz);
+    } else if (lang == SCRAPER_LANG_NODE) {
+        char *const argv[] = { "node", "-e", node_script,
+                               module_copy, NULL };
+        rc = run_child_process("node", argv, buffer, bufsz);
+    } else {
+        rc = -1;
     }
-    if (lang == SCRAPER_LANG_NODE) {
-        char *const argv[] = { "node", "-e", (char *)node_script,
-                               (char *)module, NULL };
-        return run_child_process("node", argv, buffer, bufsz);
-    }
-    return -1;
+
+    free(module_copy);
+    return rc;
 }
 
 typedef struct {
@@ -352,6 +445,30 @@ void scraper_init(void)
         if (pthread_create(&worker_thread, NULL, scraper_worker, NULL) == 0)
             worker_started = 1;
     }
+    pthread_mutex_unlock(&scraper_mutex);
+}
+
+void scraper_cleanup(void)
+{
+    pthread_mutex_lock(&scraper_mutex);
+    for (int l = 0; l < SCRAPER_LANG_COUNT; l++) {
+        runtime_cache_t *cache = &caches[l];
+        if (cache->entries) {
+            for (int i = 0; i < cache->count; i++) {
+                free_entry(cache->entries[i]);
+            }
+            free(cache->entries);
+            cache->entries = NULL;
+        }
+        cache->count = 0;
+        cache->capacity = 0;
+    }
+    if (job_queue) {
+        free(job_queue);
+        job_queue = NULL;
+    }
+    job_count = 0;
+    job_capacity = 0;
     pthread_mutex_unlock(&scraper_mutex);
 }
 

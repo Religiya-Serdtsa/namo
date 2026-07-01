@@ -22,34 +22,155 @@
 #include "efunc.h"
 #include "line.h"
 #include "version.h"
-#include "namo.h"
+#include "nanox.h"
 #include "wrapper.h"
 #include "utf8.h"
 #include "util.h"
 #include "highlight.h"
 #include "video.h"
+#include "render_plugin.h"
 
 extern struct terminal *term;
 
 struct video **vscreen;          /* Virtual screen. */
 
-static int get_gutter_width(void)
+void vtputc(int c);
+void vteeol(void);
+
+static int rendering_color_fg = -1;
+static int rendering_color_bg = -1;
+static bool rendering_color_bold = false;
+static bool rendering_color_underline = false;
+static bool rendering_color_italic = false;
+
+static int get_char_width_rel(unicode_t c, int col)
 {
-    return !namo_cfg.nonr ? 6 : 0;
+    if (c == '\t') {
+        int step = tab_width + 1;
+        return step - (col % step);
+    }
+    if (c < 0x20 || c == 0x7f)
+        return 2;
+    return unicode_width(c);
 }
 
-static void render_gutter(int row, int lnum)
+static int wrap_continuation_indent(void)
 {
-    if (namo_cfg.nonr) return;
+    return 4;
+}
+
+static bool is_wrap_break_char(unicode_t c)
+{
+    return c == ' ' || c == '\t' || c == '-' || c == ',' || c == ';';
+}
+
+static int find_next_wrap_point(struct line *lp, int start_idx, int start_col);
+
+void calculate_visual_pos(struct line *lp, int target_offset, int *vrow, int *vcol, bool wrap)
+{
+    int indent = wrap_continuation_indent();
+    int row = 0;
+    int col = 0;
+    int i = 0;
+    int len = (lp == NULL) ? 0 : llength(lp);
+    int next_wrap = wrap ? find_next_wrap_point(lp, 0, 0) : len;
+
+    if (target_offset < 0) target_offset = 0;
+    if (target_offset > len) target_offset = len;
+
+    while (i < len) {
+        if (wrap && i == next_wrap) {
+            row++;
+            col = indent;
+            next_wrap = find_next_wrap_point(lp, i, indent);
+        }
+
+        if (i == target_offset) {
+            if (vrow) *vrow = row;
+            if (vcol) *vcol = col;
+            return;
+        }
+
+        unicode_t c;
+        int bytes = utf8_to_unicode(ltext(lp), i, len, &c);
+        if (bytes <= 0) bytes = 1;
+
+        int w = get_char_width_rel(c, col);
+
+        col += w;
+        i += bytes;
+    }
+    
+    if (vrow) *vrow = row;
+    if (vcol) *vcol = col;
+}
+
+void get_offset_at_visual_pos(struct line *lp, int target_vrow, int target_vcol, int *offset)
+{
+    int indent = wrap_continuation_indent();
+    int row = 0;
+    int col = 0;
+    int i = 0;
+    int len = (lp == NULL) ? 0 : llength(lp);
+    bool wrap = (curwp->w_bufp->b_mode & MDSOFTWRAP) != 0;
+    int next_wrap = wrap ? find_next_wrap_point(lp, 0, 0) : len;
+
+    while (i < len) {
+        if (wrap && i == next_wrap) {
+            if (row == target_vrow && target_vcol <= col)
+                break;
+            row++;
+            col = indent;
+            next_wrap = find_next_wrap_point(lp, i, indent);
+        }
+
+        if (row > target_vrow) break;
+        if (row == target_vrow && col >= target_vcol) break;
+
+        unicode_t c;
+        int bytes = utf8_to_unicode(ltext(lp), i, len, &c);
+        if (bytes <= 0) bytes = 1;
+        int w = get_char_width_rel(c, col);
+
+        col += w;
+        i += bytes;
+    }
+    if (offset) *offset = i;
+}
+
+static int get_gutter_width(void)
+{
+    extern bool file_tree_active;
+    extern int file_tree_width;
+    int w = !nanox_cfg.nonr ? 8 : 0;
+    if (file_tree_active)
+        w += file_tree_width;
+    return w;
+}
+
+static void gutter_plugin_fn(render_ctx_t *ctx) {
+    if (nanox_cfg.nonr) return;
+    int row = ctx->visual_row;
+    struct line *lp = ctx->lp;
+    int lnum = ctx->line_num;
 
     char buf[10];
+    char indicator[3] = "  ";
+
     if (lnum > 0) {
-        snprintf(buf, sizeof(buf), "%5d", lnum);
+        snprintf(buf, sizeof(buf), "%4d ", lnum);
+        if (lp && lp->l_diag == 1) {
+            indicator[0] = '?'; indicator[1] = '>';
+        } else if (lp && lp->l_diag == 2) {
+            indicator[0] = '!'; indicator[1] = '>';
+        }
     } else {
         snprintf(buf, sizeof(buf), "     ");
     }
 
     HighlightStyle num_style = colorscheme_get(HL_LINENUM);
+    HighlightStyle err_style = colorscheme_get(HL_LSP_ERROR);
+    HighlightStyle warn_style = colorscheme_get(HL_LSP_WARN);
     
     video_cell *vcp = vscreen[row]->v_text;
     for (int i = 0; i < 5; i++) {
@@ -60,21 +181,79 @@ static void render_gutter(int row, int lnum)
         vcp[i].underline = num_style.underline;
         vcp[i].italic = num_style.italic;
     }
-    vcp[5].ch = 0x2502; /* Unicode box-drawing vertical separator */
-    vcp[5].fg = num_style.fg;
-    vcp[5].bg = num_style.bg;
-    vcp[5].bold = num_style.bold;
-    vcp[5].underline = num_style.underline;
-    vcp[5].italic = num_style.italic;
+
+    /* Indicators */
+    for (int i = 0; i < 2; i++) {
+        vcp[5+i].ch = indicator[i];
+        if (indicator[0] == '!') {
+            vcp[5+i].fg = err_style.fg;
+            vcp[5+i].bg = err_style.bg;
+            vcp[5+i].bold = err_style.bold;
+        } else if (indicator[0] == '?') {
+            vcp[5+i].fg = warn_style.fg;
+            vcp[5+i].bg = warn_style.bg;
+            vcp[5+i].bold = warn_style.bold;
+        } else {
+            vcp[5+i].fg = num_style.fg;
+            vcp[5+i].bg = num_style.bg;
+        }
+    }
+
+    vcp[7].ch = 0x2502; /* Unicode box-drawing vertical separator */
+    vcp[7].fg = num_style.fg;
+    vcp[7].bg = num_style.bg;
 }
 
-static int current_color_fg = -1;
-static int current_color_bg = -1;
-static bool current_color_bold = false;
-static bool current_color_underline = false;
-static bool current_color_italic = false;
+static void ghost_text_plugin_fn(render_ctx_t *ctx) {
+    if (ctx->wp != curwp || ctx->lp != curwp->w_dotp || !nanox_cfg.autocomplete)
+        return;
+
+    char prefix[MAX_COMPLETION_LEN];
+    struct line *lp = ctx->lp;
+    int offset = curwp->w_doto;
+    int i = offset;
+    while (i > 0 && isalnum((unsigned char)ltext(lp)[i-1])) i--;
+    
+    if (i < offset) {
+        int plen = offset - i;
+        if (plen < (int)sizeof(prefix)) {
+            memcpy(prefix, ltext(lp) + i, (size_t)plen);
+            prefix[plen] = '\0';
+            
+            extern const char *completion_get_best_hint(const char *prefix);
+            const char *hint = completion_get_best_hint(prefix);
+            if (hint && *hint) {
+                HighlightStyle ghost = colorscheme_get(HL_GHOST_TEXT);
+                rendering_color_fg = ghost.fg;
+                rendering_color_bg = ghost.bg;
+                rendering_color_bold = ghost.bold;
+                rendering_color_italic = ghost.italic;
+                rendering_color_underline = ghost.underline;
+                
+                while (*hint) {
+                    vtputc(*hint++);
+                }
+                
+                /* Reset to normal */
+                HighlightStyle normal = colorscheme_get(HL_NORMAL);
+                rendering_color_fg = normal.fg;
+                rendering_color_bg = normal.bg;
+                rendering_color_bold = normal.bold;
+                rendering_color_italic = normal.italic;
+                rendering_color_underline = normal.underline;
+            }
+        }
+    }
+}
+
+static void render_gutter(int row, int lnum, struct line *lp)
+{
+    render_ctx_t ctx = { NULL, lp, row, 0, 0, 0, HL_NORMAL, lnum };
+    render_plugin_execute(RENDER_HOOK_GUTTER, &ctx);
+}
 
 static int vt_margin_left = 0;
+static struct line *current_rendering_lp = NULL;
 
 static int displaying = TRUE;
 #include <signal.h>
@@ -90,39 +269,15 @@ static void modeline(struct window *wp);
 static void show_line_wrapped(struct window *wp, struct line *lp);
 
 
-static int get_char_width(unicode_t c, int col)
-{
-    if (c == '\t') {
-        int rel_col = col - vt_margin_left;
-        return (tab_width + 1) - ((rel_col + taboff) & tab_width);
-    }
-    if (c < 0x20 || c == 0x7f)
-        return 2;
-    return mystrnlen_raw_w(c);
-}
 
-static int get_line_height(struct line *lp)
+int get_line_height(struct line *lp, bool wrap)
 {
     if (lp == curbp->b_linep)
         return 0;
 
-    int len = llength(lp);
-    int col = 0;
-    int height = 1;
-    int i = 0;
-    while (i < len) {
-        unicode_t c;
-        int bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, len, &c);
-        int w = get_char_width(c, col);
-        if (col + w > namo_text_cols()) {
-            height++;
-            col = 4;
-            w = get_char_width(c, col);
-        }
-        col += w;
-        i += bytes;
-    }
-    return height;
+    int vrow;
+    calculate_visual_pos(lp, llength(lp), &vrow, NULL, wrap);
+    return vrow + 1;
 }
 
 void vtputc(int c);
@@ -175,7 +330,7 @@ static void draw_hint_row(int row, const char *left, const char *status)
         
         while (left_i < left_len && display_col < width) {
             unicode_t c;
-            int bytes = utf8_to_unicode((unsigned char *)left, left_i, left_len, &c);
+            int bytes = utf8_to_unicode((const unsigned char *)left, left_i, left_len, &c);
             if (bytes <= 0)
                 break;
                         int char_width = mystrnlen_raw_w(c);
@@ -212,7 +367,7 @@ static void draw_hint_row(int row, const char *left, const char *status)
                     
                     while (status_i < status_len && display_col < width) {
                         unicode_t c;
-                        int bytes = utf8_to_unicode((unsigned char *)status, status_i, status_len, &c);
+                        int bytes = utf8_to_unicode((const unsigned char *)status, status_i, status_len, &c);
                         if (bytes <= 0)
                             break;
                         int char_width = mystrnlen_raw_w(c);
@@ -229,34 +384,57 @@ static void draw_hint_row(int row, const char *left, const char *status)
                 vteeol();
             }
             
-            static int window_line_number(struct window *wp)
-            {
-                struct line *lp = lforw(wp->w_bufp->b_linep);
-                int count = 1;
-            
-                while (lp != wp->w_bufp->b_linep) {
-                    if (lp == wp->w_dotp)
-                        break;
-                    ++count;
-                    lp = lforw(lp);
-                }
-                return count;
-            }
-
             static int get_line_num(struct buffer *bp, struct line *target)
             {
+                if (target == bp->b_linep) return 0;
+
+                if (bp->b_line_cache_version == bp->b_version && bp->b_line_cache_ptr != NULL) {
+                    if (bp->b_line_cache_ptr == target) return bp->b_line_cache_no;
+
+                    int dist = 0;
+                    struct line *fw = bp->b_line_cache_ptr;
+                    struct line *bw = bp->b_line_cache_ptr;
+
+                    /* Search outward from cache up to 1000 lines */
+                    while (dist < 1000) {
+                        if (fw == target) {
+                            bp->b_line_cache_ptr = target;
+                            bp->b_line_cache_no += dist;
+                            return bp->b_line_cache_no;
+                        }
+                        if (bw == target) {
+                            bp->b_line_cache_ptr = target;
+                            bp->b_line_cache_no -= dist;
+                            return bp->b_line_cache_no;
+                        }
+                        if (fw != bp->b_linep) fw = lforw(fw);
+                        if (bw != bp->b_linep) bw = lback(bw);
+                        if (fw == bp->b_linep && bw == bp->b_linep) break;
+                        dist++;
+                    }
+                }
+
+                /* Fallback to full search from top, then cache it */
                 struct line *lp = lforw(bp->b_linep);
                 int count = 1;
 
                 while (lp != bp->b_linep) {
-                    if (lp == target)
-                        break;
+                    if (lp == target) {
+                        bp->b_line_cache_ptr = target;
+                        bp->b_line_cache_no = count;
+                        bp->b_line_cache_version = bp->b_version;
+                        return count;
+                    }
                     ++count;
                     lp = lforw(lp);
                 }
                 return count;
             }
-            
+
+            static int window_line_number(struct window *wp)
+            {
+                return get_line_num(wp->w_bufp, wp->w_dotp);
+            }
             static int window_column_number(struct window *wp)
             {
                 struct line *lp = wp->w_dotp;
@@ -264,9 +442,16 @@ static void draw_hint_row(int row, const char *left, const char *status)
                 int len = llength(lp);
                 int col = 0;
             
-                while (i < wp->w_doto) {
+                /* Safety check: ensure w_doto is within line bounds to avoid infinite loop */
+                int target = wp->w_doto;
+                if (target > len)
+                    target = len;
+
+                while (i < target) {
                     unicode_t c;
-                    int bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, len, &c);
+                    int bytes = utf8_to_unicode(ltext(lp), i, len, &c);
+                    if (bytes == 0)
+                        break;
                     i += bytes;
                     col = next_column(col, c, tab_width);
                 }
@@ -295,11 +480,11 @@ void vtinit(void)
     vscreen = xmalloc(term->t_mrow * sizeof(struct video *));
     memset(vscreen, 0, term->t_mrow * sizeof(struct video *));
 
-    current_color_fg = -1;
-    current_color_bg = -1;
-    current_color_bold = false;
-    current_color_underline = false;
-    current_color_italic = false;
+    rendering_color_fg = -1;
+    rendering_color_bg = -1;
+    rendering_color_bold = false;
+    rendering_color_underline = false;
+    rendering_color_italic = false;
 
     for (i = 0; i < term->t_mrow; ++i) {
         vp = xmalloc(sizeof(struct video) + term->t_mcol * sizeof(video_cell));
@@ -307,6 +492,10 @@ void vtinit(void)
         vp->v_flag = 0;
         vscreen[i] = vp;
     }
+
+    /* Register built-in plugins */
+    render_plugin_register((render_plugin_t){ RENDER_HOOK_GUTTER, gutter_plugin_fn, NULL });
+    render_plugin_register((render_plugin_t){ RENDER_HOOK_POST_LINE, ghost_text_plugin_fn, NULL });
 }
 
 /*
@@ -380,18 +569,7 @@ void vtputc(int c)
     char_width = mystrnlen_raw_w(c);
 
     if (vtcol + char_width > term->t_ncol) {
-        if (vtrow < namo_text_rows() - 1) {
-            vtrow++;
-            vtcol = vt_margin_left;
-            vscreen[vtrow]->v_flag |= VFCHG;
-            render_gutter(vtrow, 0); // 0 indicates empty gutter for wrapped lines
-            for (int i = 0; i < 4; i++)
-                vtputc(' ');
-        } else {
-            vscreen[vtrow]->v_text[term->t_ncol - 1].ch = '$';
-            vtcol += char_width;
-            return;
-        }
+        return;
     }
 
     vp = vscreen[vtrow];
@@ -400,11 +578,11 @@ void vtputc(int c)
         for (i = 0; i < char_width; i++) {
             if (vtcol + i < term->t_ncol) {
                 vp->v_text[vtcol + i].ch = (i == 0) ? c : 0;
-                vp->v_text[vtcol + i].fg = current_color_fg;
-                vp->v_text[vtcol + i].bg = current_color_bg;
-                vp->v_text[vtcol + i].bold = current_color_bold;
-                vp->v_text[vtcol + i].underline = current_color_underline;
-                vp->v_text[vtcol + i].italic = current_color_italic;
+                vp->v_text[vtcol + i].fg = rendering_color_fg;
+                vp->v_text[vtcol + i].bg = rendering_color_bg;
+                vp->v_text[vtcol + i].bold = rendering_color_bold;
+                vp->v_text[vtcol + i].underline = rendering_color_underline;
+                vp->v_text[vtcol + i].italic = rendering_color_italic;
             }
         }
         vtcol += char_width;
@@ -424,11 +602,11 @@ void vteeol(void)
 
     while (vtcol < term->t_ncol) {
         vcp[vtcol].ch = ' ';
-        vcp[vtcol].fg = current_color_fg;
-        vcp[vtcol].bg = current_color_bg;
-        vcp[vtcol].bold = current_color_bold;
-        vcp[vtcol].underline = current_color_underline;
-        vcp[vtcol].italic = current_color_italic;
+        vcp[vtcol].fg = rendering_color_fg;
+        vcp[vtcol].bg = rendering_color_bg;
+        vcp[vtcol].bold = rendering_color_bold;
+        vcp[vtcol].underline = rendering_color_underline;
+        vcp[vtcol].italic = rendering_color_italic;
         vtcol++;
     }
 }
@@ -447,41 +625,98 @@ int upscreen(int f, int n)
 static void update_syntax_highlighting(struct buffer *bp) {
     if (!highlight_is_enabled()) return;
     
+    struct line *lp = bp->b_hl_dirty_line;
+    if (lp == NULL) lp = lforw(bp->b_linep);
+    
     const char *fname = bp->b_fname[0] ? bp->b_fname : bp->b_bname;
     const HighlightProfile *profile = highlight_get_profile(fname);
     if (!profile) return;
 
-    struct line *lp = lforw(bp->b_linep);
-    HighlightState current_state = {0};
+    HighlightState current_state = lp->hl_start_state;
     
     while (lp != bp->b_linep) {
-        // Check if we can skip
-        if (memcmp(&lp->hl_start_state, &current_state, sizeof(HighlightState)) == 0) {
-            // Start state matches. Now check if end state is consistent.
-            HighlightState computed_end;
-            highlight_line((const char *)lp->l_text, lp->l_used, current_state, profile, NULL, &computed_end);
-            
-            if (memcmp(&lp->hl_end_state, &computed_end, sizeof(HighlightState)) == 0) {
-                // Stable. We can stop propagation!
+        bool changed = false;
+        if (memcmp(&lp->hl_start_state, &current_state, sizeof(HighlightState)) != 0) {
+            lp->hl_start_state = current_state;
+            changed = true;
+        }
+
+        HighlightState computed_end;
+        highlight_line((const char *)ltext(lp), lp->used, current_state, profile, NULL, &computed_end);
+        
+        if (memcmp(&lp->hl_end_state, &computed_end, sizeof(HighlightState)) != 0) {
+            lp->hl_end_state = computed_end;
+            changed = true;
+        }
+        
+        current_state = computed_end;
+        if (!changed) {
+            /* If state didn't change and matched previous end state, we might be able to stop.
+             * But we need to check if the NEXT line's hl_start_state also matches.
+             */
+            struct line *next = lforw(lp);
+            if (next == bp->b_linep || memcmp(&next->hl_start_state, &current_state, sizeof(HighlightState)) == 0) {
                 break;
             }
-            
-            // Output changed. Update and continue.
-            lp->hl_end_state = computed_end;
-            current_state = computed_end;
-        } else {
-            // Start state mismatch. Update and continue.
-            lp->hl_start_state = current_state;
-            
-            HighlightState computed_end;
-            highlight_line((const char *)lp->l_text, lp->l_used, current_state, profile, NULL, &computed_end);
-            
-            lp->hl_end_state = computed_end;
-            current_state = computed_end;
         }
         
         lp = lforw(lp);
     }
+    bp->b_hl_dirty_line = NULL;
+}
+
+bool buffer_needs_hl_update(struct buffer *bp)
+{
+    return highlight_is_enabled() && bp->b_hl_dirty_line != NULL;
+}
+
+void highlight_incremental_step(struct buffer *bp)
+{
+    if (!highlight_is_enabled() || bp->b_hl_dirty_line == NULL) return;
+
+    const char *fname = bp->b_fname[0] ? bp->b_fname : bp->b_bname;
+    const HighlightProfile *profile = highlight_get_profile(fname);
+    if (!profile) {
+        bp->b_hl_dirty_line = NULL;
+        return;
+    }
+
+    struct line *lp = bp->b_hl_dirty_line;
+    HighlightState current_state = lp->hl_start_state;
+    int count = 0;
+    const int MAX_INCREMENTAL_LINES = 100;
+
+    while (lp != bp->b_linep && count < MAX_INCREMENTAL_LINES) {
+        bool changed = false;
+        if (memcmp(&lp->hl_start_state, &current_state, sizeof(HighlightState)) != 0) {
+            lp->hl_start_state = current_state;
+            changed = true;
+        }
+
+        HighlightState computed_end;
+        highlight_line((const char *)ltext(lp), lp->used, current_state, profile, NULL, &computed_end);
+        
+        if (memcmp(&lp->hl_end_state, &computed_end, sizeof(HighlightState)) != 0) {
+            lp->hl_end_state = computed_end;
+            changed = true;
+        }
+        
+        current_state = computed_end;
+        lp = lforw(lp);
+        count++;
+
+        if (!changed) {
+            if (lp == bp->b_linep || memcmp(&lp->hl_start_state, &current_state, sizeof(HighlightState)) == 0) {
+                bp->b_hl_dirty_line = NULL;
+                return;
+            }
+        }
+    }
+
+    if (lp == bp->b_linep)
+        bp->b_hl_dirty_line = NULL;
+    else
+        bp->b_hl_dirty_line = lp;
 }
 
 /*
@@ -496,6 +731,18 @@ static void update_syntax_highlighting(struct buffer *bp) {
 int update(int force)
 {
     struct window *wp;
+    extern bool interactive_help_active;
+    if (interactive_help_active) {
+        extern void draw_interactive_help(void);
+        draw_interactive_help();
+        if (sgarbf != FALSE)
+            updgar();
+        updupd(force);
+        movecursor(term->t_nrow, 0);
+        TTflush();
+        displaying = FALSE;
+        return TRUE;
+    }
 
     if (force == FALSE && kbdmode == PLAY)
         return TRUE;
@@ -504,18 +751,19 @@ int update(int force)
 
     /* Sync default colors from colorscheme */
     HighlightStyle normal = colorscheme_get(HL_NORMAL);
-    current_color_fg = normal.fg;
-    current_color_bg = normal.bg;
-    current_color_bold = normal.bold;
-    current_color_underline = normal.underline;
-    current_color_italic = normal.italic;
+    rendering_color_fg = normal.fg;
+    rendering_color_bg = normal.bg;
+    rendering_color_bold = normal.bold;
+    rendering_color_underline = normal.underline;
+    rendering_color_italic = normal.italic;
 
     /* update any windows that need refreshing */
     wp = curwp;
+
     if (wp->w_flag) {
-        /* Update syntax highlighting for the whole buffer if hard refresh */
-        if (wp->w_flag & WFHARD) {
-            update_syntax_highlighting(wp->w_bufp);
+        /* Update syntax highlighting incrementally, not the whole buffer */
+        if (buffer_needs_hl_update(wp->w_bufp)) {
+            highlight_incremental_step(wp->w_bufp);
         }
 
         /* if the window has changed, service it */
@@ -525,8 +773,15 @@ int update(int force)
             updone(wp); /* update EDITed line */
         else if (wp->w_flag & ~WFMOVE)
             updall(wp); /* update all lines */
-        if (wp->w_flag & WFMODE)
+        if (wp->w_flag & WFMODE) {
+            /* Reset colors before drawing modeline to avoid color leakage from syntax highlighting */
+            rendering_color_fg = normal.fg;
+            rendering_color_bg = normal.bg;
+            rendering_color_bold = normal.bold;
+            rendering_color_underline = normal.underline;
+            rendering_color_italic = normal.italic;
             modeline(wp);   /* update modeline */
+        }
         wp->w_flag = 0;
         wp->w_force = 0;
     }
@@ -536,12 +791,20 @@ int update(int force)
         should_redraw_underbar = false;
     }
 
+    extern void file_tree_draw(void);
+    file_tree_draw();
+
     /* recalc the current hardware cursor location */
     updpos();
 
     /* if screen is garbage, re-plot it */
     if (sgarbf != FALSE)
         updgar();
+
+    if (check_paste_slot_active() && highlight_is_enabled())
+        paste_slot_draw_inline_preview(currow,
+                                       curcol + get_gutter_width() - lbound,
+                                       get_gutter_width());
 
     /* update the virtual screen to the physical screen */
     updupd(force);
@@ -564,7 +827,7 @@ static int reframe(struct window *wp)
 {
     struct line *lp;
     int i = 0;
-    int rows = namo_text_rows();
+    int rows = nanox_text_rows();
 
     /* if not a requested reframe, check for a needed one */
     if ((wp->w_flag & WFFORCE) == 0) {
@@ -573,28 +836,15 @@ static int reframe(struct window *wp)
         while (vrow < rows && lp != wp->w_bufp->b_linep) {
             if (lp == wp->w_dotp) {
                 /* Dot is on this line. Calculate its subrow. */
-                int dot_vrow = vrow;
-                int col = 0;
-                int char_idx = 0;
-                while (char_idx < wp->w_doto) {
-                    unicode_t c;
-                    int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, wp->w_doto, &c);
-                    int w = get_char_width(c, col);
-                    if (col + w > namo_text_cols()) {
-                        dot_vrow++;
-                        col = 4;
-                        w = get_char_width(c, col);
-                    }
-                    col += w;
-                    char_idx += bytes;
-                }
+                int subrow;
+                calculate_visual_pos(lp, wp->w_doto, &subrow, NULL, wp->w_bufp->b_mode & MDSOFTWRAP);
                 
-                if (dot_vrow < rows)
+                if (vrow + subrow < rows)
                     return TRUE;
                 else
                     break; /* Need reframe */
             }
-            vrow += get_line_height(lp);
+            vrow += get_line_height(lp, wp->w_bufp->b_mode & MDSOFTWRAP);
             lp = lforw(lp);
         }
     }
@@ -622,6 +872,7 @@ static int reframe(struct window *wp)
 static void show_line(struct window *wp, struct line *lp)
 {
     int len = llength(lp);
+    current_rendering_lp = lp;
 
     /* Highlight logic */
     SpanVec spans;
@@ -632,13 +883,14 @@ static void show_line(struct window *wp, struct line *lp)
         fname = wp->w_bufp->b_bname;
     const HighlightProfile *profile = highlight_get_profile(fname);
 
-    highlight_line((const char *)lp->l_text, len, lp->hl_start_state, profile, &spans, &end_state);
+    highlight_line((const char *)ltext(lp), len, lp->hl_start_state, profile, &spans, &end_state);
 
     if (memcmp(&lp->hl_end_state, &end_state, sizeof(HighlightState)) != 0) {
         lp->hl_end_state = end_state;
         struct line *next = lforw(lp);
-        if (next != curbp->b_linep) {
+        if (next != wp->w_bufp->b_linep) {
             next->hl_start_state = end_state;
+            lmark_dirty(next);
             lchange(WFHARD);
         }
     }
@@ -662,7 +914,7 @@ static void show_line(struct window *wp, struct line *lp)
         }
 
         unicode_t c;
-        int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
+        int bytes = utf8_to_unicode(ltext(lp), char_idx, len, &c);
         if (bytes <= 0)
             bytes = 1;
         int next_col = next_column(text_col, c, tab_width);
@@ -673,11 +925,11 @@ static void show_line(struct window *wp, struct line *lp)
         HighlightStyle style_def = colorscheme_get(style);
         HighlightStyle normal_def = colorscheme_get(HL_NORMAL);
 
-        current_color_fg = (style_def.fg == -1) ? normal_def.fg : style_def.fg;
-        current_color_bg = (style_def.bg == -1) ? normal_def.bg : style_def.bg;
-        current_color_bold = style_def.bold;
-        current_color_underline = style_def.underline;
-        current_color_italic = style_def.italic;
+        rendering_color_fg = (style_def.fg == -1) ? normal_def.fg : style_def.fg;
+        rendering_color_bg = (style_def.bg == -1) ? normal_def.bg : style_def.bg;
+        rendering_color_bold = style_def.bold;
+        rendering_color_underline = style_def.underline;
+        rendering_color_italic = style_def.italic;
 
         vtputc(c);
         char_idx += bytes;
@@ -688,15 +940,15 @@ static void show_line(struct window *wp, struct line *lp)
 
     /* Detect color codes in the line and show preview boxes */
     ColorInfo colors[MAX_COLORS_PER_LINE];
-    int color_count = highlight_find_colors((const char *)lp->l_text, len, colors, MAX_COLORS_PER_LINE);
+    int color_count = highlight_find_colors((const char *)ltext(lp), len, colors, MAX_COLORS_PER_LINE);
     
     if (color_count > 0) {
         /* Add a space separator, then color preview boxes */
         HighlightStyle normal = colorscheme_get(HL_NORMAL);
-        current_color_fg = normal.fg;
-        current_color_bg = normal.bg;
-        current_color_bold = false;
-        current_color_underline = false;
+        rendering_color_fg = normal.fg;
+        rendering_color_bg = normal.bg;
+        rendering_color_bold = false;
+        rendering_color_underline = false;
         
         vtputc(' ');
         
@@ -704,14 +956,14 @@ static void show_line(struct window *wp, struct line *lp)
         for (int i = 0; i < color_count && i < 8; i++) {
             /* Pack RGB as 0x01RRGGBB for true color */
             int packed_color = 0x01000000 | (colors[i].r << 16) | (colors[i].g << 8) | colors[i].b;
-            current_color_bg = packed_color;
-            current_color_fg = packed_color;
+            rendering_color_bg = packed_color;
+            rendering_color_fg = packed_color;
             vtputc(' ');  /* Space with colored background acts as color box */
             vtputc(' ');
             
             /* Reset to normal for separator */
-            current_color_bg = normal.bg;
-            current_color_fg = normal.fg;
+            rendering_color_bg = normal.bg;
+            rendering_color_fg = normal.fg;
             if (i < color_count - 1 && i < 7) {
                 vtputc(' ');
             }
@@ -721,20 +973,55 @@ static void show_line(struct window *wp, struct line *lp)
     /* Fill trailing whitespace using the default style colors */
     {
         HighlightStyle normal = colorscheme_get(HL_NORMAL);
-        current_color_fg = normal.fg;
-        current_color_bg = normal.bg;
-        current_color_bold = normal.bold;
-        current_color_underline = normal.underline;
-        current_color_italic = normal.italic;
+        rendering_color_fg = normal.fg;
+        rendering_color_bg = normal.bg;
+        rendering_color_bold = normal.bold;
+        rendering_color_underline = normal.underline;
+        rendering_color_italic = normal.italic;
     }
+
+    /* 6. Inline Plugins (e.g. Ghost Text, LSP) */
+    render_ctx_t ctx = { wp, lp, vtrow, vtcol, 0, 0, HL_NORMAL, 0 };
+    render_plugin_execute(RENDER_HOOK_POST_LINE, &ctx);
+}
+
+static int find_next_wrap_point(struct line *lp, int start_idx, int start_col)
+{
+    int width = nanox_text_cols();
+    int col = start_col;
+    int i = start_idx;
+    int len = (lp == NULL) ? 0 : llength(lp);
+    int last_space = -1;
+
+    while (i < len) {
+        unicode_t c;
+        int bytes = utf8_to_unicode(ltext(lp), i, len, &c);
+        if (bytes <= 0) bytes = 1;
+        int w = get_char_width_rel(c, col);
+
+        /* If this character doesn't fit, break at the current position 
+         * UNLESS we have a previous space/break point to use.
+         */
+        if (col + w > width && i > start_idx) {
+            if (last_space > start_idx) return last_space;
+            return i;
+        }
+
+        if (is_wrap_break_char(c)) {
+            last_space = i + bytes;
+        }
+
+        col += w;
+        i += bytes;
+    }
+    return len;
 }
 
 static void show_line_wrapped(struct window *wp, struct line *lp)
 {
     int len = llength(lp);
-    if (len == 0) {
-        return;
-    }
+    current_rendering_lp = lp;
+    int indent = wrap_continuation_indent();
 
     SpanVec spans;
     HighlightState end_state;
@@ -743,116 +1030,121 @@ static void show_line_wrapped(struct window *wp, struct line *lp)
         fname = wp->w_bufp->b_bname;
     const HighlightProfile *profile = highlight_get_profile(fname);
 
-    highlight_line((const char *)lp->l_text, len, lp->hl_start_state, profile, &spans, &end_state);
+    highlight_line((const char *)ltext(lp), len, lp->hl_start_state, profile, &spans, &end_state);
 
     if (memcmp(&lp->hl_end_state, &end_state, sizeof(HighlightState)) != 0) {
         lp->hl_end_state = end_state;
         struct line *next = lforw(lp);
-        if (next != curbp->b_linep) {
+        if (next != wp->w_bufp->b_linep) {
             next->hl_start_state = end_state;
+            lmark_dirty(next);
             lchange(WFHARD);
         }
     }
 
-        int current_span_idx = 0;
-        int line_start_idx = 0;
-        int line_start_col = 0;
+    int current_span_idx = 0;
+    int char_idx = 0;
+    int text_col = 0;
+    int next_wrap = find_next_wrap_point(lp, 0, 0);
 
-        while(line_start_idx < len) {
-            int char_idx = line_start_idx;
-            int current_col = vtcol;
-            int last_space_idx = -1;
-            int text_col = line_start_col;
-            int last_space_col = -1;
-
-            // Determine the segment to render
-            int segment_end_idx = len;
-            int segment_end_col = text_col;
-            while(char_idx < len) {
-                unicode_t c;
-                int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
-                if (bytes <= 0)
-                    bytes = 1;
-                int char_width = get_char_width(c, current_col);
-                int next_text_col = next_column(text_col, c, tab_width);
-
-                if (c == ' ' || c == '\t') {
-                    last_space_idx = char_idx;
-                    last_space_col = next_text_col;
-                }
-
-                if (current_col + char_width > term->t_ncol && char_idx > line_start_idx) {
-                    if (last_space_idx != -1) {
-                        segment_end_idx = last_space_idx + 1;
-                        segment_end_col = last_space_col;
-                    } else {
-                        segment_end_idx = char_idx;
-                        segment_end_col = text_col;
-                    }
-                    goto render_segment;
-                }
-                current_col += char_width;
-                text_col = next_text_col;
-                char_idx += bytes;
-            }
-            segment_end_col = text_col;
-
-render_segment:
-        // Render the segment
-        char_idx = line_start_idx;
-        text_col = line_start_col;
-        while(char_idx < segment_end_idx) {
-            int style = HL_NORMAL;
-            while (current_span_idx < spans.count) {
-                Span *s = (spans.heap_spans) ? &spans.heap_spans[current_span_idx] : &spans.spans[current_span_idx];
-                if (char_idx >= s->end) {
-                    current_span_idx++;
-                    continue;
-                }
-                if (char_idx >= s->start) {
-                    style = s->style;
-                }
-                break;
-            }
-
-            unicode_t c;
-            int bytes = utf8_to_unicode((unsigned char *)lp->l_text, char_idx, len, &c);
-            if (bytes <= 0)
-                bytes = 1;
-            int next_text_col = next_column(text_col, c, tab_width);
-            if (command_mode_block_selection_contains(lp, text_col, next_text_col))
-                style = HL_SELECTION;
-            HighlightStyle style_def = colorscheme_get(style);
-            HighlightStyle normal_def = colorscheme_get(HL_NORMAL);
-
-            current_color_fg = (style_def.fg == -1) ? normal_def.fg : style_def.fg;
-            current_color_bg = (style_def.bg == -1) ? normal_def.bg : style_def.bg;
-            current_color_bold = style_def.bold;
-            current_color_underline = style_def.underline;
-            current_color_italic = style_def.italic;
-            
-            vtputc(c);
-            char_idx += bytes;
-            text_col = next_text_col;
-        }
-
-        line_start_idx = segment_end_idx;
-        line_start_col = segment_end_col;
-
-        if (line_start_idx < len) {
+    while (char_idx < len) {
+        if (char_idx == next_wrap) {
+            vteeol();
             vtrow++;
-            if(vtrow >= namo_text_rows()) {
-                break;
-            }
-            vtcol = vt_margin_left;
+            if (vtrow >= nanox_text_rows()) break;
             vscreen[vtrow]->v_flag |= VFCHG;
-            render_gutter(vtrow, 0);
-            for (int i = 0; i < 4; i++) vtputc(' ');
+            render_gutter(vtrow, 0, lp);
+            vtmove(vtrow, 0);
+            for (int i = 0; i < indent; i++)
+                vtputc(' ');
+            text_col = indent;
+            next_wrap = find_next_wrap_point(lp, char_idx, indent);
         }
+
+        int style = HL_NORMAL;
+        while (current_span_idx < spans.count) {
+            Span *s = (spans.heap_spans) ? &spans.heap_spans[current_span_idx] : &spans.spans[current_span_idx];
+            if (char_idx >= s->end) {
+                current_span_idx++;
+                continue;
+            }
+            if (char_idx >= s->start) {
+                style = s->style;
+            }
+            break;
+        }
+
+        unicode_t c;
+        int bytes = utf8_to_unicode(ltext(lp), char_idx, len, &c);
+        if (bytes <= 0) bytes = 1;
+
+        int w = get_char_width_rel(c, text_col);
+        int next_text_col = text_col + w;
+
+        if (command_mode_block_selection_contains(lp, text_col, next_text_col))
+            style = HL_SELECTION;
+
+        HighlightStyle style_def = colorscheme_get(style);
+        HighlightStyle normal_def = colorscheme_get(HL_NORMAL);
+
+        rendering_color_fg = (style_def.fg == -1) ? normal_def.fg : style_def.fg;
+        rendering_color_bg = (style_def.bg == -1) ? normal_def.bg : style_def.bg;
+        rendering_color_bold = style_def.bold;
+        rendering_color_underline = style_def.underline;
+        rendering_color_italic = style_def.italic;
+
+        vtputc(c);
+        char_idx += bytes;
+        text_col = next_text_col;
     }
 
     span_vec_free(&spans);
-    // The color boxes logic is omitted for simplicity, as it would need to be adjusted for wrapping as well.
+
+    /* Detect color codes in the line and show preview boxes */
+    ColorInfo colors[MAX_COLORS_PER_LINE];
+    int color_count = highlight_find_colors((const char *)ltext(lp), len, colors, MAX_COLORS_PER_LINE);
+    
+    if (color_count > 0) {
+        /* Add a space separator, then color preview boxes */
+        HighlightStyle normal = colorscheme_get(HL_NORMAL);
+        rendering_color_fg = normal.fg;
+        rendering_color_bg = normal.bg;
+        rendering_color_bold = false;
+        rendering_color_underline = false;
+        
+        vtputc(' ');
+        
+        /* Show color preview boxes (using block character with background color) */
+        for (int i = 0; i < color_count && i < 8; i++) {
+            /* Pack RGB as 0x01RRGGBB for true color */
+            int packed_color = 0x01000000 | (colors[i].r << 16) | (colors[i].g << 8) | colors[i].b;
+            rendering_color_bg = packed_color;
+            rendering_color_fg = packed_color;
+            vtputc(' ');  /* Space with colored background acts as color box */
+            vtputc(' ');
+            
+            /* Reset to normal for separator */
+            rendering_color_bg = normal.bg;
+            rendering_color_fg = normal.fg;
+            if (i < color_count - 1 && i < 7) {
+                vtputc(' ');
+            }
+        }
+    }
+
+    /* Fill trailing whitespace using the default style colors */
+    {
+        HighlightStyle normal = colorscheme_get(HL_NORMAL);
+        rendering_color_fg = normal.fg;
+        rendering_color_bg = normal.bg;
+        rendering_color_bold = normal.bold;
+        rendering_color_underline = normal.underline;
+        rendering_color_italic = normal.italic;
+    }
+
+    /* 6. Inline Plugins (e.g. Ghost Text, LSP) */
+    render_ctx_t ctx = { wp, lp, vtrow, vtcol, 0, 0, HL_NORMAL, 0 };
+    render_plugin_execute(RENDER_HOOK_POST_LINE, &ctx);
 }
 
 /*
@@ -865,7 +1157,7 @@ static void updone(struct window *wp)
 {
     struct line *lp;
     int sline;
-    int rows = namo_text_rows();
+    int rows = nanox_text_rows();
 
     /* Softwrap requires full update to handle wrap/unwrap shifting */
     if (wp->w_bufp->b_mode & MDSOFTWRAP) {
@@ -877,7 +1169,7 @@ static void updone(struct window *wp)
     lp = wp->w_linep;
     sline = 0;
     while (lp != wp->w_dotp && sline < rows) {
-        sline += get_line_height(lp);
+        sline += get_line_height(lp, wp->w_bufp->b_mode & MDSOFTWRAP);
         lp = lforw(lp);
     }
 
@@ -886,7 +1178,7 @@ static void updone(struct window *wp)
         vscreen[sline]->v_flag &= ~VFREQ;
         
         int lnum = get_line_num(wp->w_bufp, lp);
-        render_gutter(sline, lnum);
+        render_gutter(sline, lnum, lp);
         vt_margin_left = get_gutter_width();
         
         vtmove(sline, 0);
@@ -911,7 +1203,7 @@ static void updall(struct window *wp)
 {
     struct line *lp;            /* line to update */
     int sline;              /* physical screen line to update */
-    int rows = namo_text_rows();
+    int rows = nanox_text_rows();
     int lnum = get_line_num(wp->w_bufp, wp->w_linep);
 
     /* search down the lines, updating them */
@@ -924,7 +1216,7 @@ static void updall(struct window *wp)
         vscreen[sline]->v_flag |= VFCHG;
         vscreen[sline]->v_flag &= ~VFREQ;
         
-        render_gutter(sline, (lp != wp->w_bufp->b_linep) ? lnum : -1);
+        render_gutter(sline, (lp != wp->w_bufp->b_linep) ? lnum : -1, (lp != wp->w_bufp->b_linep) ? lp : NULL);
 
         vtmove(sline, 0);
         if (lp != wp->w_bufp->b_linep) {
@@ -953,35 +1245,20 @@ static void updall(struct window *wp)
 void updpos(void)
 {
     struct line *lp;
-    int i;
-    int rows = namo_text_rows();
+    int rows = nanox_text_rows();
 
     /* find the current row */
     lp = curwp->w_linep;
     currow = 0;
     while (lp != curwp->w_dotp && currow < rows) {
-        currow += get_line_height(lp);
+        currow += get_line_height(lp, curwp->w_bufp->b_mode & MDSOFTWRAP);
         lp = lforw(lp);
     }
 
-    /* find the current column and subrow */
-    curcol = 0;
-    i = 0;
-    lp = curwp->w_dotp;
-    while (i < curwp->w_doto) {
-        unicode_t c;
-        int bytes;
-
-        bytes = utf8_to_unicode((unsigned char *)lp->l_text, i, curwp->w_doto, &c);
-        int w = get_char_width(c, curcol);
-        if (curcol + w > namo_text_cols()) {
-            currow++;
-            curcol = 4;
-            w = get_char_width(c, curcol);
-        }
-        curcol += w;
-        i += bytes;
-    }
+    int vrow, vcol;
+    calculate_visual_pos(curwp->w_dotp, curwp->w_doto, &vrow, &vcol, curwp->w_bufp->b_mode & MDSOFTWRAP);
+    currow += vrow;
+    curcol = vcol;
 
     lbound = 0;
 }
@@ -1000,10 +1277,10 @@ void upddex(void)
     lp = wp->w_linep;
     i = 0;
 
-    while (i < namo_text_rows()) {
+    while (i < nanox_text_rows()) {
         if (vscreen[i]->v_flag & VFEXT) {
             if ((wp != curwp) || (lp != wp->w_dotp) ||
-                (curcol < namo_text_cols() - 1)) {
+                (curcol < nanox_text_cols() - 1)) {
                 vtmove(i, 0);
                 show_line(wp, lp);
                 vteeol();
@@ -1231,7 +1508,11 @@ static int updateline(int row, struct video *vp)
 
     /* scan through the line and dump it to the the
        virtual screen array, finding where the last non-space is  */
-    for (int i = 0; i < term->t_ncol; i++) {
+    int col_limit = term->t_ncol;
+    if (col_limit > MAXCOL)
+        col_limit = MAXCOL;
+
+    for (int i = 0; i < col_limit; i++) {
         text_buf[i] = vp->v_text[i].ch;
         /* Exclude dummy cells (ch == 0) from maxchar calculation */
         if (text_buf[i] != 0 && (text_buf[i] != ' ' || vp->v_text[i].bg != -1 || vp->v_text[i].underline || vp->v_text[i].italic))
@@ -1318,25 +1599,25 @@ static int updateline(int row, struct video *vp)
 static void modeline(struct window *wp)
 {
     struct buffer *bp = wp->w_bufp;
-    const char *row1 = namo_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search" : "";
+    const char *row1 = nanox_cfg.hint_bar ? "F1/^H Help F2/^S Save F3/^O Open F4/^Q Quit F5/^F Search" : "";
     const char *row2 = "";
     char status[MAXCOL + 1];
     const char *fname = bp->b_fname[0] ? bp->b_fname : bp->b_bname;
-    const char *lamp = namo_lamp_label();
+    const char *lamp = nanox_lamp_label();
     char mark = (bp->b_flag & BFCHG) ? '*' : '-';
     int line = window_line_number(wp);
     int col = window_column_number(wp);
-    int top = namo_hint_top_row();
-    int bottom = namo_hint_bottom_row();
+    int top = nanox_hint_top_row();
+    int bottom = nanox_hint_bottom_row();
 
-    if (namo_cfg.hint_bar) {
-        row2 = namo_cfg.no_function_slot
+    if (nanox_cfg.hint_bar) {
+        row2 = nanox_cfg.no_function_slot
             ? "F6/^W Copy(S:End) F7/^X Cut(S:End) F8/^V Paste ^A+num Slot"
             : "F6/^W Copy(S:End) F7/^X Cut(S:End) F8/^V Paste F9-12 Slot";
     }
 
-    snprintf(status, sizeof(status), "%s L%d C%d %c%s%s",
-         fname, line, col, mark, (*lamp ? " " : ""), (*lamp ? lamp : ""));
+    snprintf(status, sizeof(status), "%s L%d C%d %c",
+         fname, line, col, mark);
 
     if (top >= 0 && top < term->t_nrow) {
         vscreen[top]->v_flag |= VFCHG | VFCOL;
@@ -1470,16 +1751,16 @@ void mlwrite(const char *fmt, ...)
         }
     }
     va_end(ap);
-    namo_message_prefix(dest.buf, final, sizeof(final));
+    nanox_message_prefix(dest.buf, final, sizeof(final));
     
-    unsigned char *p = (unsigned char *)final;
-    int len = strlen((char *)p);
+    const unsigned char *p = (const unsigned char *)final;
+    int len = strlen(final);
     int i = 0;
     while (i < len) {
         unicode_t uc;
         int bytes = utf8_to_unicode(p, i, len, &uc);
         TTputc(uc);
-        ttcol += unicode_width(uc);
+        ttcol += mystrnlen_raw_w(uc);
         i += bytes;
     }
 
@@ -1489,7 +1770,7 @@ void mlwrite(const char *fmt, ...)
 
     TTflush();
     mpresf = TRUE;
-    namo_notify_message(final);
+    nanox_notify_message(final);
 }
 
 /*
@@ -1523,7 +1804,7 @@ void mlputs(char *s)
         unicode_t uc;
         int bytes = utf8_to_unicode(p, i, len, &uc);
         TTputc(uc);
-        ttcol += unicode_width(uc);
+        ttcol += mystrnlen_raw_w(uc);
         i += bytes;
     }
 }

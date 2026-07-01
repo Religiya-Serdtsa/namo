@@ -132,10 +132,10 @@ int forwsearch(int f, int n)
 }
 
 /*
- * namo_search_engine -- Unified search engine for namo.
+ * nanox_search_engine -- Unified search engine for nanox.
  * Supports &nx (forward) and &pr (reverse) suffixes.
  */
-int namo_search_engine(int f, int n)
+int nanox_search_engine(int f, int n)
 {
     char query[NPAT];
     static int last_dir = FORWARD;
@@ -143,7 +143,7 @@ int namo_search_engine(int f, int n)
     while (1) {
         int input_status = minibuf_input("Search: ", query, NPAT);
         if (input_status != TRUE) {
-            namo_request_underbar_redraw();
+            nanox_request_underbar_redraw();
             return input_status;
         }
 
@@ -155,7 +155,7 @@ int namo_search_engine(int f, int n)
         if (query[0] == '\0') {
             if (pat[0] == '\0') {
                 mlwrite("No pattern set");
-                namo_request_underbar_redraw();
+                nanox_request_underbar_redraw();
                 return FALSE;
             }
         } else {
@@ -181,7 +181,7 @@ int namo_search_engine(int f, int n)
             } else if (has_suffix) {
                 if (pat[0] == '\0') {
                     mlwrite("No pattern set");
-                    namo_request_underbar_redraw();
+                    nanox_request_underbar_redraw();
                     return FALSE;
                 }
             }
@@ -228,7 +228,7 @@ int namo_search_engine(int f, int n)
             break;
     }
 
-    namo_request_underbar_redraw();
+    nanox_request_underbar_redraw();
     return TRUE;
 }
 
@@ -1200,7 +1200,7 @@ static char *clearbits(void)
     char *cclmap;
     int i;
 
-    if ((cclmap = cclstart = (char *)malloc(HIBYTE)) != NULL) {
+    if ((cclmap = cclstart = malloc(HIBYTE)) != NULL) {
         for (i = 0; i < HIBYTE; i++)
             *cclmap++ = 0;
     }

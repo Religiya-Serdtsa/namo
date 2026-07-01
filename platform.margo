@@ -1,57 +1,197 @@
-@import std/io
-@import std/stdlib
-@import std/mem
-@import "util.margo"
+@import godmode
 
-fn void namo_get_user_data_dir(weird(char, 1) out, int cap) {
-    auto home = getenv("HOME")
-    if home == NULL {
-        mystrscpy(out, "/tmp", cap)
-        return
-    }
-    snprintf(out, (unsigned int)cap, "%s/.local/share/namo", home)
+@style c {
+#include "platform.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <ctype.h>
+#include <dirent.h>
+
+#ifdef USE_WINDOWS
+#include <windows.h>
+#include <direct.h>
+#define PATH_SEP '\\'
+#define PATH_SEP_STR "\\"
+#else
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+#define PATH_SEP '/'
+#define PATH_SEP_STR "/"
+#endif
+
+const char *nanox_getenv(const char *name) {
+    return getenv(name);
 }
 
-fn void namo_get_user_config_dir(weird(char, 1) out, int cap) {
-    auto home = getenv("HOME")
-    if home == NULL {
-        mystrscpy(out, "/tmp", cap)
-        return
-    }
-    snprintf(out, (unsigned int)cap, "%s/.config/namo", home)
-}
+int nanox_process_count(void) {
+#ifdef USE_WINDOWS
+    return 1; // Not implemented for Windows
+#else
+    DIR *dir = opendir("/proc");
+    if (!dir) return 1;
 
-fn void namo_path_join(weird(char, 1) out, int cap, string a, string b) {
-    if a == NULL || a[0] == 0 {
-        mystrscpy(out, b, cap)
-        return
-    }
-    auto len = (int)strlen(a)
-    if a[len-1] == '/' {
-        snprintf(out, (unsigned int)cap, "%s%s", a, b)
-    } else {
-        snprintf(out, (unsigned int)cap, "%s/%s", a, b)
-    }
-}
+    struct dirent *ent;
+    int count = 0;
+    while ((ent = readdir(dir)) != NULL) {
+        if (!isdigit(ent->d_name[0])) continue;
 
-fn bool namo_file_exists(string path) {
-    auto f = namo_c_fopen(path, "r")
-    if f == NULL return false
-    fclose(f)
-    return true
-}
-
-fn void namo_normalize_path(weird(char, 1) path) {
-    // Basic normalization: convert backslashes to forward slashes
-    auto i = 0
-    while path[i] != 0 {
-        if path[i] == '\\' {
-            path[i] = '/'
+        char path[512];
+        snprintf(path, sizeof(path), "/proc/%s/comm", ent->d_name);
+        FILE *fp = fopen(path, "r");
+        if (fp) {
+            char comm[256];
+            if (fgets(comm, sizeof(comm), fp)) {
+                size_t len = strlen(comm);
+                while (len > 0 && (comm[len-1] == '\n' || comm[len-1] == '\r')) {
+                    comm[--len] = '\0';
+                }
+                if (strcmp(comm, "nanox") == 0) {
+                    count++;
+                }
+            }
+            fclose(fp);
         }
-        i++
+    }
+    closedir(dir);
+    return count;
+#endif
+}
+
+void nanox_get_user_data_dir(char *out, size_t cap) {
+#ifdef USE_WINDOWS
+    const char *local_app_data = getenv("LOCALAPPDATA");
+    if (local_app_data) {
+        snprintf(out, cap, "%s\\nanox", local_app_data);
+    } else {
+        const char *app_data = getenv("APPDATA");
+        if (app_data) {
+            snprintf(out, cap, "%s\\nanox", app_data);
+        } else {
+            const char *user_profile = getenv("USERPROFILE");
+            if (user_profile) {
+                snprintf(out, cap, "%s\\.local\\share\\nanox", user_profile);
+            } else {
+                snprintf(out, cap, "C:\\nanox");
+            }
+        }
+    }
+#else
+    const char *xdg_data = getenv("XDG_DATA_HOME");
+    if (xdg_data && *xdg_data) {
+        snprintf(out, cap, "%s/nanox", xdg_data);
+    } else {
+        const char *home = getenv("HOME");
+        if (!home) {
+            struct passwd *pw = getpwuid(getuid());
+            if (pw) home = pw->pw_dir;
+        }
+        if (home) {
+            snprintf(out, cap, "%s/.local/share/nanox", home);
+        } else {
+            snprintf(out, cap, "/tmp/nanox");
+        }
+    }
+#endif
+}
+
+void nanox_get_user_config_dir(char *out, size_t cap) {
+#ifdef USE_WINDOWS
+    nanox_get_user_data_dir(out, cap); /* Same for Windows usually */
+#else
+    const char *xdg_config = getenv("XDG_CONFIG_HOME");
+    if (xdg_config && *xdg_config) {
+        snprintf(out, cap, "%s/nanox", xdg_config);
+    } else {
+        const char *home = getenv("HOME");
+        if (!home) {
+            struct passwd *pw = getpwuid(getuid());
+            if (pw) home = pw->pw_dir;
+        }
+        if (home) {
+            snprintf(out, cap, "%s/.config/nanox", home);
+        } else {
+            snprintf(out, cap, "/tmp/nanox");
+        }
+    }
+#endif
+}
+
+void nanox_path_join(char *out, size_t cap, const char *a, const char *b) {
+    if (cap == 0) return; // Cannot write to a zero-sized buffer
+    
+    size_t written = 0;
+    if (out != a) {
+        out[0] = '\0'; // Initialize out to an empty string
+        // Safely copy 'a'
+        written = snprintf(out, cap, "%s", a ? a : "");
+    } else {
+        // out and a are the same, just find the length
+        written = strnlen(out, cap);
+    }
+
+    // Check for truncation during copy of 'a'
+    if (written >= cap) {
+        // Buffer too small, out is already null-terminated by snprintf
+        return;
+    }
+
+    // Determine if a separator is needed
+    // Check the actual last character written to 'out'
+    bool a_ends_sep = (written > 0 && out[written - 1] == PATH_SEP);
+    bool b_starts_sep = (b != NULL && *b != '\0' && b[0] == PATH_SEP); // Check b is not null and has content
+
+    // Append separator if needed and there's space
+    if (!a_ends_sep && !b_starts_sep) {
+        if (cap - written > 1) { // Ensure space for separator + null terminator
+            written += snprintf(out + written, cap - written, "%c", PATH_SEP);
+            if (written >= cap) {
+                // Buffer too small after adding separator
+                return;
+            }
+        } else {
+            // Not enough space for separator and null terminator
+            return;
+        }
+    } else if (a_ends_sep && b_starts_sep) {
+        // If 'a' ends with separator and 'b' starts with one, skip 'b's separator
+        // This condition might need refinement depending on exact requirements
+        // For now, assume we skip the first char of 'b' if it's a separator
+        b++; // Move pointer to skip the leading separator in b
+    }
+    // else if (!a_ends_sep && b_starts_sep) or (a_ends_sep && !b_starts_sep), no extra separator needed
+
+    // Append 'b'
+    if (b != NULL && *b != '\0') { // Ensure b is not NULL and not empty after potential skip
+        if (cap - written > strlen(b)) { // Check if there's enough space for 'b' + null terminator
+            written += snprintf(out + written, cap - written, "%s", b);
+            if (written >= cap) {
+                // Buffer too small after adding b
+                return;
+            }
+        } else {
+            // Not enough space for b and null terminator
+            return;
+        }
     }
 }
 
-fn string namo_getenv(string name) {
-    return (string)getenv(name)
+bool nanox_file_exists(const char *path) {
+    struct stat st;
+    return stat(path, &st) == 0;
+}
+
+void nanox_normalize_path(char *path) {
+    if (!path) return;
+    for (char *p = path; *p; p++) {
+#ifdef USE_WINDOWS
+        if (*p == '/') *p = '\\';
+#else
+        if (*p == '\\') *p = '/';
+#endif
+    }
+}
+
 }

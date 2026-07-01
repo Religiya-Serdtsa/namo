@@ -11,24 +11,26 @@
 #include "efunc.h"
 #include "line.h"
 #include "command_mode.h"
+#include "viblock_strategy.h"
+#include "multi_cursor.h"
 #include "utf8.h"
 #include "util.h"
 #include "colorscheme.h"
+#include "raw_sig.h"
+#include "nanox.h"
+#include <unistd.h>
+#include <sys/stat.h>
+#include <limits.h>
 
 #define CMD_BUF_SIZE 256
 #define REPLACE_PREVIEW 48
 
-typedef enum {
-    BLOCK_MODE_NONE = 0,
-    BLOCK_MODE_EDIT,
-    BLOCK_MODE_REPLACE,
-    BLOCK_MODE_SET_NR
-} BlockMode;
 
-static BlockMode block_mode = BLOCK_MODE_NONE;
-static int block_set_nr_reverse = 0;
-static struct line *block_anchor_line = NULL;
-static int block_anchor_offset = 0;
+
+
+
+
+
 
 static int parse_sed_expression(const char *expr, char *pattern, size_t pat_sz,
     char *replacement, size_t rep_sz, int *is_global, int *is_caseless);
@@ -38,25 +40,214 @@ static size_t utf8_advance(const char *text, size_t len, size_t offset);
 static void build_preview(const char *text, size_t len, char *dest, size_t dest_sz);
 static char *splice_text(char *text, size_t text_len, size_t start, size_t end,
     const char *replacement, size_t repl_len, size_t *new_len);
-static int line_index_from_top(struct line *target);
+int line_index_from_top(struct line *target);
 static void restore_cursor_to_index(int index, int offset);
-static int block_apply_text(const char *text, int replace_mode);
-static int block_visual_column(struct line *lp, int offset);
-static void block_bounds(int *top, int *bottom, int *left, int *right);
-static int line_offset_for_column(struct line *lp, int target_col, int *actual_col);
-static void render_block_status(void);
+
+
+
+int line_offset_for_column(struct line *lp, int target_col, int *actual_col);
+
 static void command_mode_prompt(void);
 static void execute_command(const char *input);
 static void command_mode_trim(char *text);
 static int command_mode_parse_line_range(const char *text, int *start_line, int *end_line);
-static int command_mode_apply_indent_range(int start_line, int end_line, int indent_direction);
-static int command_mode_handle_range_command(const char *input, const char *name, int indent_direction);
+static int command_mode_apply_indent_lint(void);
 static int command_mode_handle_lint_command(const char *input);
 static int command_mode_handle_set_nr_command(const char *input);
+
 static int command_mode_handle_flip_command(const char *input);
 static int command_mode_apply_indent_lint(void);
 static int command_mode_total_lines(void);
 static struct line *command_mode_line_at_number(int number);
+
+static struct buffer *find_buffer_by_path(const char *path)
+{
+    struct buffer *bp;
+
+    if (!path || !*path)
+        return NULL;
+
+    for (bp = bheadp; bp != NULL; bp = bp->b_bufp) {
+        if (strcmp(bp->b_fname, path) == 0)
+            return bp;
+    }
+
+    return NULL;
+}
+
+static int find_slot_for_buffer(struct buffer *bp)
+{
+    int max_slots = nanox_slot_capacity();
+
+    if (!bp || !bp->b_fname[0])
+        return -1;
+
+    for (int i = 0; i < max_slots; ++i) {
+        if (file_reserve[i][0] && strcmp(file_reserve[i], bp->b_fname) == 0)
+            return i;
+    }
+
+    return -1;
+}
+
+static bool path_is_reserved_elsewhere(const char *path, int current_slot)
+{
+    int max_slots = nanox_slot_capacity();
+
+    if (!path || !*path)
+        return false;
+
+    for (int i = 0; i < max_slots; ++i) {
+        if (i == current_slot || !file_reserve[i][0])
+            continue;
+        if (strcmp(file_reserve[i], path) == 0)
+            return true;
+    }
+
+    return false;
+}
+
+static const char *find_nextfile_startup_target(const char *start_path, int slot, int n)
+{
+    size_t total = nanox_startup_file_count();
+    size_t start_idx = 0;
+    int direction = (n > 0) ? 1 : -1;
+    int remaining = (n > 0) ? n : -n;
+    bool found_start = false;
+
+    if (!start_path || !*start_path || total == 0)
+        return NULL;
+
+    for (size_t i = 0; i < total; ++i) {
+        const char *path = nanox_startup_file_at(i);
+        if (path && strcmp(path, start_path) == 0) {
+            start_idx = i;
+            found_start = true;
+            break;
+        }
+    }
+
+    if (!found_start)
+        return NULL;
+
+    size_t idx = start_idx;
+    for (size_t scanned = 0; scanned < total * 2; ++scanned) {
+        idx = (direction > 0)
+            ? ((idx + 1) % total)
+            : ((idx + total - 1) % total);
+
+        if (idx == start_idx)
+            break;
+
+        const char *candidate = nanox_startup_file_at(idx);
+        if (!candidate || !*candidate)
+            continue;
+        if (path_is_reserved_elsewhere(candidate, slot))
+            continue;
+
+        if (--remaining == 0)
+            return candidate;
+    }
+
+    return NULL;
+}
+
+static void execute_nextfile(int n) {
+    if (n == 0) {
+        mlwrite("nextfile step cannot be 0");
+        return;
+    }
+
+    int max_slots = nanox_slot_capacity();
+    int slot = -1;
+    struct buffer *start_bp = NULL;
+    struct buffer *curr = NULL;
+    const char *start_path = NULL;
+    const char *target_path = NULL;
+    int steps = (n > 0) ? n : -n;
+
+    if (last_slot_index >= 0 && last_slot_index < max_slots && file_reserve[last_slot_index][0]) {
+        start_bp = find_buffer_by_path(file_reserve[last_slot_index]);
+        if (start_bp != NULL) {
+            slot = last_slot_index;
+            start_path = file_reserve[last_slot_index];
+        }
+    }
+
+    if (start_bp == NULL) {
+        slot = find_slot_for_buffer(curbp);
+        if (slot >= 0) {
+            start_bp = curbp;
+            start_path = curbp->b_fname;
+        }
+    }
+
+    if (slot < 0 || start_path == NULL || start_path[0] == '\0') {
+        mlwrite("nextfile requires an active slot-backed file");
+        return;
+    }
+
+    target_path = find_nextfile_startup_target(start_path, slot, n);
+    if (target_path != NULL) {
+        mystrscpy(file_reserve[slot], target_path, PATH_MAX);
+        last_slot_index = slot;
+
+        curr = find_buffer_by_path(target_path);
+        if (curr != NULL) {
+            swbuffer(curr);
+        } else if (getfile(file_reserve[slot], TRUE) != TRUE) {
+            mlwrite("Could not open: %s", file_reserve[slot]);
+            return;
+        }
+
+        mlwrite("Switched to: %s", file_reserve[slot]);
+        return;
+    }
+
+    if (start_bp == NULL) {
+        mlwrite("nextfile requires an active slot-backed file");
+        return;
+    }
+
+    curr = start_bp;
+
+    while (steps > 0) {
+        if (n > 0) {
+            /* Forward */
+            curr = curr->b_bufp;
+            if (curr == NULL) curr = bheadp;
+        } else {
+            /* Backward */
+            struct buffer *scan = bheadp;
+            if (curr == bheadp) {
+                while (scan->b_bufp != NULL) scan = scan->b_bufp;
+                curr = scan;
+            } else {
+                while (scan != NULL && scan->b_bufp != curr) scan = scan->b_bufp;
+                curr = scan;
+            }
+        }
+
+        if (curr == start_bp) {
+            mlwrite("No more files available outside slots");
+            return;
+        }
+
+        /* Eligibility check: not internal AND not in any slot (except current if we're moving from it) */
+        if (!(curr->b_flag & BFINVS) && curr->b_fname[0] != '\0') {
+            if (!path_is_reserved_elsewhere(curr->b_fname, slot)) {
+                steps--;
+            }
+        }
+    }
+
+    if (slot >= 0 && slot < max_slots) {
+        mystrscpy(file_reserve[slot], curr->b_fname, PATH_MAX);
+    }
+    last_slot_index = slot;
+    swbuffer(curr);
+    mlwrite("Switched to: %s", curr->b_fname[0] ? curr->b_fname : curr->b_bname);
+}
 
 static void command_mode_write_segment(const char *text, const HighlightStyle *style, int *col)
 {
@@ -72,7 +263,7 @@ static void command_mode_write_segment(const char *text, const HighlightStyle *s
 
     while (idx < len && *col < term->t_ncol) {
         unicode_t uc;
-        int consumed = utf8_to_unicode((unsigned char *)bytes, idx, len, &uc);
+        int consumed = utf8_to_unicode(bytes, idx, len, &uc);
         if (consumed <= 0)
             break;
         int width = mystrnlen_raw_w(uc);
@@ -84,7 +275,7 @@ static void command_mode_write_segment(const char *text, const HighlightStyle *s
     }
 }
 
-static void command_mode_draw_status(const char *status, const char *input, bool show_cursor)
+void command_mode_draw_status(const char *status, const char *input, bool show_cursor)
 {
     if (!discmd || !term)
         return;
@@ -125,17 +316,11 @@ static void command_mode_draw_status(const char *status, const char *input, bool
     mpresf = TRUE;
 }
 
-static void block_reset(void)
-{
-    block_mode = BLOCK_MODE_NONE;
-    block_set_nr_reverse = 0;
-    block_anchor_line = NULL;
-    block_anchor_offset = 0;
-}
+
 
 /* Initialize command mode system */
 void command_mode_init(void) {
-    block_reset();
+    viblock_reset();
 }
 
 /* Activate F1 command mode */
@@ -176,18 +361,10 @@ static void execute_help(void) {
     update(TRUE);
     
     /* Call existing help function */
-    namo_help_command(FALSE, 1);
+    nanox_traditional_help_command(FALSE, 1);
 }
 
-static void start_block_mode(BlockMode mode, int reverse_flag)
-{
-    block_mode = mode;
-    block_anchor_line = curwp->w_dotp;
-    block_anchor_offset = curwp->w_doto;
-    block_set_nr_reverse = (mode == BLOCK_MODE_SET_NR) ? reverse_flag : 0;
-    curwp->w_flag |= WFHARD | WFMODE;
-    render_block_status();
-}
+
 
 /* Parse and execute command */
 static void command_mode_trim(char *text)
@@ -214,35 +391,7 @@ static void command_mode_prompt(void)
     int status = minibuf_input("Command Mode: ", input, sizeof(input));
     if (status == TRUE)
         execute_command(input);
-    namo_request_underbar_redraw();
-}
-
-static int command_mode_handle_range_command(const char *input, const char *name, int indent_direction)
-{
-    size_t cmd_len = strlen(name);
-    if (strncasecmp(input, name, cmd_len) != 0)
-        return FALSE;
-
-    const char *range = input + cmd_len;
-    if (*range && !isspace((unsigned char)*range))
-        return FALSE;
-
-    while (*range && isspace((unsigned char)*range))
-        range++;
-
-    if (*range == '\0') {
-        mlwrite("[%s syntax: %s start-end]", name, name);
-        return TRUE;
-    }
-
-    int start_line, end_line;
-    if (!command_mode_parse_line_range(range, &start_line, &end_line)) {
-        mlwrite("[%s range must be start-end]", name);
-        return TRUE;
-    }
-
-    command_mode_apply_indent_range(start_line, end_line, indent_direction);
-    return TRUE;
+    nanox_request_underbar_redraw();
 }
 
 static int command_mode_handle_lint_command(const char *input)
@@ -255,6 +404,157 @@ static int command_mode_handle_lint_command(const char *input)
         return FALSE;
 
     command_mode_apply_indent_lint();
+    return TRUE;
+}
+
+static int command_mode_handle_build_command(void) {
+    char dir[PATH_MAX];
+    char check_path[PATH_MAX + 64];
+    char cmd_str[PATH_MAX * 2 + 128];
+    int found = FALSE;
+
+    if (curbp->b_fname && curbp->b_fname[0]) {
+        char abs_path[PATH_MAX];
+        if (realpath(curbp->b_fname, abs_path)) {
+            char *last_slash = strrchr(abs_path, '/');
+            if (last_slash) {
+                if (last_slash == abs_path) {
+                    strcpy(dir, "/");
+                } else {
+                    *last_slash = '\0';
+                    strcpy(dir, abs_path);
+                }
+            } else {
+                if (getcwd(dir, sizeof(dir)) == NULL)
+                    dir[0] = '\0';
+            }
+        } else {
+            char *last_slash = strrchr(curbp->b_fname, '/');
+            if (last_slash) {
+                size_t len = last_slash - curbp->b_fname;
+                if (len >= sizeof(dir)) len = sizeof(dir) - 1;
+                memcpy(dir, curbp->b_fname, len);
+                dir[len] = '\0';
+            } else {
+                if (getcwd(dir, sizeof(dir)) == NULL)
+                    dir[0] = '\0';
+            }
+        }
+    } else {
+        if (getcwd(dir, sizeof(dir)) == NULL)
+            dir[0] = '\0';
+    }
+
+    if (dir[0] != '\0') {
+        char last_dir[PATH_MAX] = "";
+        while (strcmp(dir, last_dir) != 0) {
+            strcpy(last_dir, dir);
+
+            // 1. Cargo.toml -> cargo build
+            snprintf(check_path, sizeof(check_path), "%s/Cargo.toml", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cargo build", dir);
+                found = TRUE;
+                break;
+            }
+
+            // 2. Makefile or makefile -> make
+            snprintf(check_path, sizeof(check_path), "%s/Makefile", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && make", dir);
+                found = TRUE;
+                break;
+            }
+            snprintf(check_path, sizeof(check_path), "%s/makefile", dir);
+            if (access(check_path, F_OK) == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && make", dir);
+                found = TRUE;
+                break;
+            }
+
+            // 3. CMakeLists.txt -> cmake build
+            snprintf(check_path, sizeof(check_path), "%s/CMakeLists.txt", dir);
+            if (access(check_path, F_OK) == 0) {
+                char build_dir[PATH_MAX + 16];
+                snprintf(build_dir, sizeof(build_dir), "%s/build", dir);
+                struct stat st;
+                if (stat(build_dir, &st) == 0 && S_ISDIR(st.st_mode)) {
+                    snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cmake --build build", dir);
+                } else {
+                    snprintf(cmd_str, sizeof(cmd_str), "cd \"%s\" && cmake -B build && cmake --build build", dir);
+                }
+                found = TRUE;
+                break;
+            }
+
+            // Climb up
+            char *last_slash = strrchr(dir, '/');
+            if (last_slash) {
+                if (last_slash == dir) {
+                    strcpy(dir, "/");
+                } else {
+                    *last_slash = '\0';
+                }
+            } else {
+                break;
+            }
+        }
+    }
+
+    // Fallback: single file compilation based on extension
+    if (!found && curbp->b_fname && curbp->b_fname[0]) {
+        const char *ext = strrchr(curbp->b_fname, '.');
+        if (ext) {
+            char basename_no_ext[PATH_MAX];
+            strcpy(basename_no_ext, curbp->b_fname);
+            char *ext_dot = strrchr(basename_no_ext, '.');
+            if (ext_dot) *ext_dot = '\0';
+
+            if (strcmp(ext, ".rs") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "rustc \"%s\"", curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".c") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "gcc -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".cpp") == 0 || strcmp(ext, ".cc") == 0 || strcmp(ext, ".cxx") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "g++ -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".go") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "go build \"%s\"", curbp->b_fname);
+                found = TRUE;
+            } else if (strcmp(ext, ".f") == 0 || strcmp(ext, ".f90") == 0 || strcmp(ext, ".f95") == 0 ||
+                       strcmp(ext, ".f03") == 0 || strcmp(ext, ".f08") == 0 || strcmp(ext, ".for") == 0) {
+                snprintf(cmd_str, sizeof(cmd_str), "gfortran -o \"%s\" \"%s\"", basename_no_ext, curbp->b_fname);
+                found = TRUE;
+            }
+        }
+    }
+
+    if (!found) {
+        mlwrite("No build configuration (Cargo.toml, Makefile, CMakeLists.txt) or supported single source file found.");
+        return FALSE;
+    }
+
+    // Execute build command
+    mlwrite("Running build: %s", cmd_str);
+    TTflush();
+    TTclose();
+    TTkclose();
+
+    int ret = system(cmd_str);
+    (void)ret;
+
+    fflush(stdout);
+    TTopen();
+
+    mlputs("(End) Press Space/Enter to continue");
+    TTflush();
+    int s;
+    while ((s = tgetc()) != '\r' && s != '\n' && s != ' ') ;
+
+    TTkopen();
+    sgarbf = TRUE;
+    nanox_request_underbar_redraw();
     return TRUE;
 }
 
@@ -273,20 +573,137 @@ static void execute_command(const char *input) {
         return;
     }
 
-    if (command_mode_handle_range_command(buffer, "indent", 1))
+    char *cmd = buffer;
+    if (cmd[0] == ':') {
+        cmd++;
+        while (*cmd && isspace((unsigned char)*cmd)) cmd++;
+    }
+
+    if (command_mode_handle_lint_command(cmd))
         return;
-    if (command_mode_handle_range_command(buffer, "outdent", -1))
+    if (command_mode_handle_set_nr_command(cmd))
         return;
-    if (command_mode_handle_lint_command(buffer))
+    if (command_mode_handle_flip_command(cmd))
         return;
-    if (command_mode_handle_set_nr_command(buffer))
+
+    /* Check for build command */
+    if (strcasecmp(cmd, "build") == 0) {
+        command_mode_handle_build_command();
         return;
-    if (command_mode_handle_flip_command(buffer))
+    }
+
+    /* Check for AI copilot completion command */
+    if (strcasecmp(cmd, "ai") == 0 || strcasecmp(cmd, "aiComplete") == 0) {
+        extern int ai_complete(int f, int n);
+        ai_complete(FALSE, 1);
         return;
+    }
+
+    /* Check for file tree commands */
+    if (strcasecmp(cmd, "openFileTree") == 0 || strcasecmp(cmd, "openFileView") == 0) {
+        extern bool file_tree_active;
+        extern void file_tree_init_workspace(void);
+        file_tree_active = true;
+        file_tree_init_workspace();
+        sgarbf = TRUE;
+        curwp->w_flag |= WFHARD | WFMODE;
+        update(TRUE);
+        return;
+    }
+    if (strcasecmp(cmd, "closeFileTree") == 0 || strcasecmp(cmd, "closeFileView") == 0) {
+        extern bool file_tree_active;
+        file_tree_active = false;
+        sgarbf = TRUE;
+        curwp->w_flag |= WFHARD | WFMODE;
+        update(TRUE);
+        return;
+    }
+    if (strcasecmp(cmd, "runFileTree") == 0) {
+        extern void command_mode_run_file_tree(void);
+        command_mode_run_file_tree();
+        return;
+    }
+
+    /* nextfile command */
+    if (strncasecmp(cmd, "nextfile", 8) == 0 && (cmd[8] == ' ' || cmd[8] == '\0')) {
+        int n = 1;
+        char *args = cmd + 8;
+        while (*args && isspace((unsigned char)*args)) args++;
+        if (*args != '\0') {
+            n = atoi(args);
+        }
+        execute_nextfile(n);
+        return;
+    }
+
+    /* Check for multi-cursor command */
+    if (strncasecmp(cmd, "cursor", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) {
+        char *args = cmd + 6;
+        while (*args && isspace((unsigned char)*args)) args++;
+        
+        if (strncasecmp(args, "create", 6) == 0) {
+            args += 6;
+            while (*args && isspace((unsigned char)*args)) args++;
+            int count = atoi(args);
+            if (count > 1) {
+                multi_cursor_create(count);
+                mlwrite("Created %d cursors", count);
+            }
+        } else if (strncasecmp(args, "select", 6) == 0) {
+            args += 6;
+            while (*args && isspace((unsigned char)*args)) args++;
+            int index = atoi(args);
+            if (index >= 1) {
+                if (multi_cursor_select(index)) {
+                    mlwrite("Selected cursor %d", index);
+                } else {
+                    mlwrite("Invalid cursor index");
+                }
+            }
+        } else if (strncasecmp(args, "single", 6) == 0) {
+            multi_cursor_single();
+            mlwrite("Returned to single cursor mode");
+        } else {
+            mlwrite("Unknown cursor command");
+        }
+        return;
+    }
+
+    /* file command */
+    if (strncasecmp(cmd, "file", 4) == 0 && (cmd[4] == ' ' || cmd[4] == '\0')) {
+        const char *args = cmd + 4;
+        while (*args && isspace((unsigned char)*args)) args++;
+        if (strncasecmp(args, "raw-sig", 7) == 0 && (args[7] == ' ' || args[7] == '\0')) {
+            const char *sig_args = args + 7;
+            while (*sig_args && isspace((unsigned char)*sig_args)) sig_args++;
+            command_mode_handle_raw_sig(sig_args);
+            return;
+        }
+    }
+
+    /* filename command */
+    if (strncasecmp(cmd, "filename", 8) == 0) {
+        char *args = cmd + 8;
+        while (*args && isspace((unsigned char)*args))
+            args++;
+        if (strcasecmp(args, "realpath") == 0) {
+            char full_path[PATH_MAX];
+            if (realpath(curbp->b_fname, full_path)) {
+                mlwrite("File: %s", full_path);
+            } else {
+                mlwrite("File: %s (could not resolve realpath)", curbp->b_fname);
+            }
+        } else if (*args == '\0') {
+            mlwrite("File: %s", curbp->b_fname[0] ? curbp->b_fname : "[No Name]");
+        } else {
+            mlwrite("Usage: filename [realpath]");
+        }
+        return;
+    }
     
     /* Check if it's a number (goto line) */
     int is_number = 1;
-    for (char *p = buffer; *p; ++p) {
+    for (char *p = cmd; *p; ++p) {
         if (!isdigit((unsigned char)*p)) {
             is_number = 0;
             break;
@@ -294,27 +711,34 @@ static void execute_command(const char *input) {
     }
     
     if (is_number) {
-        int line_num = atoi(buffer);
+        int line_num = atoi(cmd);
         execute_goto_line(line_num);
     }
+    /* Check for colors command */
+    else if (strncasecmp(cmd, "colors", 6) == 0 && (cmd[6] == ' ' || cmd[6] == '\0')) {
+        const char *args = cmd + 6;
+        while (*args && isspace((unsigned char)*args)) args++;
+        extern int command_mode_handle_colors_command(const char *input);
+        command_mode_handle_colors_command(args);
+    }
     /* Check for Help command (case insensitive) */
-    else if (strcasecmp(buffer, "help") == 0 || strcasecmp(buffer, "h") == 0) {
+    else if (strcasecmp(cmd, "help") == 0 || strcasecmp(cmd, "h") == 0) {
         execute_help();
     }
-    else if (strcasecmp(buffer, "viblock-edit") == 0 || strcasecmp(buffer, "viblock edit") == 0) {
-        start_block_mode(BLOCK_MODE_EDIT, 0);
+    else if (strcasecmp(cmd, "viblock-edit") == 0 || strcasecmp(cmd, "viblock edit") == 0) {
+        viblock_start(BLOCK_MODE_EDIT, 0);
     }
-    else if (strcasecmp(buffer, "viblock-replace") == 0 || strcasecmp(buffer, "viblock replace") == 0) {
-        start_block_mode(BLOCK_MODE_REPLACE, 0);
+    else if (strcasecmp(cmd, "viblock-replace") == 0 || strcasecmp(cmd, "viblock replace") == 0) {
+        viblock_start(BLOCK_MODE_REPLACE, 0);
     }
     else {
-        mlwrite("Unknown command: %s", buffer);
+        mlwrite("Unknown command: %s", cmd);
     }
 }
 
 /* Cleanup command mode */
 void command_mode_cleanup(void) {
-    block_reset();
+    viblock_reset();
 }
 
 /* Command mode activation wrapper for key binding */
@@ -340,14 +764,30 @@ static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_s
                 mlwrite("Unterminated %s", label);
                 return FALSE;
             }
-            c = (unsigned char)*p++;
-            switch (c) {
+            char next = *p++;
+            switch (next) {
             case 'n': c = '\n'; break;
             case 't': c = '\t'; break;
             case 'r': c = '\r'; break;
-            case '\\': c = '\\'; break;
+            case '\\':
+                if (idx + 2 >= dest_sz) {
+                    mlwrite("%s too long", label);
+                    return FALSE;
+                }
+                dest[idx++] = '\\';
+                dest[idx++] = '\\';
+                continue;
             default:
-                break;
+                /* Keep the backslash for regex escapes (\., \(, \), etc.)
+                 * and for escaped delimiters (\/).  PCRE2 will interpret
+                 * them as literal characters. */
+                if (idx + 2 >= dest_sz) {
+                    mlwrite("%s too long", label);
+                    return FALSE;
+                }
+                dest[idx++] = '\\';
+                dest[idx++] = next;
+                continue;
             }
         }
         if (idx + 1 >= dest_sz) {
@@ -502,7 +942,7 @@ static char *splice_text(char *text, size_t text_len, size_t start, size_t end,
     return result;
 }
 
-static int line_index_from_top(struct line *target)
+int line_index_from_top(struct line *target)
 {
     struct line *lp = lforw(curbp->b_linep);
     int idx = 0;
@@ -534,8 +974,8 @@ static void restore_cursor_to_index(int index, int offset)
 
     curwp->w_dotp = lp;
     if (lp != curbp->b_linep) {
-        if (offset > lp->l_used)
-            offset = lp->l_used;
+        if (offset > lp->used)
+            offset = lp->used;
         curwp->w_doto = offset;
     } else {
         curwp->w_doto = 0;
@@ -543,7 +983,7 @@ static void restore_cursor_to_index(int index, int offset)
     curwp->w_flag |= WFMOVE;
 }
 
-static void restore_saved_cursor(int index, int offset)
+void restore_saved_cursor(int index, int offset)
 {
     if (index < 0) {
         curwp->w_flag |= WFMOVE;
@@ -622,62 +1062,13 @@ static int command_mode_parse_line_range(const char *text, int *start_line, int 
     return TRUE;
 }
 
-static int command_mode_apply_indent_range(int start_line, int end_line, int indent_direction)
-{
-    int total = command_mode_total_lines();
-    if (total <= 0) {
-        mlwrite("Buffer is empty");
-        return FALSE;
-    }
-
-    if (start_line < 1)
-        start_line = 1;
-    if (end_line < 1)
-        end_line = 1;
-    if (start_line > total)
-        start_line = total;
-    if (end_line > total)
-        end_line = total;
-    if (start_line > end_line) {
-        int tmp = start_line;
-        start_line = end_line;
-        end_line = tmp;
-    }
-
-    struct line *start_lp = command_mode_line_at_number(start_line);
-    struct line *end_lp = command_mode_line_at_number(end_line);
-    if (!start_lp || !end_lp) {
-        mlwrite("Invalid line range");
-        return FALSE;
-    }
-
-    struct line *saved_start = indent_start_lp;
-    struct line *saved_end = indent_end_lp;
-    int saved_type = indent_range_type;
-    int saved_active = indent_selection_active;
-
-    indent_start_lp = start_lp;
-    indent_end_lp = end_lp;
-    indent_range_type = indent_direction;
-    indent_selection_active = FALSE;
-
-    int status = indent_apply_range(FALSE, 1);
-
-    indent_start_lp = saved_start;
-    indent_end_lp = saved_end;
-    indent_range_type = saved_type;
-    indent_selection_active = saved_active;
-
-    return status;
-}
-
 static int command_mode_get_indent(const struct line *lp)
 {
     int col = 0;
     int i;
-    int len = llength((struct line *)lp);
+    int len = llength(lp);
     for (i = 0; i < len; ++i) {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c != ' ' && c != '\t')
             break;
         if (c == '\t')
@@ -691,9 +1082,9 @@ static int command_mode_get_indent(const struct line *lp)
 static int command_mode_is_blank_line(const struct line *lp)
 {
     int i;
-    int len = llength((struct line *)lp);
+    int len = llength(lp);
     for (i = 0; i < len; ++i) {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c != ' ' && c != '\t')
             return FALSE;
     }
@@ -743,13 +1134,13 @@ static int command_mode_detect_indent_step(void)
 static int command_mode_line_starts_with_closing_block(const struct line *lp)
 {
     int i = 0;
-    int len = llength((struct line *)lp);
+    int len = llength(lp);
     char word[32];
     int wlen = 0;
     char *ext = strrchr(curbp->b_fname, '.');
 
     while (i < len) {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c != ' ' && c != '\t')
             break;
         i++;
@@ -758,13 +1149,13 @@ static int command_mode_line_starts_with_closing_block(const struct line *lp)
         return FALSE;
 
     {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c == '}' || c == ')' || c == ']')
             return TRUE;
     }
 
     while (i < len && wlen < (int)sizeof(word) - 1) {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c == ' ' || c == '\t' || c == '\n' ||
             c == '(' || c == '{' || c == '[' || c == ')' || c == '}' || c == ']')
             break;
@@ -796,10 +1187,10 @@ static int command_mode_line_starts_with_closing_block(const struct line *lp)
 static int command_mode_line_ends_with_open_block(const struct line *lp)
 {
     int i;
-    int len = llength((struct line *)lp);
+    int len = llength(lp);
 
     for (i = len - 1; i >= 0; --i) {
-        int c = lgetc((struct line *)lp, i);
+        int c = lgetc(lp, i);
         if (c == ' ' || c == '\t')
             continue;
         return (c == '{' || c == '(' || c == '[') ? TRUE : FALSE;
@@ -825,7 +1216,7 @@ static int command_mode_set_indent_on_line(struct line *lp, int target)
     }
 
     if (target > 0) {
-        if (namo_cfg.soft_tab) {
+        if (nanox_cfg.soft_tab) {
             int i;
             for (i = 0; i < target; ++i) {
                 if (linsert(1, ' ') != TRUE)
@@ -980,7 +1371,7 @@ static int command_mode_guess_numbering_suffix(int start_line, int end_line, cha
 
     while (lp != curbp->b_linep && line <= end_line) {
         char current[8];
-        if (command_mode_parse_numbering_prefix(lp->l_text, llength(lp), NULL, NULL, current, sizeof(current))) {
+        if (command_mode_parse_numbering_prefix(ltext(lp), llength(lp), NULL, NULL, current, sizeof(current))) {
             int i;
             int found = -1;
             for (i = 0; i < candidate_count; ++i) {
@@ -1017,7 +1408,7 @@ static int command_mode_guess_numbering_suffix(int start_line, int end_line, cha
     return TRUE;
 }
 
-static int command_mode_apply_numbering_range(int start_line, int end_line, int reverse)
+int command_mode_apply_numbering_range(int start_line, int end_line, int reverse)
 {
     int total = command_mode_total_lines();
     int line;
@@ -1079,7 +1470,7 @@ static int command_mode_apply_numbering_range(int start_line, int end_line, int 
             mlwrite("%%Out of memory");
             return FALSE;
         }
-        memcpy(text, lp->l_text, (size_t)len);
+        memcpy(text, ltext(lp), (size_t)len);
         text[len] = '\0';
 
         if (!command_mode_parse_numbering_prefix((unsigned char *)text, len, &indent_end, &content_start, NULL, 0))
@@ -1156,7 +1547,7 @@ static int command_mode_handle_set_nr_command(const char *input)
     while (*args && isspace((unsigned char)*args))
         args++;
     if (*args == '\0') {
-        start_block_mode(BLOCK_MODE_SET_NR, FALSE);
+        viblock_start(BLOCK_MODE_SET_NR, FALSE);
         return TRUE;
     }
 
@@ -1165,7 +1556,7 @@ static int command_mode_handle_set_nr_command(const char *input)
     parsed = sscanf(args, "%63s %31s %n", range, opt1, &consumed);
     if (parsed == 1 && opt1[0] == '\0' &&
         (strcasecmp(range, "rev") == 0 || strcasecmp(range, "reverse") == 0)) {
-        start_block_mode(BLOCK_MODE_SET_NR, TRUE);
+        viblock_start(BLOCK_MODE_SET_NR, TRUE);
         return TRUE;
     }
     if (parsed < 1 || parsed > 2) {
@@ -1196,7 +1587,7 @@ static int command_mode_handle_set_nr_command(const char *input)
     return TRUE;
 }
 
-static int command_mode_swap_ranges(int first_start, int first_end, int second_start, int second_end)
+int command_mode_swap_ranges(int first_start, int first_end, int second_start, int second_end)
 {
     struct line *a_start = command_mode_line_at_number(first_start);
     struct line *a_end = command_mode_line_at_number(first_end);
@@ -1311,41 +1702,11 @@ static int command_mode_handle_flip_command(const char *input)
     return TRUE;
 }
 
-static int block_visual_column(struct line *lp, int offset)
-{
-    int col = 0;
-    int idx = 0;
-    int len = lp ? llength(lp) : 0;
 
-    while (lp && idx < offset && idx < len) {
-        unicode_t c;
-        int bytes = utf8_to_unicode((unsigned char *)lp->l_text, idx, len, &c);
-        if (bytes <= 0)
-            break;
-        col = next_column(col, c, tab_width);
-        idx += bytes;
-    }
-    return col;
-}
 
-static void block_bounds(int *top, int *bottom, int *left, int *right)
-{
-    int anchor = line_index_from_top(block_anchor_line);
-    int cursor = line_index_from_top(curwp->w_dotp);
-    int anchor_col = block_visual_column(block_anchor_line, block_anchor_offset);
-    int cursor_col = block_visual_column(curwp->w_dotp, curwp->w_doto);
 
-    if (top)
-        *top = (anchor < cursor) ? anchor : cursor;
-    if (bottom)
-        *bottom = (anchor > cursor) ? anchor : cursor;
-    if (left)
-        *left = (anchor_col < cursor_col) ? anchor_col : cursor_col;
-    if (right)
-        *right = (anchor_col > cursor_col) ? anchor_col : cursor_col;
-}
 
-static int line_offset_for_column(struct line *lp, int target_col, int *actual_col)
+int line_offset_for_column(struct line *lp, int target_col, int *actual_col)
 {
     int len = llength(lp);
     int idx = 0;
@@ -1353,7 +1714,7 @@ static int line_offset_for_column(struct line *lp, int target_col, int *actual_c
 
     while (idx < len) {
         unicode_t c;
-        int bytes = utf8_to_unicode((unsigned char *)lp->l_text, idx, len, &c);
+        int bytes = utf8_to_unicode(ltext(lp), idx, len, &c);
         int next_col;
 
         if (bytes <= 0)
@@ -1370,242 +1731,23 @@ static int line_offset_for_column(struct line *lp, int target_col, int *actual_c
     return idx;
 }
 
-static void render_block_status(void)
-{
-    char status[96];
-    int top, bottom, left, right;
-    const char *label;
 
-    if (block_mode == BLOCK_MODE_NONE)
-        return;
 
-    block_bounds(&top, &bottom, &left, &right);
-    label = "viblock-edit";
-    if (block_mode == BLOCK_MODE_REPLACE)
-        label = "viblock-replace";
-    else if (block_mode == BLOCK_MODE_SET_NR)
-        label = "viblock-set-nr";
+int command_mode_block_is_active(void) { return viblock_is_active(); }
 
-    if (block_mode == BLOCK_MODE_SET_NR && block_set_nr_reverse)
-        snprintf(status, sizeof(status), "%s (rev) lines %d-%d cols %d-%d",
-            label, top + 1, bottom + 1, left + 1, right + 1);
-    else
-        snprintf(status, sizeof(status), "%s lines %d-%d cols %d-%d",
-            label, top + 1, bottom + 1, left + 1, right + 1);
-    command_mode_draw_status(status, "[move cursor, Enter apply, Esc cancel]", false);
-}
+int command_mode_block_selection_contains(struct line *lp, int col_start, int col_end) { return viblock_selection_contains(lp, col_start, col_end); }
 
-int command_mode_block_is_active(void)
-{
-    return block_mode != BLOCK_MODE_NONE;
-}
 
-int command_mode_block_selection_contains(struct line *lp, int col_start, int col_end)
-{
-    int top, bottom, left, right;
-    int line_idx;
 
-    if (block_mode == BLOCK_MODE_NONE || !lp)
-        return FALSE;
 
-    block_bounds(&top, &bottom, &left, &right);
-    line_idx = line_index_from_top(lp);
-    if (line_idx < top || line_idx > bottom)
-        return FALSE;
 
-    if (right == left)
-        right++;
-    return col_start < right && col_end > left;
-}
-
-static int block_motion_allowed(fn_t func)
-{
-    return func == backchar || func == forwchar ||
-        func == backline || func == forwline ||
-        func == gotobol || func == gotoeol ||
-        func == gotobob || func == gotoeob ||
-        func == backpage || func == forwpage;
-}
-
-static int block_apply_text(const char *text, int replace_mode)
-{
-    int top, bottom, left, right;
-    int original_index = line_index_from_top(curwp->w_dotp);
-    int original_offset = curwp->w_doto;
-    struct line *lp = lforw(curbp->b_linep);
-    int idx = 0;
-
-    block_bounds(&top, &bottom, &left, &right);
-
-    if (replace_mode) {
-        int actual_col = 0;
-        int start_offset;
-        int end_actual_col = 0;
-        int end_offset;
-        struct line *start_lp = lforw(curbp->b_linep);
-        struct line *end_lp = lforw(curbp->b_linep);
-        int start_idx = 0;
-        int end_idx = 0;
-
-        while (start_lp != curbp->b_linep && start_idx < top) {
-            start_lp = lforw(start_lp);
-            start_idx++;
-        }
-        while (end_lp != curbp->b_linep && end_idx < bottom) {
-            end_lp = lforw(end_lp);
-            end_idx++;
-        }
-        if (start_lp == curbp->b_linep || end_lp == curbp->b_linep)
-            return FALSE;
-
-        curwp->w_dotp = start_lp;
-        curwp->w_doto = 0;
-        start_offset = line_offset_for_column(start_lp, left, &actual_col);
-        curwp->w_doto = start_offset;
-        while (actual_col < left) {
-            if (linsert(1, ' ') != TRUE)
-                return FALSE;
-            actual_col++;
-        }
-        start_offset = curwp->w_doto;
-
-        curwp->w_dotp = end_lp;
-        curwp->w_doto = 0;
-        end_offset = line_offset_for_column(end_lp, right, &end_actual_col);
-        curwp->w_doto = end_offset;
-        while (end_actual_col < right) {
-            if (linsert(1, ' ') != TRUE)
-                return FALSE;
-            end_actual_col++;
-        }
-        end_offset = line_offset_for_column(curwp->w_dotp, right, NULL);
-
-        curwp->w_dotp = start_lp;
-        curwp->w_doto = start_offset;
-        if (start_lp == end_lp) {
-            if (ldelete(end_offset - start_offset, FALSE) != TRUE)
-                return FALSE;
-        } else {
-            long delete_count = (llength(start_lp) - start_offset) + 1;
-            struct line *scan = lforw(start_lp);
-            while (scan != curbp->b_linep && scan != end_lp) {
-                delete_count += llength(scan) + 1;
-                scan = lforw(scan);
-            }
-            if (scan != end_lp)
-                return FALSE;
-            delete_count += end_offset;
-            if (ldelete(delete_count, FALSE) != TRUE)
-                return FALSE;
-        }
-
-        if (text && *text) {
-            if (linsert_block(text, (int)strlen(text)) != TRUE)
-                return FALSE;
-        }
-
-        restore_saved_cursor(original_index, original_offset);
-        curwp->w_flag |= WFHARD | WFMODE;
-        return TRUE;
-    }
-
-    while (lp != curbp->b_linep) {
-        struct line *next = lforw(lp);
-        if (idx >= top && idx <= bottom) {
-            int actual_col = 0;
-            int start_offset;
-
-            curwp->w_dotp = lp;
-            curwp->w_doto = 0;
-            start_offset = line_offset_for_column(lp, left, &actual_col);
-            curwp->w_doto = start_offset;
-
-            while (actual_col < left) {
-                if (linsert(1, ' ') != TRUE)
-                    return FALSE;
-                actual_col++;
-            }
-            start_offset = curwp->w_doto;
-
-            curwp->w_doto = start_offset;
-
-            if (text && *text) {
-                if (linsert_block(text, (int)strlen(text)) != TRUE)
-                    return FALSE;
-            }
-        }
-        lp = next;
-        idx++;
-    }
-
-    restore_saved_cursor(original_index, original_offset);
-    curwp->w_flag |= WFHARD | WFMODE;
-    return TRUE;
-}
-
-int command_mode_block_handle_key(int c, int f, int n)
-{
-    char text[NSTRING];
-    fn_t func;
-    int status;
-
-    if (block_mode == BLOCK_MODE_NONE)
-        return FALSE;
-
-    switch (c) {
-    case 0x0D:
-    case 0x0A:
-    case CONTROL | 'M':
-        if (block_mode == BLOCK_MODE_SET_NR) {
-            int top = 0;
-            int bottom = 0;
-            block_bounds(&top, &bottom, NULL, NULL);
-            if (!command_mode_apply_numbering_range(top + 1, bottom + 1, block_set_nr_reverse))
-                return FALSE;
-            block_reset();
-            return TRUE;
-        }
-        {
-            const char *label = (block_mode == BLOCK_MODE_REPLACE) ? "viblock replace" : "viblock edit";
-            status = minibuf_input((block_mode == BLOCK_MODE_REPLACE) ? "viblock replace: " : "viblock edit: ",
-                text, sizeof(text));
-            if (status == TRUE) {
-                if (!block_apply_text(text, block_mode == BLOCK_MODE_REPLACE))
-                    return FALSE;
-                mlwrite("%s applied", label);
-            } else {
-                mlwrite("%s cancelled", label);
-            }
-        }
-        block_reset();
-        return TRUE;
-    case 0x1B:
-    case CONTROL | 'G':
-        if (block_mode == BLOCK_MODE_SET_NR)
-            mlwrite("viblock-set-nr cancelled");
-        else
-            mlwrite("%s cancelled", (block_mode == BLOCK_MODE_REPLACE) ? "viblock replace" : "viblock edit");
-        block_reset();
-        curwp->w_flag |= WFHARD | WFMODE;
-        return TRUE;
-    default:
-        func = getbind(c);
-        if (!block_motion_allowed(func)) {
-            render_block_status();
-            return TRUE;
-        }
-        execute(c, f, n);
-        curwp->w_flag |= WFHARD | WFMODE;
-        render_block_status();
-        return TRUE;
-    }
-}
+int command_mode_block_handle_key(int c, int f, int n) { return viblock_handle_key(c, f, n); }
 
 static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_data *match_data,
     const char *replacement, size_t repl_len, int is_global, int *total_count)
 {
-    char *text = malloc(lp->l_used + 1);
-    size_t text_len = lp->l_used;
+    char *text = malloc(lp->used + 1);
+    size_t text_len = lp->used;
     size_t search_offset = 0;
     int changed = FALSE;
 
@@ -1614,7 +1756,7 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
         return FALSE;
     }
 
-    memcpy(text, lp->l_text, text_len);
+    memcpy(text, ltext(lp), text_len);
     text[text_len] = '\0';
 
     while (search_offset <= text_len) {
@@ -1706,18 +1848,18 @@ int sed_replace_command(int f, int n)
 
     if (curbp->b_mode & MDVIEW) {
         int ro = rdonly();
-        namo_request_underbar_redraw();
+        nanox_request_underbar_redraw();
         return ro;
     }
 
     status = minibuf_input("sed replace: ", expr, sizeof(expr));
     if (status != TRUE) {
-        namo_request_underbar_redraw();
+        nanox_request_underbar_redraw();
         return status;
     }
 
     if (!parse_sed_expression(expr, pattern, sizeof(pattern), replacement, sizeof(replacement), &is_global, &is_caseless)) {
-        namo_request_underbar_redraw();
+        nanox_request_underbar_redraw();
         return FALSE;
     }
 
@@ -1729,7 +1871,7 @@ int sed_replace_command(int f, int n)
         char errbuf[128];
         pcre2_get_error_message(errornumber, (PCRE2_UCHAR *)errbuf, sizeof(errbuf));
         mlwrite("Regex error at %d: %s", (int)erroffset, errbuf);
-        namo_request_underbar_redraw();
+        nanox_request_underbar_redraw();
         return FALSE;
     }
 
@@ -1737,7 +1879,7 @@ int sed_replace_command(int f, int n)
     if (match_data == NULL) {
         pcre2_code_free(code);
         mlwrite("%%Out of memory");
-        namo_request_underbar_redraw();
+        nanox_request_underbar_redraw();
         return FALSE;
     }
 
@@ -1752,7 +1894,7 @@ int sed_replace_command(int f, int n)
             pcre2_match_data_free(match_data);
             pcre2_code_free(code);
             restore_saved_cursor(original_index, original_offset);
-            namo_request_underbar_redraw();
+            nanox_request_underbar_redraw();
             return FALSE;
         }
         lp = next;
@@ -1768,6 +1910,6 @@ int sed_replace_command(int f, int n)
     else
         mlwrite("Replaced %d occurrence%s", total, total == 1 ? "" : "s");
 
-    namo_request_underbar_redraw();
+    nanox_request_underbar_redraw();
     return TRUE;
 }

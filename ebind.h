@@ -27,22 +27,20 @@ struct key_tab keytab[NBINDS] = {
     { SPEC | '5', backpage },           /* Page Up */
     { SPEC | '6', forwpage },           /* Page Down */
     { SPEC | 'L', insspace },           /* Insert */
-    { 0x7F, indent_cancel },            /* Backspace / Cancel Indent */
+    { 0x7F, backdel },                  /* Backspace */
     { SPEC | 0x7F, forwdel },           /* Delete */
-    { CONTROL | 'I', insert_tab },      /* Tab */
     { CONTROL | 'M', insert_newline },  /* Enter */
     { CONTROL | '@', completion_menu_command }, /* Ctrl+Space: Autocomplete */
+    { META | CONTROL | 'A', ai_complete },       /* Ctrl+Alt+A: AI Copilot */
+    { META | CONTROL | 'a', ai_complete },       /* Ctrl+Alt+a: AI Copilot */
 
-    /* Indentation/Outdentation */
-    { CONTROL | 'H', outdent_start_set },
-    { CONTROL | SHIFT | 'H', outdent_end_set },
-    { CONTROL | 'J', indent_start_set },
-    { CONTROL | SHIFT | 'J', indent_end_set },
-    { 'g', g_prefix_handler },
+    /* Basic Editing */
+    { CONTROL | 'I', insert_tab },
+    { CONTROL | 'J', joinline },
     { CONTROL | 'V', command_mode_activate_command }, /* Ctrl+V: Command Mode */
 
     /* SYSTEM */
-    { SPEC | 'P', namo_help_command },  /* F1 */
+    { SPEC | 'P', nanox_help_command },  /* F1 */
 
     /* FILE CONTROL */
     { SPEC | 'Q', filesave },            /* F2 */
@@ -51,12 +49,12 @@ struct key_tab keytab[NBINDS] = {
     { CONTROL | 'O', filefind },
 
     /* PROCESS */
-    { SPEC | 'S', quit },                /* F4 */
-    { CONTROL | 'Q', quit },
+    { SPEC | 'S', swap_quit },           /* F4 */
+    { CONTROL | 'Q', swap_quit },
 
     /* DATA EXPLORATION & SEARCH */
-    { SPEC | 'U', namo_search_engine },  /* F5 */
-    { CONTROL | 'F', namo_search_engine },
+    { SPEC | 'U', nanox_search_engine },  /* F5 */
+    { CONTROL | 'F', nanox_search_engine },
     { CONTROL | 'R', sed_replace_command },
 
     /* DATA DELETION & COPY (CUT/COPY) */

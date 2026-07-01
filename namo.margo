@@ -1,3 +1,1 @@
-// namo.margo
-// This file is now primarily for core logic that isn't in other modules.
-// Imports are handled by the main entry point.
+// Minimal namo.margo

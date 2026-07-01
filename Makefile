@@ -138,6 +138,7 @@ CFLAGS = -std=c2x -Ofast \
               -fdelete-null-pointer-checks \
               -MMD -MP
 CFLAGS += -I.
+CFLAGS += $(DEFINES)
 LDFLAGS = \
 		-flto=auto -fuse-linker-plugin \
     -Wl,-Ofast \
@@ -161,6 +162,7 @@ LIBS=
 ifeq ($(USE_NCURSES),1)
 	LIBS += ncursesw
 endif
+LIBS += libcjson liblz4
 
 BINDIR=$(HOME)/bin
 LIBDIR=$(HOME)/lib
@@ -179,7 +181,7 @@ ifneq ($(strip $(HUNSPELL_LIBS)),)
 	LDLIBS += $(HUNSPELL_LIBS)
 endif
 
-MARGO_EXTRA_CFLAGS_VAL := $(strip -I. $(DEFINES))
+MARGO_EXTRA_CFLAGS_VAL := $(filter -I% -D%,$(CFLAGS))
 MARGO_EXTRA_LIBS_VAL := $(strip $(LDFLAGS) $(LDLIBS))
 MARGO_EXTRA_OBJS_VAL := $(strip $(BUILD_OBJ))
 

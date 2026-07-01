@@ -11,6 +11,11 @@
 #ifndef ESTRUCT_H_
 #define ESTRUCT_H_
 
+#include <stdatomic.h>
+#ifdef _Atomic
+#undef _Atomic
+#endif
+
 #define MAXCOL  512
 #define MAXROW  1024
 
@@ -24,6 +29,7 @@
 
 /* Internal constants. */
 
+#define MAX_COMPLETION_LEN 512      /* max completion length of a word */
 #define NBINDS  2048                /* max # of bound keys          */
 #define NFILEN  2048                /* # of bytes, file name        */
 #define NBUFN   16              /* # of bytes, buffer name      */
@@ -153,6 +159,12 @@ extern int tab_width;                       /* Defined in globals.c / edef.h */
 #define islower(c)  isxlower((0xFF & (c)))
 #define isupper(c)  isxupper((0xFF & (c)))
 
+#ifdef  isxlower
+#undef  isxlower
+#endif
+#ifdef  isxupper
+#undef  isxupper
+#endif
 #define isxletter(c)    (('a' <= c && 'z' >= c) || ('A' <= c && 'Z' >= c))
 #define isxlower(c) (('a' <= c && 'z' >= c))
 #define isxupper(c) (('A' <= c && 'Z' >= c))
@@ -208,6 +220,11 @@ struct buffer {
     char b_fname[NFILEN];           /* File name                    */
     char b_bname[NBUFN];            /* Buffer name                  */
     int b_tabsize;                  /* Tab size (0: use real tabs)  */
+    struct line *b_hl_dirty_line;   /* First line needing HL propagation */
+    int b_version;                  /* Incremented on line insert/delete */
+    int b_line_cache_version;
+    int b_line_cache_no;
+    struct line *b_line_cache_ptr;
 };
 
 #define BFINVS  0x01                /* Internal invisable buffer    */
@@ -237,6 +254,7 @@ struct region {
     int r_offset;               /* Origin struct line offset.          */
     long r_size;                /* Length in characters.        */
 };
+typedef struct region region;
 
 /*
  * The editor communicates with the display using a high level interface. A
@@ -402,6 +420,12 @@ struct while_block {
 
 #define BIT(n)      (1 << (n))      /* An integer with one bit set. */
 #define CHCASE(c)   ((c) ^ DIFCASE)     /* Toggle the case of a letter. */
+
+/* Cursor pair structure for Unicode-aware positioning */
+struct c_pair {
+    int x; /* visual column */
+    int y; /* visual row */
+};
 
 /* HICHAR - 1 is the largest character we will deal with.
  * HIBYTE represents the number of bytes in the bitmap.

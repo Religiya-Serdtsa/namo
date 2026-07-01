@@ -42,6 +42,12 @@ typedef struct {
     int flow_keyword_count;
     char preproc_keywords[MAX_TOKENS * 4][MAX_TOKEN_LEN];
     int preproc_keyword_count;
+    char preproc_include_keywords[MAX_TOKENS * 4][MAX_TOKEN_LEN];
+    int preproc_include_keyword_count;
+    char preproc_define_keywords[MAX_TOKENS * 4][MAX_TOKEN_LEN];
+    int preproc_define_keyword_count;
+    char preproc_flow_keywords[MAX_TOKENS * 4][MAX_TOKEN_LEN];
+    int preproc_flow_keyword_count;
     char return_keywords[MAX_TOKENS][MAX_TOKEN_LEN];
     int return_keyword_count;
     char completion_end_line_char;
@@ -49,6 +55,8 @@ typedef struct {
     bool enable_triple_quotes;
     bool enable_number_highlight;
     bool enable_bracket_highlight;
+    bool suppress_comment_autocomplete;
+    bool case_insensitive;
 } HighlightProfile;
 
 typedef struct {
@@ -69,22 +77,22 @@ typedef enum {
     HS_BLOCK_COMMENT,
     HS_STRING,
     HS_TRIPLE_STRING,
-    HS_MD_FENCE,
-    HS_STYLE_BLOCK
+    HS_MD_FENCE
 } StateID;
 
 #define HL_STATE_STACK_MAX 8
 
 typedef struct {
-    StateID state;
-    int sub_id;       /* Block comment index or string metadata */
-    int aux;          /* Generic slot (e.g., brace depth for @style blocks) */
-    char string_delim;
+    int sub_id;           /* 4 bytes */
+    StateID state;        /* 4 bytes */
+    char string_delim;    /* 1 byte */
+    char _padding[3];     /* 3 bytes padding for 8-byte alignment */
 } HighlightStackEntry;
 
 typedef struct {
     HighlightStackEntry stack[HL_STATE_STACK_MAX];
-    int depth;
+    int depth;            /* 4 bytes */
+    const void *profile;  /* 8 bytes */
 } HighlightState;
 
 void highlight_init(const char *rule_config_path);

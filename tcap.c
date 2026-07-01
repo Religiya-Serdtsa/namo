@@ -134,7 +134,8 @@ char *tgetstr(const char *id, char **area) {
 char *tgoto(const char *cap, int col, int row) {
     static char buf[64];
     /* Simplified for ANSI standard: row and col are 1-based in ANSI */
-    sprintf(buf, "\033[%d;%dH", row + 1, col + 1);
+    /* Use snprintf to prevent buffer overflow */
+    snprintf(buf, sizeof(buf), "\033[%d;%dH", row + 1, col + 1);
     return buf;
 }
 
@@ -178,6 +179,8 @@ void tcapopen(void) {
     /* Final safety defaults */
     if (int_row <= 0) int_row = 24;
     if (int_col <= 0) int_col = 80;
+    if (int_row > MAXROW) int_row = MAXROW;
+    if (int_col > MAXCOL) int_col = MAXCOL;
 
     tcap_term.t_nrow = int_row - 1;
     tcap_term.t_ncol = int_col;
@@ -233,7 +236,8 @@ void tcapkopen(void) {
     ttrow = 999;
     ttcol = 999;
     sgarbf = TRUE;
-    strcpy(sres, "NORMAL");
+    strncpy(sres, "NORMAL", sizeof(sres) - 1);
+    sres[sizeof(sres) - 1] = '\0';
 }
 
 void tcapkclose(void) {

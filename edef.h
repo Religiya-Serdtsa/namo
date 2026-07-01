@@ -28,7 +28,6 @@ int execlevel = 0;        /* execution IF level            */
 char *patmatch = NULL;        /* string that matched          */
 int eolexist = TRUE;        /* does clear to EOL exist?     */
 int revexist = FALSE;        /* does reverse video exist?    */
-int flickcode = FALSE;        /* do flicker supression?       */
 char *modename[] = {        /* mode names                   */
     "Wrap", "Cmode", "Spell", "Exact", "View", "Over",
     "Magic", "Crypt", "Asave"
@@ -37,6 +36,7 @@ char *modename[] = {        /* mode names                   */
 char modecode[] = "WCSEVOMYA";    /* letters to represent modes   */
 int numlocks = 0;        /* number of locks active       */
 char *lname[NLOCKS];        /* names of locked files        */
+int lowned[NLOCKS];         /* owned (TRUE) or overriden (FALSE) */
 int gflags = GFREAD;        /* global control flag          */
 int rval = 0;            /* return value of a subprocess */
 int overlap = 0;        /* overlap on next/prev page    */
@@ -56,8 +56,9 @@ void tcapclose(void);
 
 /* uninitialized global definitions */
 
-int currow;            /* Cursor row                    */
-int curcol;            /* Cursor column                 */
+_Atomic struct c_pair cursor;    /* Cursor position (x, y)       */
+#define curcol (cursor.x)
+#define currow (cursor.y)
 int thisflag;            /* Flags, this command          */
 int lastflag;            /* Flags, last command          */
 int curgoal;            /* Goal for C-P, C-N            */
@@ -131,11 +132,6 @@ int cutln_active = FALSE;          /* CutLn active flag */
 int confirmshell = TRUE;
 int makebackup = TRUE;
 
-struct line *indent_start_lp = NULL;
-struct line *indent_end_lp = NULL;
-int indent_range_type = 0;
-int indent_selection_active = FALSE;
-
 #else
 
 /* for all the other .C files */
@@ -150,11 +146,11 @@ extern int execlevel;        /* execution IF level            */
 extern char *patmatch;        /* string that matched          */
 extern int eolexist;        /* does clear to EOL exist?     */
 extern int revexist;        /* does reverse video exist?    */
-extern int flickcode;        /* do flicker supression?       */
 extern char *modename[];    /* mode names                   */
 extern char modecode[];        /* letters to represent modes   */
 extern int numlocks;        /* number of locks active       */
 extern char *lname[];        /* names of locked files        */
+extern int lowned[];         /* owned (TRUE) or overriden (FALSE) */
 extern int gflags;        /* global control flag          */
 extern int rval;        /* return value of a subprocess */
 extern int overlap;        /* overlap on next/prev page    */
@@ -162,8 +158,15 @@ extern int scrollcount;        /* number of lines to scroll    */
 
 /* uninitialized global external declarations */
 
-extern int currow;        /* Cursor row                    */
-extern int curcol;        /* Cursor column                 */
+#include <stdatomic.h>
+
+extern _Atomic struct c_pair cursor; /* Cursor position (x, y)       */
+#ifndef curcol
+#define curcol (cursor.x)
+#endif
+#ifndef currow
+#define currow (cursor.y)
+#endif
 extern int thisflag;        /* Flags, this command          */
 extern int lastflag;        /* Flags, last command          */
 extern int curgoal;        /* Goal for C-P, C-N            */
@@ -224,7 +227,7 @@ extern char falsem[];            /* False literal changed to array */
 extern struct kill *kbufp;        /* Kill buffer pointer */
 extern struct kill *kbufh;        /* Kill buffer head */
 extern int kused;                /* Kill buffer used (long -> int) */
-extern char sres[];            /* Screen resolution */
+extern char sres[NSTRING];            /* Screen resolution */
 extern char palstr[];            /* Palette string */
 extern int saveflag;            /* Temp store for lastflag */
 extern int mstore;            /* storing macro */
@@ -237,10 +240,5 @@ extern int cutln_active;
 extern int confirmshell;
 extern int makebackup;
 extern int removebackup;
-
-extern struct line *indent_start_lp;
-extern struct line *indent_end_lp;
-extern int indent_range_type;
-extern int indent_selection_active;
 
 #endif

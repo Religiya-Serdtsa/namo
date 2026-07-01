@@ -22,6 +22,7 @@ typedef struct {
 extern completion_state_t completion_state;
 
 void completion_init(void);
+void completion_cleanup(void);
 void completion_update(const char *prefix, completion_context_t ctx);
 void completion_draw(int row, int col);
 const char* completion_get_selected(void);
@@ -32,5 +33,9 @@ int completion_try_at_cursor(void);
 int completion_dropdown_is_active(void);
 int completion_dropdown_handle_key(int key);
 void completion_dropdown_render(void);
+void completion_post_execute(void);
+
+/* async LSP completion polling */
+void completion_lsp_poll(void);
 
 #endif /* COMPLETION_H */

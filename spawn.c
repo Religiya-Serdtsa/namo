@@ -174,8 +174,8 @@ int filter_buffer(int f, int n)
     struct buffer *bp;          /* pointer to buffer to zot */
     char line[NLINE];           /* command line send to shell */
     char tmpnam[NFILEN];            /* place to store real file name */
-    char filnam1[] = "/tmp/namo_fltinp_XXXXXX";
-    char filnam2[] = "/tmp/namo_fltout_XXXXXX";
+    char filnam1[] = "/tmp/nanox_fltinp_XXXXXX";
+    char filnam2[] = "/tmp/nanox_fltout_XXXXXX";
     int fd;
 
     /* don't allow this command if restricted */
@@ -228,16 +228,22 @@ int filter_buffer(int f, int n)
     TTclose();              /* stty to old modes    */
     TTkclose();
     
-    /* Construct command: line < filnam1 > filnam2 */
-    /* Ensure no buffer overflow - simplified check */
-    if (strlen(line) + strlen(filnam1) + strlen(filnam2) + 10 < NLINE) {
-        strcat(line, " <");
-        strcat(line, filnam1);
-        strcat(line, " >");
-        strcat(line, filnam2);
-        system(line);
+    /* Construct command: line < filnam1 > filnam2 safely */
+    char cmd_line[NLINE]; /* Use a temporary buffer for the constructed command */
+    /* Copy initial command */
+    int written = snprintf(cmd_line, sizeof(cmd_line), "%s", line);
+
+    /* Append arguments safely if space is available */
+    if (written < sizeof(cmd_line)) {
+        written += snprintf(cmd_line + written, sizeof(cmd_line) - written, " <%s >%s", filnam1, filnam2);
+    }
+
+    /* Check for truncation and execute */
+    if (written < sizeof(cmd_line)) {
+        system(cmd_line);
     } else {
-        printf("Command too long\n");
+        printf("Command too long or buffer overflow potential detected\n");
+        /* Optionally log this or handle more gracefully */
     }
 
     TTopen();

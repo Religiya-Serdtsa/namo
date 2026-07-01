@@ -8,7 +8,7 @@
 #include <windows.h>
 #include <direct.h>
 #define PATH_SEP '\\'
-#define PATH_SEP_STR "\\"
+#define PATH_SEP_STR "\"
 #else
 #include <unistd.h>
 #include <sys/types.h>

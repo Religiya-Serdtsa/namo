@@ -9,7 +9,7 @@
  *  modified by Petri Kutvonen
  */
 
-#include "namo.h"
+#include "nanox.h"
 #include "edef.h"
 
 /* External function declarations. */
@@ -53,6 +53,11 @@ extern int backpage(int f, int n);
 extern int setmark(int f, int n);
 extern int swapmark(int f, int n);
 
+/* display.c */
+extern void calculate_visual_pos(struct line *lp, int target_offset, int *vrow, int *vcol, bool wrap);
+extern void get_offset_at_visual_pos(struct line *lp, int target_vrow, int target_vcol, int *offset);
+extern int get_line_height(struct line *lp, bool wrap);
+
 /* random.c */
 extern int tabsize;             /* Tab size (0: use real tabs). */
 extern int setfillcol(int f, int n);
@@ -73,17 +78,10 @@ extern int cinsert(void);
 extern int insbrace(int n, int c);
 extern int inspound(void);
 extern int deblank(int f, int n);
+extern int joinline(int f, int n);
 extern int indent(int f, int n);
 
-/* New Indentation/Outdentation functions */
-extern int indent_start_set(int f, int n);
-extern int indent_end_set(int f, int n);
-extern int outdent_start_set(int f, int n);
-extern int outdent_end_set(int f, int n);
-extern int indent_apply_range(int f, int n);
-extern int indent_cancel(int f, int n);
-extern int g_prefix_handler(int f, int n);
-
+extern int handle_markup_char(int c);
 extern int forwdel(int f, int n);
 extern int backdel(int f, int n);
 extern int killtext(int f, int n);
@@ -104,6 +102,7 @@ extern int spellcheck(const char *word);
 extern void edinit(char *bname);
 extern int execute(int c, int f, int n);
 extern int quickexit(int f, int n);
+extern int swap_quit(int f, int n);
 extern int quit(int f, int n);
 extern int ctlxlp(int f, int n);
 extern int ctlxrp(int f, int n);
@@ -124,6 +123,8 @@ extern void vttidy(void);
 extern void vtmove(int row, int col);
 extern int upscreen(int f, int n);
 extern int update(int force);
+extern bool buffer_needs_hl_update(struct buffer *bp);
+extern void highlight_incremental_step(struct buffer *bp);
 extern void updpos(void);
 extern void upddex(void);
 extern void updgar(void);
@@ -179,7 +180,7 @@ extern int buildlist(int type, char *mstring);
 extern int strinc(char *source, char *sub);
 extern unsigned int getckey(int mflag);
 extern int startup(char *sfname);
-extern char *flook(char *fname, int hflag);
+extern char *flook(char *fnameame, int hflag);
 extern void cmdstr(int c, char *seq);
 extern fn_t getbind(int c);
 extern char *getfname(fn_t);
@@ -210,23 +211,24 @@ extern int fileread(int f, int n);
 extern int insfile(int f, int n);
 extern int filefind(int f, int n);
 extern int viewfile(int f, int n);
-extern int getfile(char *fname, int lockfl);
-extern int readin(char *fname, int lockfl);
-extern void makename(char *bname, char *fname);
+extern int getfile(char *fnameame, int lockfl);
+extern int readin(char *fnameame, int lockfl);
+extern void makename(char *bname, char *fnameame);
 extern void unqname(char *name);
 
-/* namo.c */
-extern void namo_init(void);
-extern void namo_apply_config(void);
-extern void namo_notify_message(const char *text);
-extern int namo_text_rows(void);
-extern int namo_hint_top_row(void);
-extern int namo_hint_bottom_row(void);
-extern bool namo_help_is_active(void);
-extern int namo_help_command(int f, int n);
-extern int namo_help_handle_key(int key);
-extern void namo_cleanup(void);
-extern void namo_message_prefix(const char *input, char *output, size_t outsz);
+/* nanox.c */
+extern void nanox_init(void);
+extern void nanox_apply_config(void);
+extern void nanox_notify_message(const char *text);
+extern int nanox_text_rows(void);
+extern int nanox_hint_top_row(void);
+extern int nanox_hint_bottom_row(void);
+extern bool nanox_help_is_active(void);
+extern int nanox_help_command(int f, int n);
+extern int nanox_traditional_help_command(int f, int n);
+extern int nanox_help_handle_key(int key);
+extern void nanox_cleanup(void);
+extern void nanox_message_prefix(const char *input, char *output, size_t outsz);
 
 /* cutln.c */
 extern int cutln_end_cut(int f, int n);
@@ -256,23 +258,23 @@ extern int reserve_jump_fallback_2(int f, int n);
 extern int reserve_jump_fallback_3(int f, int n);
 extern int reserve_jump_fallback_4(int f, int n);
 extern int reserve_jump_numeric_mode(int f, int n);
-extern void namo_queue_startup_file(const char *path);
-extern int namo_open_startup_slot(void);
-extern void namo_handle_closed_file(const char *path);
+extern void nanox_queue_startup_file(const char *path);
+extern int nanox_open_startup_slot(void);
+extern void nanox_handle_closed_file(const char *path);
 extern int filewrite(int f, int n);
 extern int filesave(int f, int n);
-extern int writeout(char *fn);
-extern int is_effectively_same(char *fname, struct buffer *bp);
+extern int writeout(char *fname);
+extern int is_effectively_same(char *fnameame, struct buffer *bp);
 extern int filename(int f, int n);
-extern int ifile(char *fname);
+extern int ifile(char *fnameame);
 
 /* fileio.c */
-extern int ffropen(char *fn);
-extern int ffwopen(char *fn);
+extern int ffropen(char *fname);
+extern int ffwopen(char *fname);
 extern int ffclose(void);
 extern int ffputline(char *buf, int nbuf);
 extern int ffgetline(void);
-extern int fexist(char *fname);
+extern int fexist(char *fnameame);
 
 /* exec.c */
 extern int namedcmd(int f, int n);
@@ -288,7 +290,7 @@ extern int execbuf(int f, int n);
 extern int dobuf(struct buffer *bp);
 extern void freewhile(struct while_block *wp);
 extern int execfile(int f, int n);
-extern int dofile(char *fname);
+extern int dofile(char *fnameame);
 extern int cbuf(int f, int n, int bufnum);
 extern int cbuf1(int f, int n);
 extern int cbuf2(int f, int n);
@@ -403,7 +405,7 @@ extern int forwsearch(int f, int n);
 extern int forwhunt(int f, int n);
 extern int backsearch(int f, int n);
 extern int backhunt(int f, int n);
-extern int namo_search_engine(int f, int n);
+extern int nanox_search_engine(int f, int n);
 extern int mcscanner(struct magic *mcpatrn, int direct, int beg_or_end);
 extern int scanner(const char *patrn, int direct, int beg_or_end);
 extern int eq(unsigned char bc, unsigned char pc);
@@ -438,7 +440,7 @@ extern void minibuf_show(const char *msg);
 /* eval.c */
 extern void varinit(void);
 extern void varcleanup(void);
-extern char *gtfun(char *fname);
+extern char *gtfun(char *fnameame);
 extern char *gtusr(char *vname);
 extern char *gtenv(char *vname);
 extern int setvar(int f, int n);
@@ -461,15 +463,19 @@ extern int set_encryption_key(int f, int n);
 extern void myencrypt(char *bptr, unsigned len);
 
 /* lock.c */
-extern int lockchk(char *fname);
+extern int lockchk(char *fnameame);
 extern int lockrel(void);
-extern int lock(char *fname);
-extern int unlock(char *fname);
+extern int lock(char *fnameame);
+extern int unlock(char *fnameame);
 extern void lckerror(char *errstr);
 
 /* pklock.c */
-extern char *dolock(char *fname);
-extern char *undolock(char *fname);
+extern char *dolock(char *fnameame);
+extern char *undolock(char *fnameame);
 
 /* cscope.c */
 extern int cscope_complete(int f, int n);
+
+/* ai.c */
+extern int ai_complete(int f, int n);
+

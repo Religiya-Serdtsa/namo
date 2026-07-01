@@ -274,16 +274,18 @@ int storemac(int f, int n)
     }
 
     /* construct the macro buffer name */
-    strcpy(bname, "*Macro xx*");
+    strncpy(bname, "*Macro xx*", sizeof(bname) - 1);
+    strncpy(bname, "*Macro xx*", sizeof(bname) - 1);
+    bname[sizeof(bname) - 1] = '\0';
     bname[7] = '0' + (n / 10);
-    bname[8] = '0' + (n % 10);
+    bname[0] = '*';
+    snprintf(bname + strlen(bname), sizeof(bname) - strlen(bname), "*");
 
     /* set up the new macro buffer */
     if ((bp = bfind(bname, TRUE, BFINVS)) == NULL) {
         mlwrite("Can not create macro");
         return FALSE;
     }
-
     /* and make sure it is empty */
     bclear(bp);
 
@@ -291,7 +293,7 @@ int storemac(int f, int n)
     mstore = TRUE;
     bstore = bp;
     return TRUE;
-}
+    }
 
 /*
  * storeproc:
@@ -317,7 +319,7 @@ int storeproc(int f, int n)
 
     /* construct the macro buffer name */
     bname[0] = '*';
-    strcat(bname, "*");
+    snprintf(bname + strlen(bname), sizeof(bname) - strlen(bname), "*");
 
     /* set up the new macro buffer */
     if ((bp = bfind(bname, TRUE, BFINVS)) == NULL) {
@@ -352,7 +354,7 @@ int execproc(int f, int n)
 
     /* construct the buffer name */
     bufn[0] = '*';
-    strcat(bufn, "*");
+    snprintf(bufn + strlen(bufn), sizeof(bufn) - strlen(bufn), "*");
 
     /* find the pointer to that buffer */
     if ((bp = bfind(bufn, FALSE, 0)) == NULL) {
@@ -445,11 +447,11 @@ int dobuf(struct buffer *bp)
 
     /* scan the buffer to execute, building WHILE header blocks */
     hlp = bp->b_linep;
-    lp = hlp->l_fp;
+    lp = hlp->next;
     while (lp != hlp) {
         /* scan the current line */
-        eline = lp->l_text;
-        i = lp->l_used;
+        eline = ltext(lp);
+        i = lp->used;
 
         /* trim leading whitespace */
         while (i-- > 0 && (*eline == ' ' || *eline == '\t'))
@@ -511,7 +513,7 @@ int dobuf(struct buffer *bp)
         }
 
  nxtscan:                   /* on to the next line */
-        lp = lp->l_fp;
+        lp = lp->next;
     }
 
     /* while and endwhile should match! */
@@ -525,16 +527,16 @@ int dobuf(struct buffer *bp)
 
     /* starting at the beginning of the buffer */
     hlp = bp->b_linep;
-    lp = hlp->l_fp;
+    lp = hlp->next;
     while (lp != hlp) {
         /* allocate eline and copy macro line to it */
-        linlen = lp->l_used;
+        linlen = lp->used;
         if ((einit = eline = malloc(linlen + 1)) == NULL) {
             mlwrite("%%Out of Memory during macro execution");
             freewhile(whlist);
             return FALSE;
         }
-        strncpy(eline, lp->l_text, linlen);
+        strncpy(eline, ltext(lp), linlen);
         eline[linlen] = 0;      /* make sure it ends */
 
         /* trim leading whitespace */
@@ -586,10 +588,10 @@ int dobuf(struct buffer *bp)
                 lputc(mp, i, eline[i]);
 
             /* attach the line to the end of the buffer */
-            bstore->b_linep->l_bp->l_fp = mp;
-            mp->l_bp = bstore->b_linep->l_bp;
-            bstore->b_linep->l_bp = mp;
-            mp->l_fp = bstore->b_linep;
+            bstore->b_linep->prev->next = mp;
+            mp->prev = bstore->b_linep->prev;
+            bstore->b_linep->prev = mp;
+            mp->next = bstore->b_linep;
             goto onward;
         }
 
@@ -670,15 +672,15 @@ int dobuf(struct buffer *bp)
                     /* grab label to jump to */
                     eline = token(eline, golabel, NPAT);
                     linlen = strlen(golabel);
-                    glp = hlp->l_fp;
+                    glp = hlp->next;
                     while (glp != hlp) {
-                        if (*glp->l_text == '*' &&
+                        if (*ltext(glp) == '*' &&
                             (strncmp
-                             (&glp->l_text[1], golabel, linlen) == 0)) {
+                             (&ltext(glp)[1], golabel, linlen) == 0)) {
                             lp = glp;
                             goto onward;
                         }
-                        glp = glp->l_fp;
+                        glp = glp->next;
                     }
                     mlwrite("%%No such label");
                     freewhile(whlist);
@@ -712,7 +714,7 @@ int dobuf(struct buffer *bp)
                     }
 
                     /* reset the line pointer back.. */
-                    lp = whtemp->w_begin->l_bp;
+                    lp = whtemp->w_begin->prev;
                     goto onward;
                 }
 
@@ -748,7 +750,7 @@ int dobuf(struct buffer *bp)
 
  onward:                    /* on to the next line */
         free(einit);
-        lp = lp->l_fp;
+        lp = lp->next;
     }
 
  eexec:                 /* exit the current function */

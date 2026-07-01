@@ -11,10 +11,13 @@
 #include "estruct.h"
 #include "edef.h"
 #include "efunc.h"
+#include "util.h"
+#include "platform.h"
 
 #include <sys/errno.h>
 
 extern char *lname[NLOCKS];         /* names of all locked files */
+extern int lowned[NLOCKS];          /* owned (TRUE) or overriden (FALSE) */
 extern int numlocks;                /* # of current locks active */
 
 /*
@@ -44,20 +47,19 @@ int lockchk(char *fname)
     status = lock(fname);
     if (status == ABORT)            /* file is locked, no override */
         return ABORT;
-    if (status == FALSE)            /* locked, overriden, dont add to table */
-        return TRUE;
 
-    /* we have now locked it, add it to our table */
-    lname[++numlocks - 1] = (char *)malloc(strlen(fname) + 1);
-    if (lname[numlocks - 1] == NULL) {  /* malloc failure */
-        undolock(fname);        /* free the lock */
+    /* we have now locked or overriden it, add it to our table */
+    lname[numlocks] = malloc(strlen(fname) + 1);
+    if (lname[numlocks] == NULL) {  /* malloc failure */
+        if (status == TRUE) undolock(fname);        /* free the lock if we own it */
         mlwrite("Cannot lock, out of memory");
-        --numlocks;
         return ABORT;
     }
 
     /* everthing is cool, add it to the table */
-    strcpy(lname[numlocks - 1], fname);
+    mystrscpy(lname[numlocks], fname, strlen(fname) + 1);
+    lowned[numlocks] = (status == TRUE);
+    numlocks++;
     return TRUE;
 }
 
@@ -70,14 +72,22 @@ int lockrel(void)
     int i;                  /* loop index */
     int status;             /* status of locks */
     int s;                  /* status of one unlock */
+    int pcount = nanox_process_count();
 
     status = TRUE;
-    if (numlocks > 0)
+    if (numlocks > 0) {
         for (i = 0; i < numlocks; ++i) {
-            if ((s = unlock(lname[i])) != TRUE)
-                status = s;
+            /* 
+             * Delete if we own it (standard behavior)
+             * OR if we are the only nanox process (cleanup stale locks as requested)
+             */
+            if (lowned[i] || pcount <= 1) {
+                if ((s = unlock(lname[i])) != TRUE)
+                    status = s;
+            }
             free(lname[i]);
         }
+    }
     numlocks = 0;
     return status;
 }
@@ -109,9 +119,7 @@ int lock(char *fname)
     }
 
     /* someone else has it....override? */
-    strcpy(msg, "File in use by ");
-    strcat(msg, locker);
-    strcat(msg, ", override?");
+    snprintf(msg, sizeof(msg), "File in use by %s, override?", locker);
     status = mlyesno(msg);          /* ask them */
     if (status == TRUE)
         return FALSE;
@@ -149,8 +157,6 @@ void lckerror(char *errstr)
 {
     char obuf[NSTRING];         /* output buffer for error message */
 
-    strcpy(obuf, errstr);
-    strcat(obuf, " - ");
-    strcat(obuf, strerror(errno));
+    snprintf(obuf, sizeof(obuf), "%s - %s", errstr, strerror(errno));
     mlwrite(obuf);
 }

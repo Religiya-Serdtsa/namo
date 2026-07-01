@@ -1,72 +1,107 @@
-@import "estruct.margo"
-@import "globals.margo"
-@import "line.margo"
-@import "basic.margo"
-@import "region.margo"
-@import "word.margo"
-@import "random.margo"
-@import "display.margo"
-@import "namo_core.margo"
+@import godmode
 
-key_tab keytab[2048] = {
-    { SPEC | (int)'A', (weird(void, 1))backline },
-    { SPEC | (int)'B', (weird(void, 1))forwline },
-    { SPEC | (int)'C', (weird(void, 1))forwchar },
-    { SPEC | (int)'D', (weird(void, 1))backchar },
-    { SPEC | (int)'H', (weird(void, 1))gotobob },
-    { SPEC | (int)'F', (weird(void, 1))gotoeob },
-    { SPEC | (int)'5', (weird(void, 1))backpage },
-    { SPEC | (int)'6', (weird(void, 1))forwpage },
-    { SPEC | (int)'L', (weird(void, 1))insspace },
-    { 0x7F, (weird(void, 1))indent_cancel },
-    { SPEC | 0x7F, (weird(void, 1))forwdel },
-    { CONTROL | (int)'I', (weird(void, 1))insert_tab },
-    { CONTROL | (int)'M', (weird(void, 1))insert_newline },
-    { CONTROL | (int)'@', (weird(void, 1))completion_menu_command },
-    { CONTROL | (int)'H', (weird(void, 1))outdent_start_set },
-    { CONTROL | SHIFT | (int)'H', (weird(void, 1))outdent_end_set },
-    { CONTROL | (int)'J', (weird(void, 1))indent_start_set },
-    { CONTROL | SHIFT | (int)'J', (weird(void, 1))indent_end_set },
-    { (int)'g', (weird(void, 1))g_prefix_handler },
-    { CONTROL | (int)'V', (weird(void, 1))command_mode_activate_command },
-    { SPEC | (int)'P', (weird(void, 1))namo_help_command },
-    { SPEC | (int)'Q', (weird(void, 1))filesave },
-    { CONTROL | (int)'S', (weird(void, 1))filesave },
-    { SPEC | (int)'R', (weird(void, 1))filefind },
-    { CONTROL | (int)'O', (weird(void, 1))filefind },
-    { SPEC | (int)'S', (weird(void, 1))quit },
-    { CONTROL | (int)'Q', (weird(void, 1))quit },
-    { SPEC | (int)'U', (weird(void, 1))namo_search_engine },
-    { CONTROL | (int)'F', (weird(void, 1))namo_search_engine },
-    { CONTROL | (int)'R', (weird(void, 1))sed_replace_command },
-    { SPEC | (int)'W', (weird(void, 1))cutln_start_copy },
-    { SPEC | SHIFT | (int)'W', (weird(void, 1))cutln_end_copy },
-    { CONTROL | (int)'W', (weird(void, 1))cutln_start_copy },
-    { CONTROL | SHIFT | (int)'W', (weird(void, 1))cutln_end_copy },
-    { SPEC | (int)'X', (weird(void, 1))cutln_start_cut },
-    { SPEC | SHIFT | (int)'X', (weird(void, 1))cutln_end_cut },
-    { CONTROL | (int)'X', (weird(void, 1))cutln_start_cut },
-    { CONTROL | SHIFT | (int)'X', (weird(void, 1))cutln_end_cut },
-    { CONTROL | (int)'K', (weird(void, 1))cutln_cut_current_line },
-    { CONTROL | SHIFT | (int)'K', (weird(void, 1))cutln_end_cut },
-    { CONTROL | (int)'Y', (weird(void, 1))yank },
-    { SPEC | (int)'Y', (weird(void, 1))yank },
-    { META | CONTROL | (int)'8', (weird(void, 1))yank },
-    { SPEC | (int)'`', (weird(void, 1))reserve_jump_1 },
-    { SPEC | (int)'a', (weird(void, 1))reserve_jump_2 },
-    { SPEC | (int)'{', (weird(void, 1))reserve_jump_3 },
-    { SPEC | (int)'}', (weird(void, 1))reserve_jump_4 },
-    { META | CONTROL | (int)'9', (weird(void, 1))reserve_jump_fallback_1 },
-    { META | CONTROL | (int)'0', (weird(void, 1))reserve_jump_fallback_2 },
-    { META | CONTROL | (int)'-', (weird(void, 1))reserve_jump_fallback_3 },
-    { META | CONTROL | (int)'=', (weird(void, 1))reserve_jump_fallback_4 },
-    { META | CONTROL | (int)'1', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'2', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'3', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'4', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'5', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'6', (weird(void, 1))reserve_jump_numeric_mode },
-    { META | CONTROL | (int)'7', (weird(void, 1))reserve_jump_numeric_mode },
-    { CONTROL | (int)'G', (weird(void, 1))gotoline },
+@style c {
+/*  ebind.h
+ *
+ *  Initial default key to function bindings
+ *
+ *  Modified by Petri Kutvonen
+ */
+
+#ifndef EBIND_H_
+#define EBIND_H_
+
+#include "line.h"
+
+/*
+ * Command table.
+ * This table  is *roughly* in ASCII order, left to right across the
+ * characters of the command. This explains the funny location of the
+ * control-X commands.
+ */
+struct key_tab keytab[NBINDS] = {
+    /* Basic Navigation */
+    { SPEC | 'A', backline },           /* Up Arrow */
+    { SPEC | 'B', forwline },           /* Down Arrow */
+    { SPEC | 'C', forwchar },           /* Right Arrow */
+    { SPEC | 'D', backchar },           /* Left Arrow */
+    { SPEC | 'H', gotobob },            /* Home */
+    { SPEC | 'F', gotoeob },            /* End */
+    { SPEC | '5', backpage },           /* Page Up */
+    { SPEC | '6', forwpage },           /* Page Down */
+    { SPEC | 'L', insspace },           /* Insert */
+    { 0x7F, backdel },                  /* Backspace */
+    { SPEC | 0x7F, forwdel },           /* Delete */
+    { CONTROL | 'M', insert_newline },  /* Enter */
+    { CONTROL | '@', completion_menu_command }, /* Ctrl+Space: Autocomplete */
+    { META | CONTROL | 'A', ai_complete },       /* Ctrl+Alt+A: AI Copilot */
+    { META | CONTROL | 'a', ai_complete },       /* Ctrl+Alt+a: AI Copilot */
+
+    /* Basic Editing */
+    { CONTROL | 'I', insert_tab },
+    { CONTROL | 'J', joinline },
+    { CONTROL | 'V', command_mode_activate_command }, /* Ctrl+V: Command Mode */
+
+    /* SYSTEM */
+    { SPEC | 'P', nanox_help_command },  /* F1 */
+
+    /* FILE CONTROL */
+    { SPEC | 'Q', filesave },            /* F2 */
+    { CONTROL | 'S', filesave },
+    { SPEC | 'R', filefind },            /* F3 */
+    { CONTROL | 'O', filefind },
+
+    /* PROCESS */
+    { SPEC | 'S', swap_quit },           /* F4 */
+    { CONTROL | 'Q', swap_quit },
+
+    /* DATA EXPLORATION & SEARCH */
+    { SPEC | 'U', nanox_search_engine },  /* F5 */
+    { CONTROL | 'F', nanox_search_engine },
+    { CONTROL | 'R', sed_replace_command },
+
+    /* DATA DELETION & COPY (CUT/COPY) */
+    { SPEC | 'W', cutln_start_copy },              /* F6: Start Copy */
+    { SPEC | SHIFT | 'W', cutln_end_copy },        /* Shift+F6: End Copy */
+    { CONTROL | 'W', cutln_start_copy },           /* Ctrl+W: Start Copy */
+    { CONTROL | SHIFT | 'W', cutln_end_copy },      /* Ctrl+Shift+W: End Copy */
+    
+    { SPEC | 'X', cutln_start_cut },               /* F7: Start Cut */
+    { SPEC | SHIFT | 'X', cutln_end_cut },         /* Shift+F7: End Cut */
+    { CONTROL | 'X', cutln_start_cut },            /* Ctrl+X: Start Cut */
+    { CONTROL | SHIFT | 'X', cutln_end_cut },      /* Ctrl+Shift+X: End Cut */
+    
+    { CONTROL | 'K', cutln_cut_current_line },     /* Ctrl+K: Cut Current Line */
+    { CONTROL | SHIFT | 'K', cutln_end_cut },      /* Ctrl+Shift+K: End Cut */
+
+    /* DATA INSERTION (PASTE) */
+    { CONTROL | 'Y', yank },
+    { SPEC | 'Y', yank },                /* F8 */
+    { META | CONTROL | '8', yank },      /* Ctrl+Alt+8 */
+
+    /* SLOT SWITCHING */
+    { SPEC | '`', reserve_jump_1 },       /* F9 */
+    { SPEC | 'a', reserve_jump_2 },       /* F10 */
+    { SPEC | '{', reserve_jump_3 },       /* F11 */
+    { SPEC | '}', reserve_jump_4 },       /* F12 */
+    { META | CONTROL | '9', reserve_jump_fallback_1 },
+    { META | CONTROL | '0', reserve_jump_fallback_2 },
+    { META | CONTROL | '-', reserve_jump_fallback_3 },
+    { META | CONTROL | '=', reserve_jump_fallback_4 },
+    { META | CONTROL | '1', reserve_jump_numeric_mode },
+    { META | CONTROL | '2', reserve_jump_numeric_mode },
+    { META | CONTROL | '3', reserve_jump_numeric_mode },
+    { META | CONTROL | '4', reserve_jump_numeric_mode },
+    { META | CONTROL | '5', reserve_jump_numeric_mode },
+    { META | CONTROL | '6', reserve_jump_numeric_mode },
+    { META | CONTROL | '7', reserve_jump_numeric_mode },
+
+    { CONTROL | 'G', gotoline },         /* Ctrl+G: Goto Line */
+
+    /* End of table */
     { 0, NULL }
 };
+
+#endif              /* EBIND_H_ */
+
+}

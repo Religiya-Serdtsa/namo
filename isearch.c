@@ -52,8 +52,8 @@ void minibuf_init(void)
     }
     
     /* Setup circular line list */
-    lp->l_fp = lp;
-    lp->l_bp = lp;
+    lp->next = lp;
+    lp->prev = lp;
     
     /* Initialize buffer structure */
     minibuf_bp->b_bufp = NULL;
@@ -104,7 +104,7 @@ void minibuf_clear(void)
     while (lp != minibuf_bp->b_linep) {
         next = lforw(lp);
         /* Clear line content */
-        lp->l_used = 0;
+        lp->used = 0;
         lp = next;
     }
     
@@ -149,7 +149,7 @@ int minibuf_delete_char(long n)
     /* Move back one UTF-8 character */
     if (minibuf_wp->w_doto > 0) {
         int byte_offset = minibuf_wp->w_doto - 1;
-        unsigned char *text = minibuf_wp->w_dotp->l_text;
+        unsigned char *text = ltext(minibuf_wp->w_dotp);
         
         /* Move back to find UTF-8 character boundary */
         while (byte_offset > 0 && !is_beginning_utf8(text[byte_offset]))
@@ -194,7 +194,7 @@ void minibuf_update(const char *prompt)
     
     /* Output prompt - each byte with proper UTF-8 handling */
     if (prompt) {
-        unsigned char *p = (unsigned char *)prompt;
+        const unsigned char *p = (const unsigned char *)prompt;
         int plen = strlen(prompt);
         int pi = 0;
         while (pi < plen) {
@@ -219,8 +219,8 @@ void minibuf_update(const char *prompt)
     }
     
     /* Display buffer content - CLONED from show_line() logic */
-    text = lp->l_text;
-    len = lp->l_used;
+    text = ltext(lp);
+    len = lp->used;
     i = 0;
     
     while (i < len && col < term->t_ncol - 1) {
@@ -277,7 +277,7 @@ void minibuf_show(const char *msg)
     int col = 0;
     int i, len;
     unicode_t c;
-    unsigned char *text;
+    const unsigned char *text;
     
     /* Move to bottom line */
     movecursor(term->t_nrow, 0);
@@ -289,7 +289,7 @@ void minibuf_show(const char *msg)
     }
     
     /* Display message content with proper UTF-8 handling */
-    text = (unsigned char *)msg;
+    text = (const unsigned char *)msg;
     len = strlen(msg);
     i = 0;
     
@@ -341,8 +341,8 @@ void minibuf_get_text(char *dest, int max_len)
         return;
     
     /* Copy content */
-    for (i = 0; i < lp->l_used && i < max_len - 1; i++) {
-        dest[i] = lp->l_text[i];
+    for (i = 0; i < lp->used && i < max_len - 1; i++) {
+        dest[i] = ltext(lp)[i];
     }
     dest[i] = '\0';
 }
@@ -378,6 +378,8 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
             /* Abort with Ctrl+G */
             mlerase();
             completion_hide();
+            sgarbf = TRUE;
+            nanox_request_underbar_redraw();
             return FALSE;
             
         case IS_NEWLINE:
@@ -388,6 +390,8 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
             minibuf_clear();
             mlerase();
             completion_hide();
+            sgarbf = TRUE;
+            nanox_request_underbar_redraw();
             if (dest[0] == '\0')
                 return FALSE;
             return TRUE;
@@ -405,6 +409,8 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
         case 0x1B: /* ESC - cancel */
             mlerase();
             completion_hide();
+            sgarbf = TRUE;
+            nanox_request_underbar_redraw();
             return FALSE;
             
         case (SPEC | 'A'): /* Up Arrow */
@@ -425,7 +431,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
                     int sel_len = strlen(selected);
                     while (i < sel_len) {
                         unicode_t uc;
-                        int bytes = utf8_to_unicode((unsigned char *)selected, i, sel_len, &uc);
+                        int bytes = utf8_to_unicode((const unsigned char *)selected, i, sel_len, &uc);
                         if (bytes <= 0) break;
                         minibuf_insert_char(uc);
                         i += bytes;
@@ -530,6 +536,8 @@ int risearch(int f, int n)
     }
     
     matchlen = strlen(pat);
+    sgarbf = TRUE;
+    nanox_request_underbar_redraw();
     return TRUE;
 }
 
@@ -554,6 +562,8 @@ int fisearch(int f, int n)
     }
     
     matchlen = strlen(pat);
+    sgarbf = TRUE;
+    nanox_request_underbar_redraw();
     return TRUE;
 }
 
