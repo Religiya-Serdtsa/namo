@@ -62,10 +62,11 @@ HDR += scraper.mh
 
 MARGO_SRC = $(SRC:.c=.margo)
 
-MARGO_ENTRY ?= main.margo
+MARGO_ENTRY ?= core/main.margo
 MARGO_CLANG_WRAPPER := $(abspath scripts/margo_clang_wrapper.sh)
 MARGO_REAL_CLANG ?= clang
-MARGO_SOURCES := $(wildcard *.margo)
+MODULES = core commands io platform utils features tui
+MARGO_SOURCES := $(foreach mod,$(MODULES),$(wildcard $(mod)/*.margo)) $(wildcard *.margo)
 MARGO_BRIDGED_STEMS ?=
 
 MARGO_PORTED_STEMS := $(basename $(notdir $(MARGO_SOURCES)))
@@ -132,7 +133,7 @@ CFLAGS = -std=c2x -Ofast \
               -fno-exceptions \
               -fdelete-null-pointer-checks \
               -MMD -MP
-CFLAGS += -I.
+CFLAGS += -I. -Iinclude $(foreach mod,$(MODULES),-I$(mod))
 CFLAGS += $(DEFINES)
 LDFLAGS = \
 		-flto=auto -fuse-linker-plugin \
@@ -201,7 +202,8 @@ $(PROGRAM): $(BUILD_OBJ) $(MARGO_SOURCES) $(MARGO)
 
 clean:
 	$(E) "  CLEAN"
-	$(Q) rm -f $(PROGRAM) core lintout makeout tags makefile.bak *.o
+	$(Q) rm -f $(PROGRAM) lintout makeout tags makefile.bak *.o
+	$(Q) rm -f $(foreach mod,$(MODULES),$(mod)/*.o $(mod)/*.d)
 
 # -----------------------------------------------------------------------------
 # Install configuration
@@ -288,9 +290,9 @@ source:
 	@mv makefile makefile.bak
 	@echo "# makefile for emacs, updated `date`" >makefile
 	@echo '' >>makefile
-	@echo SRC=`ls *.margo` >>makefile
-	@echo OBJ=`ls *.margo | sed s/margo$$/o/` >>makefile
-	@echo HDR=`ls *.mh` >>makefile
+	@echo SRC=`find commands core features io platform tui utils -name "*.margo" 2>/dev/null | sed s/margo$$/c/ | sort` >>makefile
+	@echo OBJ=`find commands core features io platform tui utils -name "*.margo" 2>/dev/null | sed s/margo$$/o/ | sort` >>makefile
+	@echo HDR=`find include commands core features io platform tui utils -name "*.mh" 2>/dev/null | sort` >>makefile
 	@echo '' >>makefile
 	@sed -n -e '/^# DO NOT ADD OR MODIFY/,$$p' <makefile.bak >>makefile
 
