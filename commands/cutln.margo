@@ -25,16 +25,16 @@ int cutln_cut_current_line(int f, int n)
 {
     int lines_to_cut = 1;
 
-    if (curbp->b_mode & MDVIEW)
+    if curbp->b_mode & MDVIEW
         return rdonly();
 
-    if (f != FALSE) {
-        if (n <= 0)
+    if f != FALSE {
+        if n <= 0
             return FALSE;
         lines_to_cut = n;
     }
 
-    if (curwp->w_dotp == curbp->b_linep)
+    if curwp->w_dotp == curbp->b_linep
         return FALSE;
 
     cutln_prime_kill_buffer();
@@ -45,7 +45,7 @@ int cutln_cut_current_line(int f, int n)
         int len;
         int has_next_line;
 
-        if (lp == curbp->b_linep)
+        if lp == curbp->b_linep
             break;
 
         curwp->w_dotp = lp;
@@ -71,7 +71,7 @@ int cutln_cut_current_line(int f, int n)
  */
 int cutln_end_cut(int f, int n)
 {
-    if (cutln_active) {
+    if cutln_active {
         int s = killregion(f, n);
         cutln_active = FALSE;
         mlwrite("Region cut.");
@@ -88,7 +88,7 @@ int cutln_end_cut(int f, int n)
 int cutln_start_cut(int f, int n)
 {
     int s = setmark(f, n);
-    if (s == TRUE) {
+    if s == TRUE {
         cutln_active = TRUE;
         mlwrite("Cut selection started. Press Shift+F7 to cut.");
     }
@@ -101,7 +101,7 @@ int cutln_start_cut(int f, int n)
  */
 int cutln_end_copy(int f, int n)
 {
-    if (cutln_active) {
+    if cutln_active {
         int s = copyregion(f, n);
         cutln_active = FALSE;
         mlwrite("Region copied.");
@@ -118,7 +118,7 @@ int cutln_end_copy(int f, int n)
 int cutln_start_copy(int f, int n)
 {
     int s = setmark(f, n);
-    if (s == TRUE) {
+    if s == TRUE {
         cutln_active = TRUE;
         mlwrite("Copy selection started. Press Shift+F6 to copy.");
     }

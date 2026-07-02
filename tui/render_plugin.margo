@@ -11,14 +11,14 @@ static render_plugin_t plugins[MAX_PLUGINS];
 static int plugin_count = 0;
 
 void render_plugin_register(render_plugin_t plugin) {
-    if (plugin_count < MAX_PLUGINS) {
+    if plugin_count < MAX_PLUGINS {
         plugins[plugin_count++] = plugin;
     }
 }
 
 void render_plugin_execute(render_hook_type_t hook_type, render_ctx_t *ctx) {
-    for (int i = 0; i < plugin_count; i++) {
-        if (plugins[i].hook_type == hook_type) {
+    for i = 0; < plugin_count; ++ {
+        if plugins[i].hook_type == hook_type {
             plugins[i].hook_fn(ctx);
         }
     }

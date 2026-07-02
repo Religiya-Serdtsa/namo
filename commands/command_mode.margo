@@ -67,25 +67,25 @@ static struct buffer *find_buffer_by_path(const char *path)
 {
     struct buffer *bp;
 
-    if (!path || !*path)
-        return NULL;
+    if !path || !*path
+        return null;
 
     for (bp = bheadp; bp != NULL; bp = bp->b_bufp) {
         if (strcmp(bp->b_fname, path) == 0)
             return bp;
     }
 
-    return NULL;
+    return null;
 }
 
 static int find_slot_for_buffer(struct buffer *bp)
 {
     int max_slots = nanox_slot_capacity();
 
-    if (!bp || !bp->b_fname[0])
+    if !bp || !bp->b_fname[0]
         return -1;
 
-    for (int i = 0; i < max_slots; ++i) {
+    for i = 0; < max_slots; ++ {
         if (file_reserve[i][0] && strcmp(file_reserve[i], bp->b_fname) == 0)
             return i;
     }
@@ -97,11 +97,11 @@ static bool path_is_reserved_elsewhere(const char *path, int current_slot)
 {
     int max_slots = nanox_slot_capacity();
 
-    if (!path || !*path)
+    if !path || !*path
         return false;
 
-    for (int i = 0; i < max_slots; ++i) {
-        if (i == current_slot || !file_reserve[i][0])
+    for i = 0; < max_slots; ++ {
+        if i == current_slot || !file_reserve[i][0]
             continue;
         if (strcmp(file_reserve[i], path) == 0)
             return true;
@@ -118,8 +118,8 @@ static const char *find_nextfile_startup_target(const char *start_path, int slot
     int remaining = (n > 0) ? n : -n;
     bool found_start = false;
 
-    if (!start_path || !*start_path || total == 0)
-        return NULL;
+    if !start_path || !*start_path || total == 0
+        return null;
 
     for (size_t i = 0; i < total; ++i) {
         const char *path = nanox_startup_file_at(i);
@@ -130,8 +130,8 @@ static const char *find_nextfile_startup_target(const char *start_path, int slot
         }
     }
 
-    if (!found_start)
-        return NULL;
+    if !found_start
+        return null;
 
     size_t idx = start_idx;
     for (size_t scanned = 0; scanned < total * 2; ++scanned) {
@@ -139,64 +139,64 @@ static const char *find_nextfile_startup_target(const char *start_path, int slot
             ? ((idx + 1) % total)
             : ((idx + total - 1) % total);
 
-        if (idx == start_idx)
+        if idx == start_idx
             break;
 
         const char *candidate = nanox_startup_file_at(idx);
-        if (!candidate || !*candidate)
+        if !candidate || !*candidate
             continue;
         if (path_is_reserved_elsewhere(candidate, slot))
             continue;
 
-        if (--remaining == 0)
+        if --remaining == 0
             return candidate;
     }
 
-    return NULL;
+    return null;
 }
 
 static void execute_nextfile(int n) {
-    if (n == 0) {
+    if n == 0 {
         mlwrite("nextfile step cannot be 0");
         return;
     }
 
     int max_slots = nanox_slot_capacity();
     int slot = -1;
-    struct buffer *start_bp = NULL;
-    struct buffer *curr = NULL;
-    const char *start_path = NULL;
-    const char *target_path = NULL;
+    struct buffer *start_bp = null;
+    struct buffer *curr = null;
+    const char *start_path = null;
+    const char *target_path = null;
     int steps = (n > 0) ? n : -n;
 
-    if (last_slot_index >= 0 && last_slot_index < max_slots && file_reserve[last_slot_index][0]) {
+    if last_slot_index >= 0 && last_slot_index < max_slots && file_reserve[last_slot_index][0] {
         start_bp = find_buffer_by_path(file_reserve[last_slot_index]);
-        if (start_bp != NULL) {
+        if start_bp != NULL {
             slot = last_slot_index;
             start_path = file_reserve[last_slot_index];
         }
     }
 
-    if (start_bp == NULL) {
+    if start_bp == NULL {
         slot = find_slot_for_buffer(curbp);
-        if (slot >= 0) {
+        if slot >= 0 {
             start_bp = curbp;
             start_path = curbp->b_fname;
         }
     }
 
-    if (slot < 0 || start_path == NULL || start_path[0] == '\0') {
+    if slot < 0 || start_path == NULL || start_path[0] == '\0' {
         mlwrite("nextfile requires an active slot-backed file");
         return;
     }
 
     target_path = find_nextfile_startup_target(start_path, slot, n);
-    if (target_path != NULL) {
+    if target_path != NULL {
         mystrscpy(file_reserve[slot], target_path, PATH_MAX);
         last_slot_index = slot;
 
         curr = find_buffer_by_path(target_path);
-        if (curr != NULL) {
+        if curr != NULL {
             swbuffer(curr);
         } else if (getfile(file_reserve[slot], TRUE) != TRUE) {
             mlwrite("Could not open: %s", file_reserve[slot]);
@@ -207,7 +207,7 @@ static void execute_nextfile(int n) {
         return;
     }
 
-    if (start_bp == NULL) {
+    if start_bp == NULL {
         mlwrite("nextfile requires an active slot-backed file");
         return;
     }
@@ -215,14 +215,14 @@ static void execute_nextfile(int n) {
     curr = start_bp;
 
     while (steps > 0) {
-        if (n > 0) {
+        if n > 0 {
             /* Forward */
             curr = curr->b_bufp;
             if (curr == NULL) curr = bheadp;
         } else {
             /* Backward */
             struct buffer *scan = bheadp;
-            if (curr == bheadp) {
+            if curr == bheadp {
                 while (scan->b_bufp != NULL) scan = scan->b_bufp;
                 curr = scan;
             } else {
@@ -231,7 +231,7 @@ static void execute_nextfile(int n) {
             }
         }
 
-        if (curr == start_bp) {
+        if curr == start_bp {
             mlwrite("No more files available outside slots");
             return;
         }
@@ -244,7 +244,7 @@ static void execute_nextfile(int n) {
         }
     }
 
-    if (slot >= 0 && slot < max_slots) {
+    if slot >= 0 && slot < max_slots {
         mystrscpy(file_reserve[slot], curr->b_fname, PATH_MAX);
     }
     last_slot_index = slot;
@@ -254,7 +254,7 @@ static void execute_nextfile(int n) {
 
 static void command_mode_write_segment(const char *text, const HighlightStyle *style, int *col)
 {
-    if (!text || !*text || !style || !col || !term)
+    if !text || !*text || !style || !col || !term
         return;
 
     TTsetcolors(style->fg, style->bg);
@@ -267,10 +267,10 @@ static void command_mode_write_segment(const char *text, const HighlightStyle *s
     while (idx < len && *col < term->t_ncol) {
         unicode_t uc;
         int consumed = utf8_to_unicode(bytes, idx, len, &uc);
-        if (consumed <= 0)
+        if consumed <= 0
             break;
         int width = mystrnlen_raw_w(uc);
-        if (*col + width > term->t_ncol)
+        if *col + width > term->t_ncol
             break;
         TTputc(uc);
         *col += width;
@@ -280,7 +280,7 @@ static void command_mode_write_segment(const char *text, const HighlightStyle *s
 
 void command_mode_draw_status(const char *status, const char *input, bool show_cursor)
 {
-    if (!discmd || !term)
+    if !discmd || !term
         return;
 
     HighlightStyle normal = colorscheme_get(HL_NORMAL);
@@ -297,7 +297,7 @@ void command_mode_draw_status(const char *status, const char *input, bool show_c
     if (status && *status)
         command_mode_write_segment(status, &status_style, &col);
 
-    if (input && *input) {
+    if input && *input {
         if (status && *status)
             command_mode_write_segment(" ", &status_style, &col);
         command_mode_write_segment(input, &input_style, &col);
@@ -349,7 +349,7 @@ static void execute_goto_line(int line_num) {
     curwp->w_dotp = lforw(curbp->b_linep);
     curwp->w_doto = 0;
     
-    for (int i = 1; i < line_num && lforw(curwp->w_dotp) != curbp->b_linep; i++) {
+    for i = 1; < line_num && lforw(curwp->w_dotp) != curbp->b_linep; ++ {
         curwp->w_dotp = lforw(curwp->w_dotp);
     }
     
@@ -372,7 +372,7 @@ static void execute_help(void) {
 /* Parse and execute command */
 static void command_mode_trim(char *text)
 {
-    if (!text)
+    if !text
         return;
 
     char *start = text;
@@ -416,12 +416,12 @@ static int command_mode_handle_build_command(void) {
     char cmd_str[PATH_MAX * 2 + 128];
     int found = FALSE;
 
-    if (curbp->b_fname && curbp->b_fname[0]) {
+    if curbp->b_fname && curbp->b_fname[0] {
         char abs_path[PATH_MAX];
         if (realpath(curbp->b_fname, abs_path)) {
             char *last_slash = strrchr(abs_path, '/');
-            if (last_slash) {
-                if (last_slash == abs_path) {
+            if last_slash {
+                if last_slash == abs_path {
                     strcpy(dir, "/");
                 } else {
                     *last_slash = '\0';
@@ -433,7 +433,7 @@ static int command_mode_handle_build_command(void) {
             }
         } else {
             char *last_slash = strrchr(curbp->b_fname, '/');
-            if (last_slash) {
+            if last_slash {
                 size_t len = last_slash - curbp->b_fname;
                 if (len >= sizeof(dir)) len = sizeof(dir) - 1;
                 memcpy(dir, curbp->b_fname, len);
@@ -448,7 +448,7 @@ static int command_mode_handle_build_command(void) {
             dir[0] = '\0';
     }
 
-    if (dir[0] != '\0') {
+    if dir[0] != '\0' {
         char last_dir[PATH_MAX] = "";
         while (strcmp(dir, last_dir) != 0) {
             strcpy(last_dir, dir);
@@ -492,8 +492,8 @@ static int command_mode_handle_build_command(void) {
 
             // Climb up
             char *last_slash = strrchr(dir, '/');
-            if (last_slash) {
-                if (last_slash == dir) {
+            if last_slash {
+                if last_slash == dir {
                     strcpy(dir, "/");
                 } else {
                     *last_slash = '\0';
@@ -505,9 +505,9 @@ static int command_mode_handle_build_command(void) {
     }
 
     // Fallback: single file compilation based on extension
-    if (!found && curbp->b_fname && curbp->b_fname[0]) {
+    if !found && curbp->b_fname && curbp->b_fname[0] {
         const char *ext = strrchr(curbp->b_fname, '.');
-        if (ext) {
+        if ext {
             char basename_no_ext[PATH_MAX];
             strcpy(basename_no_ext, curbp->b_fname);
             char *ext_dot = strrchr(basename_no_ext, '.');
@@ -533,7 +533,7 @@ static int command_mode_handle_build_command(void) {
         }
     }
 
-    if (!found) {
+    if !found {
         mlwrite("No build configuration (Cargo.toml, Makefile, CMakeLists.txt) or supported single source file found.");
         return FALSE;
     }
@@ -562,7 +562,7 @@ static int command_mode_handle_build_command(void) {
 }
 
 static void execute_command(const char *input) {
-    if (input == NULL || *input == '\0') {
+    if input == NULL || *input == '\0' {
         mlwrite("Empty command");
         return;
     }
@@ -571,13 +571,13 @@ static void execute_command(const char *input) {
     mystrscpy(buffer, input, sizeof(buffer));
     command_mode_trim(buffer);
 
-    if (buffer[0] == '\0') {
+    if buffer[0] == '\0' {
         mlwrite("Empty command");
         return;
     }
 
     char *cmd = buffer;
-    if (cmd[0] == ':') {
+    if cmd[0] == ':' {
         cmd++;
         while (*cmd && isspace((unsigned char)*cmd)) cmd++;
     }
@@ -632,7 +632,7 @@ static void execute_command(const char *input) {
         int n = 1;
         char *args = cmd + 8;
         while (*args && isspace((unsigned char)*args)) args++;
-        if (*args != '\0') {
+        if *args != '\0' {
             n = atoi(args);
         }
         execute_nextfile(n);
@@ -648,7 +648,7 @@ static void execute_command(const char *input) {
             args += 6;
             while (*args && isspace((unsigned char)*args)) args++;
             int count = atoi(args);
-            if (count > 1) {
+            if count > 1 {
                 multi_cursor_create(count);
                 mlwrite("Created %d cursors", count);
             }
@@ -656,7 +656,7 @@ static void execute_command(const char *input) {
             args += 6;
             while (*args && isspace((unsigned char)*args)) args++;
             int index = atoi(args);
-            if (index >= 1) {
+            if index >= 1 {
                 if (multi_cursor_select(index)) {
                     mlwrite("Selected cursor %d", index);
                 } else {
@@ -696,7 +696,7 @@ static void execute_command(const char *input) {
             } else {
                 mlwrite("File: %s (could not resolve realpath)", curbp->b_fname);
             }
-        } else if (*args == '\0') {
+        } else if *args == '\0' {
             mlwrite("File: %s", curbp->b_fname[0] ? curbp->b_fname : "[No Name]");
         } else {
             mlwrite("Usage: filename [realpath]");
@@ -713,7 +713,7 @@ static void execute_command(const char *input) {
         }
     }
     
-    if (is_number) {
+    if is_number {
         int line_num = atoi(cmd);
         execute_goto_line(line_num);
     }
@@ -757,13 +757,13 @@ static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_s
     size_t idx = 0;
     const char *p = *pp;
 
-    if (dest_sz == 0)
+    if dest_sz == 0
         return FALSE;
 
     while (*p && *p != delim) {
         unsigned char c = (unsigned char)*p++;
-        if (c == '\\') {
-            if (*p == '\0') {
+        if c == '\\' {
+            if *p == '\0' {
                 mlwrite("Unterminated %s", label);
                 return FALSE;
             }
@@ -773,7 +773,7 @@ static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_s
             case 't': c = '\t'; break;
             case 'r': c = '\r'; break;
             case '\\':
-                if (idx + 2 >= dest_sz) {
+                if idx + 2 >= dest_sz {
                     mlwrite("%s too long", label);
                     return FALSE;
                 }
@@ -784,7 +784,7 @@ static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_s
                 /* Keep the backslash for regex escapes (\., \(, \), etc.)
                  * and for escaped delimiters (\/).  PCRE2 will interpret
                  * them as literal characters. */
-                if (idx + 2 >= dest_sz) {
+                if idx + 2 >= dest_sz {
                     mlwrite("%s too long", label);
                     return FALSE;
                 }
@@ -793,14 +793,14 @@ static int read_sed_chunk(const char **pp, char delim, char *dest, size_t dest_s
                 continue;
             }
         }
-        if (idx + 1 >= dest_sz) {
+        if idx + 1 >= dest_sz {
             mlwrite("%s too long", label);
             return FALSE;
         }
         dest[idx++] = (char)c;
     }
 
-    if (*p != delim) {
+    if *p != delim {
         mlwrite("Unterminated %s", label);
         return FALSE;
     }
@@ -820,21 +820,21 @@ static int parse_sed_expression(const char *expr, char *pattern, size_t pat_sz,
     while (*p && isspace((unsigned char)*p))
         p++;
 
-    if (*p != 's' && *p != 'S') {
+    if *p != 's' && *p != 'S' {
         mlwrite("Expression must begin with s/");
         return FALSE;
     }
 
     p++;
     char delim = *p++;
-    if (delim == '\0') {
+    if delim == '\0' {
         mlwrite("Missing delimiter");
         return FALSE;
     }
 
     if (!read_sed_chunk(&p, delim, pattern, pat_sz, "pattern"))
         return FALSE;
-    if (pattern[0] == '\0') {
+    if pattern[0] == '\0' {
         mlwrite("Empty pattern");
         return FALSE;
     }
@@ -871,7 +871,7 @@ static int parse_sed_expression(const char *expr, char *pattern, size_t pat_sz,
 
 static size_t utf8_advance(const char *text, size_t len, size_t offset)
 {
-    if (offset >= len)
+    if offset >= len
         return len;
 
     size_t next = offset + 1;
@@ -886,23 +886,23 @@ static void build_preview(const char *text, size_t len, char *dest, size_t dest_
     size_t di = 0;
     size_t i = 0;
 
-    if (dest_sz == 0)
+    if dest_sz == 0
         return;
 
     while (i < len && di < dest_sz - 1) {
         unsigned char c = (unsigned char)text[i++];
-        if (c == '\n') {
-            if (di + 2 >= dest_sz)
+        if c == '\n' {
+            if di + 2 >= dest_sz
                 break;
             dest[di++] = '\\';
             dest[di++] = 'n';
-        } else if (c == '\t') {
-            if (di + 2 >= dest_sz)
+        } else if c == '\t' {
+            if di + 2 >= dest_sz
                 break;
             dest[di++] = '\\';
             dest[di++] = 't';
-        } else if (c < 0x20 || c == 0x7F) {
-            if (di + 4 >= dest_sz)
+        } else if c < 0x20 || c == 0x7F {
+            if di + 4 >= dest_sz
                 break;
             dest[di++] = '\\';
             dest[di++] = 'x';
@@ -913,7 +913,7 @@ static void build_preview(const char *text, size_t len, char *dest, size_t dest_
         }
     }
 
-    if (i < len && di + 4 < dest_sz) {
+    if i < len && di + 4 < dest_sz {
         dest[di++] = '.';
         dest[di++] = '.';
         dest[di++] = '.';
@@ -929,8 +929,8 @@ static char *splice_text(char *text, size_t text_len, size_t start, size_t end,
     size_t next_len = text_len - (end - start) + repl_len;
     char *result = malloc(next_len + 1);
 
-    if (result == NULL)
-        return NULL;
+    if result == NULL
+        return null;
 
     if (start > 0)
         memcpy(result, text, start);
@@ -951,7 +951,7 @@ int line_index_from_top(struct line *target)
     int idx = 0;
 
     while (lp != curbp->b_linep) {
-        if (lp == target)
+        if lp == target
             return idx;
         lp = lforw(lp);
         idx++;
@@ -969,14 +969,14 @@ static void restore_cursor_to_index(int index, int offset)
         idx++;
     }
 
-    if (lp == curbp->b_linep) {
+    if lp == curbp->b_linep {
         struct line *last = lback(lp);
         if (last != curbp->b_linep)
             lp = last;
     }
 
     curwp->w_dotp = lp;
-    if (lp != curbp->b_linep) {
+    if lp != curbp->b_linep {
         if (offset > lp->used)
             offset = lp->used;
         curwp->w_doto = offset;
@@ -988,7 +988,7 @@ static void restore_cursor_to_index(int index, int offset)
 
 void restore_saved_cursor(int index, int offset)
 {
-    if (index < 0) {
+    if index < 0 {
         curwp->w_flag |= WFMOVE;
         return;
     }
@@ -1014,21 +1014,21 @@ static struct line *command_mode_line_at_number(int number)
         lp = lforw(lp);
         idx++;
     }
-    if (lp == curbp->b_linep)
-        return NULL;
+    if lp == curbp->b_linep
+        return null;
     return lp;
 }
 
 static int command_mode_parse_line_range(const char *text, int *start_line, int *end_line)
 {
-    if (!text || !start_line || !end_line)
+    if !text || !start_line || !end_line
         return FALSE;
 
     char buffer[CMD_BUF_SIZE];
     mystrscpy(buffer, text, sizeof(buffer));
 
     char *dash = strchr(buffer, '-');
-    if (!dash)
+    if !dash
         return FALSE;
 
     *dash = '\0';
@@ -1038,18 +1038,18 @@ static int command_mode_parse_line_range(const char *text, int *start_line, int 
     command_mode_trim(left);
     command_mode_trim(right);
 
-    if (*left == '\0' || *right == '\0')
+    if *left == '\0' || *right == '\0'
         return FALSE;
 
     char *endptr;
     long start = strtol(left, &endptr, 10);
-    if (*endptr != '\0')
+    if *endptr != '\0'
         return FALSE;
     long end = strtol(right, &endptr, 10);
-    if (*endptr != '\0')
+    if *endptr != '\0'
         return FALSE;
 
-    if (start > end) {
+    if start > end {
         long tmp = start;
         start = end;
         end = tmp;
@@ -1070,9 +1070,9 @@ static int command_mode_get_indent(const struct line *lp)
     int col = 0;
     int i;
     int len = llength(lp);
-    for (i = 0; i < len; ++i) {
+    for i = 0; < len; ++ {
         int c = lgetc(lp, i);
-        if (c != ' ' && c != '\t')
+        if c != ' ' && c != '\t'
             break;
         if (c == '\t')
             col = nextab(col);
@@ -1086,9 +1086,9 @@ static int command_mode_is_blank_line(const struct line *lp)
 {
     int i;
     int len = llength(lp);
-    for (i = 0; i < len; ++i) {
+    for i = 0; < len; ++ {
         int c = lgetc(lp, i);
-        if (c != ' ' && c != '\t')
+        if c != ' ' && c != '\t'
             return FALSE;
     }
     return TRUE;
@@ -1114,7 +1114,7 @@ static int command_mode_detect_indent_step(void)
     for (lp = lforw(curbp->b_linep); lp != curbp->b_linep; lp = lforw(lp)) {
         if (!command_mode_is_blank_line(lp)) {
             int ind = command_mode_get_indent(lp);
-            if (prev_indent >= 0 && ind > prev_indent) {
+            if prev_indent >= 0 && ind > prev_indent {
                 int delta = ind - prev_indent;
                 if (delta >= 1 && delta <= 8)
                     freq[delta]++;
@@ -1123,8 +1123,8 @@ static int command_mode_detect_indent_step(void)
         }
     }
 
-    for (i = 1; i <= 8; i++) {
-        if (freq[i] > best_count) {
+    for i = 1; <= 8; ++ {
+        if freq[i] > best_count {
             best_count = freq[i];
             best = i;
         }
@@ -1144,11 +1144,11 @@ static int command_mode_line_starts_with_closing_block(const struct line *lp)
 
     while (i < len) {
         int c = lgetc(lp, i);
-        if (c != ' ' && c != '\t')
+        if c != ' ' && c != '\t'
             break;
         i++;
     }
-    if (i >= len)
+    if i >= len
         return FALSE;
 
     {
@@ -1166,7 +1166,7 @@ static int command_mode_line_starts_with_closing_block(const struct line *lp)
         i++;
     }
     word[wlen] = '\0';
-    if (wlen == 0 || ext == NULL)
+    if wlen == 0 || ext == NULL
         return FALSE;
 
     if (strcasecmp(ext, ".sh") == 0 || strcasecmp(ext, ".bash") == 0) {
@@ -1194,7 +1194,7 @@ static int command_mode_line_ends_with_open_block(const struct line *lp)
 
     for (i = len - 1; i >= 0; --i) {
         int c = lgetc(lp, i);
-        if (c == ' ' || c == '\t')
+        if c == ' ' || c == '\t'
             continue;
         return (c == '{' || c == '(' || c == '[') ? TRUE : FALSE;
     }
@@ -1212,16 +1212,16 @@ static int command_mode_set_indent_on_line(struct line *lp, int target)
 
     while (curwp->w_doto < llength(curwp->w_dotp)) {
         ch = lgetc(curwp->w_dotp, curwp->w_doto);
-        if (ch != ' ' && ch != '\t')
+        if ch != ' ' && ch != '\t'
             break;
         if (ldelchar(1, FALSE) != TRUE)
             return FALSE;
     }
 
-    if (target > 0) {
-        if (nanox_cfg.soft_tab) {
+    if target > 0 {
+        if nanox_cfg.soft_tab {
             int i;
-            for (i = 0; i < target; ++i) {
+            for i = 0; < target; ++ {
                 if (linsert(1, ' ') != TRUE)
                     return FALSE;
             }
@@ -1254,12 +1254,12 @@ static int command_mode_apply_indent_lint(void)
     int original_index = line_index_from_top(curwp->w_dotp);
     int original_offset = curwp->w_doto;
     struct line *lp;
-    struct line *prev_code = NULL;
+    struct line *prev_code = null;
 
-    if (curbp->b_mode & MDVIEW)
+    if curbp->b_mode & MDVIEW
         return rdonly();
 
-    if (total <= 0) {
+    if total <= 0 {
         mlwrite("Buffer is empty");
         return FALSE;
     }
@@ -1317,7 +1317,7 @@ static int command_mode_parse_numbering_prefix(const unsigned char *text, int le
     j = i;
     while (j < len && isdigit(text[j]))
         j++;
-    if (j == i || j >= len)
+    if j == i || j >= len
         return FALSE;
 
     delim = (char)text[j];
@@ -1330,9 +1330,9 @@ static int command_mode_parse_numbering_prefix(const unsigned char *text, int le
     if (content_start)
         *content_start = k;
 
-    if (suffix && suffix_sz > 0) {
+    if suffix && suffix_sz > 0 {
         suffix[si++] = delim;
-        if (k == j + 1) {
+        if k == j + 1 {
             if (si < suffix_sz - 1)
                 suffix[si++] = ' ';
         } else {
@@ -1350,7 +1350,7 @@ static int command_mode_line_number_of(struct line *target)
     int line = 1;
     struct line *lp = lforw(curbp->b_linep);
     while (lp != curbp->b_linep) {
-        if (lp == target)
+        if lp == target
             return line;
         lp = lforw(lp);
         line++;
@@ -1369,7 +1369,7 @@ static int command_mode_guess_numbering_suffix(int start_line, int end_line, cha
     int candidate_count = 0;
     int best = -1;
 
-    if (!lp || !suffix || suffix_sz == 0)
+    if !lp || !suffix || suffix_sz == 0
         return FALSE;
 
     while (lp != curbp->b_linep && line <= end_line) {
@@ -1377,15 +1377,15 @@ static int command_mode_guess_numbering_suffix(int start_line, int end_line, cha
         if (command_mode_parse_numbering_prefix(ltext(lp), llength(lp), NULL, NULL, current, sizeof(current))) {
             int i;
             int found = -1;
-            for (i = 0; i < candidate_count; ++i) {
+            for i = 0; < candidate_count; ++ {
                 if (strcmp(candidates[i].value, current) == 0) {
                     found = i;
                     break;
                 }
             }
-            if (found >= 0) {
+            if found >= 0 {
                 candidates[found].count++;
-            } else if (candidate_count < 8) {
+            } else if candidate_count < 8 {
                 mystrscpy(candidates[candidate_count].value, current, sizeof(candidates[candidate_count].value));
                 candidates[candidate_count].count = 1;
                 candidate_count++;
@@ -1395,14 +1395,14 @@ static int command_mode_guess_numbering_suffix(int start_line, int end_line, cha
         line++;
     }
 
-    if (candidate_count == 0) {
+    if candidate_count == 0 {
         mystrscpy(suffix, ". ", suffix_sz);
         return TRUE;
     }
 
     {
         int i;
-        for (i = 0; i < candidate_count; ++i) {
+        for i = 0; < candidate_count; ++ {
             if (best < 0 || candidates[i].count > candidates[best].count)
                 best = i;
         }
@@ -1421,10 +1421,10 @@ int command_mode_apply_numbering_range(int start_line, int end_line, int reverse
     struct line *lp;
     char suffix[8];
 
-    if (curbp->b_mode & MDVIEW)
+    if curbp->b_mode & MDVIEW
         return rdonly();
 
-    if (total <= 0) {
+    if total <= 0 {
         mlwrite("Buffer is empty");
         return FALSE;
     }
@@ -1437,7 +1437,7 @@ int command_mode_apply_numbering_range(int start_line, int end_line, int reverse
         start_line = total;
     if (end_line > total)
         end_line = total;
-    if (start_line > end_line) {
+    if start_line > end_line {
         int tmp = start_line;
         start_line = end_line;
         end_line = tmp;
@@ -1449,7 +1449,7 @@ int command_mode_apply_numbering_range(int start_line, int end_line, int reverse
     }
 
     lp = command_mode_line_at_number(start_line);
-    if (!lp) {
+    if !lp {
         mlwrite("Invalid range");
         return FALSE;
     }
@@ -1468,7 +1468,7 @@ int command_mode_apply_numbering_range(int start_line, int end_line, int reverse
         char *new_text;
         struct line *next = lforw(lp);
 
-        if (!text) {
+        if !text {
             restore_saved_cursor(original_index, original_offset);
             mlwrite("%%Out of memory");
             return FALSE;
@@ -1483,7 +1483,7 @@ int command_mode_apply_numbering_range(int start_line, int end_line, int reverse
         number_len = (int)strlen(number_buf);
         new_len = indent_end + number_len + suffix_len + (len - content_start);
         new_text = malloc((size_t)new_len + 1);
-        if (!new_text) {
+        if !new_text {
             free(text);
             restore_saved_cursor(original_index, original_offset);
             mlwrite("%%Out of memory");
@@ -1527,7 +1527,7 @@ static int command_mode_handle_set_nr_command(const char *input)
     const char *name1 = "viblock-set-nr";
     const char *name2 = "vibloc-set-nr";
     size_t cmd_len = 0;
-    const char *args = NULL;
+    const char *args = null;
     char range[64];
     char opt1[32];
     int parsed;
@@ -1549,7 +1549,7 @@ static int command_mode_handle_set_nr_command(const char *input)
         return FALSE;
     while (*args && isspace((unsigned char)*args))
         args++;
-    if (*args == '\0') {
+    if *args == '\0' {
         viblock_start(BLOCK_MODE_SET_NR, FALSE);
         return TRUE;
     }
@@ -1562,7 +1562,7 @@ static int command_mode_handle_set_nr_command(const char *input)
         viblock_start(BLOCK_MODE_SET_NR, TRUE);
         return TRUE;
     }
-    if (parsed < 1 || parsed > 2) {
+    if parsed < 1 || parsed > 2 {
         mlwrite("[viblock-set-nr syntax: viblock-set-nr start-end [rev]]");
         return TRUE;
     }
@@ -1577,7 +1577,7 @@ static int command_mode_handle_set_nr_command(const char *input)
         mlwrite("[viblock-set-nr range must be start-end]");
         return TRUE;
     }
-    if (parsed == 2) {
+    if parsed == 2 {
         if (strcasecmp(opt1, "rev") == 0 || strcasecmp(opt1, "reverse") == 0) {
             reverse = TRUE;
         } else {
@@ -1604,7 +1604,7 @@ int command_mode_swap_ranges(int first_start, int first_end, int second_start, i
     int cursor_line = command_mode_line_number_of(curwp->w_dotp);
     int cursor_off = curwp->w_doto;
 
-    if (!a_start || !a_end || !b_start || !b_end) {
+    if !a_start || !a_end || !b_start || !b_end {
         mlwrite("Invalid line range");
         return FALSE;
     }
@@ -1618,7 +1618,7 @@ int command_mode_swap_ranges(int first_start, int first_end, int second_start, i
     lforw(pre_a) = b_start;
     lback(b_start) = pre_a;
 
-    if (adjacent) {
+    if adjacent {
         lforw(b_end) = a_start;
         lback(a_start) = b_end;
     } else {
@@ -1659,7 +1659,7 @@ static int command_mode_handle_flip_command(const char *input)
         return FALSE;
     while (*args && isspace((unsigned char)*args))
         args++;
-    if (*args == '\0') {
+    if *args == '\0' {
         mlwrite("[viblock-flip syntax: viblock-flip a-b c-d]");
         return TRUE;
     }
@@ -1668,7 +1668,7 @@ static int command_mode_handle_flip_command(const char *input)
     range2[0] = '\0';
     extra[0] = '\0';
     parsed = sscanf(args, "%63s %63s %31s", range1, range2, extra);
-    if (parsed != 2) {
+    if parsed != 2 {
         mlwrite("[viblock-flip syntax: viblock-flip a-b c-d]");
         return TRUE;
     }
@@ -1679,7 +1679,7 @@ static int command_mode_handle_flip_command(const char *input)
     }
 
     total = command_mode_total_lines();
-    if (total <= 0) {
+    if total <= 0 {
         mlwrite("Buffer is empty");
         return TRUE;
     }
@@ -1694,7 +1694,7 @@ static int command_mode_handle_flip_command(const char *input)
         return TRUE;
     }
 
-    if (start2 < start1) {
+    if start2 < start1 {
         int swap_temp;
         swap_temp = start1; start1 = start2; start2 = swap_temp;
         swap_temp = end1; end1 = end2; end2 = swap_temp;
@@ -1720,10 +1720,10 @@ int line_offset_for_column(struct line *lp, int target_col, int *actual_col)
         int bytes = utf8_to_unicode(ltext(lp), idx, len, &c);
         int next_col;
 
-        if (bytes <= 0)
+        if bytes <= 0
             break;
         next_col = next_column(col, c, tab_width);
-        if (next_col > target_col)
+        if next_col > target_col
             break;
         idx += bytes;
         col = next_col;
@@ -1754,7 +1754,7 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
     size_t search_offset = 0;
     int changed = FALSE;
 
-    if (text == NULL) {
+    if text == NULL {
         mlwrite("%%Out of memory");
         return FALSE;
     }
@@ -1763,8 +1763,8 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
     text[text_len] = '\0';
 
     while (search_offset <= text_len) {
-        int rc = pcre2_match(code, (PCRE2_SPTR)text, text_len, search_offset, 0, match_data, NULL);
-        if (rc < 0)
+        int rc = pcre2_match(code, (PCRE2_SPTR)text, text_len, search_offset, 0, match_data, null);
+        if rc < 0
             break;
 
         PCRE2_SIZE *ovector = pcre2_get_ovector_pointer(match_data);
@@ -1774,7 +1774,7 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
         int zero_width = (match_start == match_end);
 
         int accept = is_global;
-        if (!is_global) {
+        if !is_global {
             char match_preview[REPLACE_PREVIEW];
             char repl_preview[REPLACE_PREVIEW];
             char prompt[REPLACE_PREVIEW * 2 + 32];
@@ -1792,12 +1792,12 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
 
         size_t next_offset = match_end;
 
-        if (accept == TRUE) {
+        if accept == TRUE {
             changed = TRUE;
             (*total_count)++;
             size_t new_len;
             char *new_text = splice_text(text, text_len, match_start, match_end, replacement, repl_len, &new_len);
-            if (new_text == NULL) {
+            if new_text == NULL {
                 mlwrite("%%Out of memory");
                 free(text);
                 return FALSE;
@@ -1807,19 +1807,19 @@ static int apply_regex_to_line(struct line *lp, pcre2_code *code, pcre2_match_da
             next_offset = match_start + repl_len;
         }
 
-        if (zero_width && next_offset == match_start) {
+        if zero_width && next_offset == match_start {
             next_offset = utf8_advance(text, text_len, match_start);
             if (next_offset == match_start)
                 next_offset++;
         }
 
-        if (next_offset > text_len)
+        if next_offset > text_len
             break;
 
         search_offset = next_offset;
     }
 
-    if (changed) {
+    if changed {
         curwp->w_dotp = lp;
         curwp->w_doto = 0;
         ldelete(llength(lp), FALSE);
@@ -1849,14 +1849,14 @@ int sed_replace_command(int f, int n)
     uint32_t options = PCRE2_UTF | PCRE2_UCP | PCRE2_MULTILINE;
     size_t repl_len;
 
-    if (curbp->b_mode & MDVIEW) {
+    if curbp->b_mode & MDVIEW {
         int ro = rdonly();
         nanox_request_underbar_redraw();
         return ro;
     }
 
     status = minibuf_input("sed replace: ", expr, sizeof(expr));
-    if (status != TRUE) {
+    if status != TRUE {
         nanox_request_underbar_redraw();
         return status;
     }
@@ -1869,8 +1869,8 @@ int sed_replace_command(int f, int n)
     if (is_caseless)
         options |= PCRE2_CASELESS;
 
-    code = pcre2_compile((PCRE2_SPTR)pattern, PCRE2_ZERO_TERMINATED, options, &errornumber, &erroffset, NULL);
-    if (code == NULL) {
+    code = pcre2_compile((PCRE2_SPTR)pattern, PCRE2_ZERO_TERMINATED, options, &errornumber, &erroffset, null);
+    if code == NULL {
         char errbuf[128];
         pcre2_get_error_message(errornumber, (PCRE2_UCHAR *)errbuf, sizeof(errbuf));
         mlwrite("Regex error at %d: %s", (int)erroffset, errbuf);
@@ -1878,8 +1878,8 @@ int sed_replace_command(int f, int n)
         return FALSE;
     }
 
-    match_data = pcre2_match_data_create_from_pattern(code, NULL);
-    if (match_data == NULL) {
+    match_data = pcre2_match_data_create_from_pattern(code, null);
+    if match_data == NULL {
         pcre2_code_free(code);
         mlwrite("%%Out of memory");
         nanox_request_underbar_redraw();

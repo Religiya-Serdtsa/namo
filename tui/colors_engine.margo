@@ -29,14 +29,14 @@ static void rgb_to_hsl(double r, double g, double b, double *h, double *s, doubl
     double min = fmin(fmin(r, g), b);
     *l = (max + min) / 2.0;
 
-    if (max == min) {
+    if max == min {
         *h = *s = 0.0;
     } else {
         double d = max - min;
         *s = (*l > 0.5) ? d / (2.0 - max - min) : d / (max + min);
-        if (max == r) {
+        if max == r {
             *h = (g - b) / d + (g < b ? 6.0 : 0.0);
-        } else if (max == g) {
+        } else if max == g {
             *h = (b - r) / d + 2.0;
         } else {
             *h = (r - g) / d + 4.0;
@@ -48,14 +48,14 @@ static void rgb_to_hsl(double r, double g, double b, double *h, double *s, doubl
 static double hue_to_rgb(double p, double q, double t) {
     if (t < 0.0) t += 1.0;
     if (t > 1.0) t -= 1.0;
-    if (t < 1.0/6.0) return p + (q - p) * 6.0 * t;
-    if (t < 1.0/2.0) return q;
-    if (t < 2.0/3.0) return p + (q - p) * (2.0/3.0 - t) * 6.0;
+    if t < 1.0/6.0 return p + (q - p) * 6.0 * t;
+    if t < 1.0/2.0 return q;
+    if t < 2.0/3.0 return p + (q - p) * (2.0/3.0 - t) * 6.0;
     return p;
 }
 
 static void hsl_to_rgb(double h, double s, double l, double *r, double *g, double *b) {
-    if (s == 0.0) {
+    if s == 0.0 {
         *r = *g = *b = l;
     } else {
         double q = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
@@ -114,7 +114,7 @@ static void apply_colorblind(ColorData *c, const char *cb_type) {
 
 static void execute_op(ColorData *c, const char *op) {
     while (*op && isspace((unsigned char)*op)) op++;
-    if (!*op) return;
+    if !*op return;
 
     if (strncmp(op, "swap", 4) == 0) {
         // Simple heuristic: just swap r/g/b based on presence
@@ -123,7 +123,7 @@ static void execute_op(ColorData *c, const char *op) {
         while (*args && isspace((unsigned char)*args)) args++;
         // parse target channels (simple version: just look at the second block)
         const char *space = strchr(args, ' ');
-        if (space) {
+        if space {
             const char *dst = space;
             while (*dst && isspace((unsigned char)*dst)) dst++;
             double old_r = c->r, old_g = c->g, old_b = c->b;
@@ -180,9 +180,9 @@ typedef struct {
 } Match;
 
 static int colors_parse_hex_digit(char ch) {
-    if (ch >= '0' && ch <= '9') return ch - '0';
-    if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
-    if (ch >= 'A' && ch <= 'F') return ch - 'A' + 10;
+    if ch >= '0' && ch <= '9' return ch - '0';
+    if ch >= 'a' && ch <= 'f' return ch - 'a' + 10;
+    if ch >= 'A' && ch <= 'F' return ch - 'A' + 10;
     return -1;
 }
 
@@ -190,16 +190,16 @@ static int match_colors(const char *text, int len, Match *matches, int max_match
     int count = 0;
     int i = 0;
     while (i < len && count < max_matches) {
-        if (text[i] == '#' && i + 3 <= len) {
+        if text[i] == '#' && i + 3 <= len {
             int h1 = colors_parse_hex_digit(text[i+1]);
             int h2 = colors_parse_hex_digit(text[i+2]);
             int h3 = colors_parse_hex_digit(text[i+3]);
-            if (h1 >= 0 && h2 >= 0 && h3 >= 0) {
-                if (i + 6 <= len) {
+            if h1 >= 0 && h2 >= 0 && h3 >= 0 {
+                if i + 6 <= len {
                     int h4 = colors_parse_hex_digit(text[i+4]);
                     int h5 = colors_parse_hex_digit(text[i+5]);
                     int h6 = colors_parse_hex_digit(text[i+6]);
-                    if (h4 >= 0 && h5 >= 0 && h6 >= 0) {
+                    if h4 >= 0 && h5 >= 0 && h6 >= 0 {
                         // #RRGGBB
                         matches[count].start = i;
                         matches[count].len = 7;
@@ -227,7 +227,7 @@ static int match_colors(const char *text, int len, Match *matches, int max_match
             int h1 = colors_parse_hex_digit(text[i+2]); int h2 = colors_parse_hex_digit(text[i+3]);
             int h3 = colors_parse_hex_digit(text[i+4]); int h4 = colors_parse_hex_digit(text[i+5]);
             int h5 = colors_parse_hex_digit(text[i+6]); int h6 = colors_parse_hex_digit(text[i+7]);
-            if (h1 >= 0 && h2 >= 0 && h3 >= 0 && h4 >= 0 && h5 >= 0 && h6 >= 0) {
+            if h1 >= 0 && h2 >= 0 && h3 >= 0 && h4 >= 0 && h5 >= 0 && h6 >= 0 {
                 matches[count].start = i;
                 matches[count].len = 8;
                 matches[count].c.format = FORMAT_0X6;
@@ -243,12 +243,12 @@ static int match_colors(const char *text, int len, Match *matches, int max_match
             while (j < len && isspace((unsigned char)text[j])) j++;
             int r = 0; while (j < len && isdigit((unsigned char)text[j])) r = r*10 + (text[j++] - '0');
             while (j < len && isspace((unsigned char)text[j])) j++;
-            if (j < len && text[j] == ',') {
+            if j < len && text[j] == ',' {
                 j++;
                 while (j < len && isspace((unsigned char)text[j])) j++;
                 int g = 0; while (j < len && isdigit((unsigned char)text[j])) g = g*10 + (text[j++] - '0');
                 while (j < len && isspace((unsigned char)text[j])) j++;
-                if (j < len && text[j] == ',') {
+                if j < len && text[j] == ',' {
                     j++;
                     while (j < len && isspace((unsigned char)text[j])) j++;
                     int b = 0; while (j < len && isdigit((unsigned char)text[j])) b = b*10 + (text[j++] - '0');
@@ -280,7 +280,7 @@ int command_mode_handle_colors_command(const char *input) {
     int remaining = 0;
     int start_offset = 0;
 
-    if (has_region) {
+    if has_region {
         lp = rp.r_linep;
         start_offset = rp.r_offset;
         remaining = rp.r_size;
@@ -294,7 +294,7 @@ int command_mode_handle_colors_command(const char *input) {
     while (remaining > 0 && lp != curbp->b_linep) {
         int line_len = llength(lp);
         int proc_len = line_len - start_offset;
-        if (has_region) {
+        if has_region {
             if (remaining < proc_len) proc_len = remaining;
             remaining -= (proc_len + 1); // +1 for newline
         } else {
@@ -303,12 +303,12 @@ int command_mode_handle_colors_command(const char *input) {
 
         Match matches[32];
         // We pass the string starting at start_offset
-        int mcount = match_colors((char*)ltext(lp) + start_offset, proc_len, matches, 32);
+        int mcount = match_colors((string)ltext(lp) + start_offset, proc_len, matches, 32);
 
-        if (mcount > 0) {
+        if mcount > 0 {
             match_count_total += mcount;
             char *new_text = malloc(line_len + 512); // generous padding
-            if (!new_text) break;
+            if !new_text break;
             int out_idx = 0;
             int in_idx = 0;
             
@@ -317,7 +317,7 @@ int command_mode_handle_colors_command(const char *input) {
                 new_text[out_idx++] = ltext(lp)[in_idx++];
             }
 
-            for (int m = 0; m < mcount; m++) {
+            for m = 0; < mcount; ++ {
                 // matches[m].start is relative to start_offset!
                 int match_abs_start = start_offset + matches[m].start;
 
@@ -332,7 +332,7 @@ int command_mode_handle_colors_command(const char *input) {
                 char *tok = strtok(cmd_dup, ";");
                 while (tok) {
                     execute_op(&c, tok);
-                    tok = strtok(NULL, ";");
+                    tok = strtok(null, ";");
                 }
                 free(cmd_dup);
 
@@ -342,19 +342,19 @@ int command_mode_handle_colors_command(const char *input) {
                 int ib = (int)round(c.b);
                 
                 char outbuf[64];
-                if (c.format == 5) { // 565
+                if c.format == 5 { // 565
                     int r5 = ir * 31 / 255;
                     int g6 = ig * 63 / 255;
                     int b5 = ib * 31 / 255;
                     int v565 = (r5 << 11) | (g6 << 5) | b5;
                     snprintf(outbuf, sizeof(outbuf), "0x%04X", v565);
-                } else if (c.format == FORMAT_HEX3) {
+                } else if c.format == FORMAT_HEX3 {
                     snprintf(outbuf, sizeof(outbuf), "#%01X%01X%01X", ir >> 4, ig >> 4, ib >> 4);
-                } else if (c.format == FORMAT_HEX6) {
+                } else if c.format == FORMAT_HEX6 {
                     snprintf(outbuf, sizeof(outbuf), "#%02X%02X%02X", ir, ig, ib);
-                } else if (c.format == FORMAT_0X6) {
+                } else if c.format == FORMAT_0X6 {
                     snprintf(outbuf, sizeof(outbuf), "0x%06X", (ir<<16)|(ig<<8)|ib);
-                } else if (c.format == FORMAT_RGB) {
+                } else if c.format == FORMAT_RGB {
                     snprintf(outbuf, sizeof(outbuf), "rgb(%d, %d, %d)", ir, ig, ib);
                 }
 
@@ -383,7 +383,7 @@ int command_mode_handle_colors_command(const char *input) {
         start_offset = 0; // next line starts at offset 0
     }
 
-    if (match_count_total > 0) {
+    if match_count_total > 0 {
         mlwrite("Colors modified: %d", match_count_total);
     } else {
         mlwrite("No colors found.");

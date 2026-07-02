@@ -64,17 +64,17 @@ static int find_cscope_file(char *path_out, int size) {
 
         /* Move up */
         char *last_slash = strrchr(current, '/');
-        if (!last_slash || last_slash == current) break; /* Root */
+        if !last_slash || last_slash == current break; /* Root */
         *last_slash = 0;
     }
     return FALSE;
 }
 
 static void add_match(const char *word, const char *file, int line) {
-    if (match_count >= MAX_MATCHES) return;
+    if match_count >= MAX_MATCHES return;
     
     /* Check duplicates */
-    for (int i = 0; i < match_count; i++) {
+    for i = 0; < match_count; ++ {
         if (strcmp(matches[i].word, word) == 0) return;
     }
     
@@ -98,14 +98,14 @@ static void scan_line_for_matches(const char *line, const char *prefix, int pref
         while (*p && (isalnum((unsigned char)*p) || *p == '_')) p++;
         
         int len = p - start;
-        if (len >= prefix_len && len < MAX_WORD_LEN) {
+        if len >= prefix_len && len < MAX_WORD_LEN {
             if (strncasecmp(start, prefix, prefix_len) == 0) {
                 char word[MAX_WORD_LEN];
                 memcpy(word, start, len);
                 word[len] = 0;
                 /* Avoid adding the prefix itself if it's identical? Optional. */
                 if (strcmp(word, prefix) != 0) {
-                    add_match(word, NULL, 0);
+                    add_match(word, null, 0);
                 }
             }
         }
@@ -114,14 +114,14 @@ static void scan_line_for_matches(const char *line, const char *prefix, int pref
 
 static void scan_cscope_file(const char *path, const char *prefix) {
     FILE *f = fopen(path, "r");
-    if (!f) return;
+    if !f return;
     
     char line[1024];
     int prefix_len = strlen(prefix);
     
     while (fgets(line, sizeof(line), f)) {
         /* Skip cscope header lines */
-        if (line[0] == '\t') {
+        if line[0] == '\t' {
              /* Cscope output format often puts symbols after tab, 
                 or file paths. 
                 Standard cscope -L output: file <space> function <space> line <space> text
@@ -144,7 +144,7 @@ static void scan_cscope_file(const char *path, const char *prefix) {
 static void draw_menu(int row, int col, int selection) {
     /* Draw a box overlay */
     int width = 0;
-    for (int i = 0; i < match_count; i++) {
+    for i = 0; < match_count; ++ {
         int l = strlen(matches[i].word);
         if (l > width) width = l;
     }
@@ -159,14 +159,14 @@ static void draw_menu(int row, int col, int selection) {
     if (col + width > term->t_ncol) col = term->t_ncol - width;
     
     /* Draw */
-    for (int i = 0; i < height; i++) {
+    for i = 0; < height; ++ {
         int idx = i; /* Scroll support if needed, simple for now */
-        if (idx >= match_count) break;
+        if idx >= match_count break;
         
         TTmove(row + i, col);
         
         /* Set color */
-        if (idx == selection) {
+        if idx == selection {
             TTrev(TRUE);
         } else {
             TTrev(FALSE);
@@ -196,7 +196,7 @@ int cscope_complete(int f, int n) {
         start--;
     }
     
-    if (start == curoff) {
+    if start == curoff {
         mlwrite("No word at cursor");
         return FALSE;
     }
@@ -204,7 +204,7 @@ int cscope_complete(int f, int n) {
     int len = curoff - start;
     if (len >= MAX_WORD_LEN) len = MAX_WORD_LEN - 1;
     
-    for (i = 0; i < len; i++) {
+    for i = 0; < len; ++ {
         prefix[i] = lgetc(lp, start + i);
     }
     prefix[len] = 0;
@@ -219,7 +219,7 @@ int cscope_complete(int f, int n) {
     /* Fallback: Scan current buffer? */
     /* scan_buffer_for_matches(curbp, prefix); */
     
-    if (match_count == 0) {
+    if match_count == 0 {
         mlwrite("No matches found for '%s'", prefix);
         return FALSE;
     }

@@ -99,7 +99,7 @@ struct key_tab keytab[NBINDS] = {
     { CONTROL | 'G', gotoline },         /* Ctrl+G: Goto Line */
 
     /* End of table */
-    { 0, NULL }
+    { 0, null }
 };
 
 #endif              /* EBIND_H_ */

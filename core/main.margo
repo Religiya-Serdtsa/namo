@@ -176,7 +176,7 @@ static Hunhandle *hunhandle;
 int spellcheck(const char *word)
 {
 #ifdef HAVE_HUNSPELL
-    if (!hunhandle)
+    if !hunhandle
         return 1;
     return Hunspell_spell(hunhandle, word);
 #else
@@ -229,7 +229,7 @@ int main(int argc, char **argv)
     int firstfile;                /* first file flag */
     int carg;                /* current arg to scan */
     int startflag;                /* startup executed flag */
-    struct buffer *firstbp = NULL;        /* ptr to first buffer in cmd line */
+    struct buffer *firstbp = null;        /* ptr to first buffer in cmd line */
     int basec;                /* c stripped of meta character */
     int viewflag;                /* are we starting in view mode? */
     int gotoflag;                /* do we need to goto a line at start? */
@@ -248,10 +248,10 @@ int main(int argc, char **argv)
     const char *aff_path = "/usr/share/hunspell/en_US.aff";
     const char *dic_path = "/usr/share/hunspell/en_US.dic";
     hunhandle = Hunspell_create(aff_path, dic_path);
-    if (hunhandle) {
+    if hunhandle {
         local_dictionary(hunhandle, ".dictionary");
         const char *home = getenv("HOME");
-        if (home) {
+        if home {
             char buf[1024];
             snprintf(buf, sizeof(buf), "%s/.dictionary", home);
             local_dictionary(hunhandle, buf);
@@ -260,7 +260,7 @@ int main(int argc, char **argv)
 #endif
 
     signal(SIGWINCH, sizesignal);
-    if (argc == 2) {
+    if argc == 2 {
         if (strcmp(argv[1], "--help") == 0) {
             usage(EXIT_FAILURE);
         }
@@ -285,20 +285,20 @@ int main(int argc, char **argv)
     errflag = FALSE;            /* not doing C error parsing */
     file_arg_count = 0;
 
-    for (carg = 1; carg < argc; ++carg) {
-        if (argv[carg][0] == '+' || argv[carg][0] == '-' || argv[carg][0] == '@')
+    for carg = 1; < argc; ++ {
+        if argv[carg][0] == '+' || argv[carg][0] == '-' || argv[carg][0] == '@'
             continue;
         file_arg_count++;
     }
     slot_startup_mode = (file_arg_count > 1);
 
     /* Parse the command line */
-    for (carg = 1; carg < argc; ++carg) {
+    for carg = 1; < argc; ++ {
         /* Process Switches */
-        if (argv[carg][0] == '+') {
+        if argv[carg][0] == '+' {
             gotoflag = TRUE;
             gline = atoi(&argv[carg][1]);
-        } else if (argv[carg][0] == '-') {
+        } else if argv[carg][0] == '-' {
             switch (argv[carg][1]) {
                 /* Process Startup macroes */
             case 'a':        /* process error file */
@@ -336,7 +336,7 @@ int main(int argc, char **argv)
                 break;
             }
 
-        } else if (argv[carg][0] == '@') {
+        } else if argv[carg][0] == '@' {
 
             /* Process Startup macroes */
             if (startup(&argv[carg][1]) == TRUE)
@@ -346,7 +346,7 @@ int main(int argc, char **argv)
         } else {
 
             /* Process an input file */
-            if (slot_startup_mode) {
+            if slot_startup_mode {
                 nanox_queue_startup_file(argv[carg]);
                 firstfile = FALSE;
                 continue;
@@ -361,7 +361,7 @@ int main(int argc, char **argv)
             strncpy(bp->b_fname, argv[carg], sizeof(bp->b_fname) - 1);
             bp->b_fname[sizeof(bp->b_fname) - 1] = '\0';
             bp->b_active = FALSE;
-            if (firstfile) {
+            if firstfile {
                 firstbp = bp;
                 firstfile = FALSE;
             }
@@ -387,14 +387,14 @@ int main(int argc, char **argv)
     signal(SIGTERM, emergencyexit);
 
     /* if we are C error parsing... run it! */
-    if (errflag) {
+    if errflag {
         if (startup("error.cmd") == TRUE)
             startflag = TRUE;
     }
 
     /* if invoked with no other startup files,
        run the system startup file here */
-    if (startflag == FALSE) {
+    if startflag == FALSE {
         startup("");
         startflag = TRUE;
     }
@@ -411,15 +411,15 @@ int main(int argc, char **argv)
         bp->b_mode |= gmode;
 
     /* Deal with startup gotos and searches */
-    if (gotoflag && searchflag) {
+    if gotoflag && searchflag {
         update(FALSE);
         mlwrite("(Can not search and goto at the same time!)");
-    } else if (gotoflag) {
+    } else if gotoflag {
         if (gotoline(TRUE, gline) == FALSE) {
             update(FALSE);
             mlwrite("(Bogus goto argument)");
         }
-    } else if (searchflag) {
+    } else if searchflag {
         if (forwhunt(FALSE, 0) == FALSE)
             update(FALSE);
     }
@@ -456,7 +456,7 @@ int main(int argc, char **argv)
                 nanox_refresh_ui();
                 while ((c = getcmd()) == 0);
             }    /* if there is something on the command line, clear it */
-    if (mpresf != FALSE) {
+    if mpresf != FALSE {
         mlerase();
         nanox_refresh_ui();
     }
@@ -484,7 +484,7 @@ int main(int argc, char **argv)
         mflag = 1;            /* current minus flag */
         c = basec;            /* strip the META */
         while ((c >= '0' && c <= '9') || (c == '-')) {
-            if (c == '-') {
+            if c == '-' {
                 /* already hit a minus or digit? */
                 if ((mflag == -1) || (n != 0))
                     break;
@@ -504,14 +504,14 @@ int main(int argc, char **argv)
 
     /* do ^U repeat argument processing */
 
-    if (c == reptc) {            /* ^U, start argument   */
+    if c == reptc {            /* ^U, start argument   */
         f = TRUE;
         n = 4;                /* with argument of 4 */
         mflag = 0;            /* that can be discarded. */
         mlwrite("Arg: 4");
         for (;;) {
             c = getcmd();
-            if (c == 0) continue;
+            if c == 0 continue;
             if (!((c >= '0' && c <= '9') || c == reptc || c == '-')) break;
             
             if (c == reptc)
@@ -523,8 +523,8 @@ int main(int argc, char **argv)
              * If dash, and start of argument string, set arg.
              * to -1.  Otherwise, insert it.
              */
-            else if (c == '-') {
-                if (mflag)
+            else if c == '-' {
+                if mflag
                     break;
                 n = 0;
                 mflag = -1;
@@ -534,7 +534,7 @@ int main(int argc, char **argv)
              * with digit and set sign.  Otherwise, append to arg.
              */
             else {
-                if (!mflag) {
+                if !mflag {
                     n = 0;
                     mflag = 1;
                 }
@@ -546,7 +546,7 @@ int main(int argc, char **argv)
          * Make arguments preceded by a minus sign negative and change
          * the special argument "^U -" to an effective "^U -1".
          */
-        if (mflag == -1) {
+        if mflag == -1 {
             if (n == 0)
                 n++;
             n = -n;
@@ -566,7 +566,7 @@ int main(int argc, char **argv)
 
     int was_completion_active = completion_dropdown_is_active();
     execute(c, f, n);
-    if (was_completion_active) {
+    if was_completion_active {
         completion_post_execute();
     }
     goto loop;
@@ -596,7 +596,7 @@ void edinit(char *bname)
     wp->w_linep = bp->b_linep;
     wp->w_dotp = bp->b_linep;
     wp->w_doto = 0;
-    wp->w_markp = NULL;
+    wp->w_markp = null;
     wp->w_marko = 0;
     wp->w_force = 0;
     wp->w_flag = WFMODE | WFHARD;        /* Full.                */
@@ -615,7 +615,7 @@ int execute(int c, int f, int n)
 
     /* if the keystroke is a bound function...do it */
     execfunc = getbind(c);
-    if (execfunc != NULL) {
+    if execfunc != NULL {
         thisflag = 0;
         status = (*execfunc) (f, n);
         lastflag = thisflag;
@@ -631,8 +631,8 @@ int execute(int c, int f, int n)
         n >= 0 && getccol(FALSE) > fillcol && (curwp->w_bufp->b_mode & MDVIEW) == FALSE)
         execute(META | SPEC | 'W', FALSE, 1);
 
-    if (c >= 0 && c <= 0x10FFFF) {
-        if (n <= 0) {            /* Fenceposts.          */
+    if c >= 0 && c <= 0x10FFFF {
+        if n <= 0 {            /* Fenceposts.          */
             lastflag = 0;
             return n < 0 ? FALSE : TRUE;
         }
@@ -664,7 +664,7 @@ int execute(int c, int f, int n)
 
         /* check auto-save mode */
         if (curbp->b_mode & MDASAVE)
-            if (--gacount == 0) {
+            if --gacount == 0 {
                 /* and save the file if needed */
                 upscreen(FALSE, 0);
                 filesave(FALSE, 0);
@@ -723,11 +723,11 @@ static int files_equal(const char *f1, const char *f2)
     int c1, c2;
 
     fp1 = fopen(f1, "rb");
-    if (fp1 == NULL)
+    if fp1 == NULL
         return 0;
 
     fp2 = fopen(f2, "rb");
-    if (fp2 == NULL) {
+    if fp2 == NULL {
         fclose(fp1);
         return 0;
     }
@@ -735,7 +735,7 @@ static int files_equal(const char *f1, const char *f2)
     do {
         c1 = fgetc(fp1);
         c2 = fgetc(fp2);
-        if (c1 != c2) {
+        if c1 != c2 {
             fclose(fp1);
             fclose(fp2);
             return 0;
@@ -756,7 +756,7 @@ int swap_quit(int f, int n)
     while (bp != NULL) {
         if ((bp->b_flag & BFCHG) != 0 && (bp->b_flag & BFINVS) == 0 && bp->b_fname[0] != '\0') {
             char *slash = strrchr(bp->b_fname, '/');
-            if (slash) {
+            if slash {
                 strncpy(swapname, bp->b_fname, slash - bp->b_fname + 1);
                 swapname[slash - bp->b_fname + 1] = '\0';
                 strcat(swapname, ".");
@@ -769,10 +769,10 @@ int swap_quit(int f, int n)
             }
 
             FILE *fp = fopen(swapname, "w");
-            if (fp) {
+            if fp {
                 struct line *lp = lforw(bp->b_linep);
                 while (lp != bp->b_linep) {
-                    for (int i = 0; i < llength(lp); ++i) {
+                    for i = 0; < llength(lp); ++ {
                         fputc(lgetc(lp, i), fp);
                     }
                     fputc('\n', fp);
@@ -813,9 +813,9 @@ int quit(int f, int n)
         }
         vttidy();
 #ifdef HAVE_HUNSPELL
-        if (hunhandle) {
+        if hunhandle {
             Hunspell_destroy(hunhandle);
-            hunhandle = NULL;
+            hunhandle = null;
         }
 #endif
         nanox_cleanup();
@@ -830,13 +830,13 @@ int quit(int f, int n)
         bfreeall();
         varcleanup();
         kdelete();
-        if (patmatch) {
+        if patmatch {
             free(patmatch);
-            patmatch = NULL;
+            patmatch = null;
         }
-        if (curwp) {
+        if curwp {
             free(curwp);
-            curwp = NULL;
+            curwp = null;
         }
         if (f)
             exit(n);
@@ -854,7 +854,7 @@ int quit(int f, int n)
  */
 int ctlxlp(int f, int n)
 {
-    if (kbdmode != STOP) {
+    if kbdmode != STOP {
         mlwrite("%%Macro already active");
         return FALSE;
     }
@@ -871,11 +871,11 @@ int ctlxlp(int f, int n)
  */
 int ctlxrp(int f, int n)
 {
-    if (kbdmode == STOP) {
+    if kbdmode == STOP {
         mlwrite("%%Macro not active");
         return FALSE;
     }
-    if (kbdmode == RECORD) {
+    if kbdmode == RECORD {
         mlwrite("(End macro)");
         kbdmode = STOP;
     }
@@ -889,11 +889,11 @@ int ctlxrp(int f, int n)
  */
 int ctlxe(int f, int n)
 {
-    if (kbdmode != STOP) {
+    if kbdmode != STOP {
         mlwrite("%%Macro already active");
         return FALSE;
     }
-    if (n <= 0)
+    if n <= 0
         return TRUE;
     kbdrep = n;                /* remember how many times to execute */
     kbdmode = PLAY;                /* start us in play mode */
@@ -909,7 +909,7 @@ int ctlxe(int f, int n)
 int ctrlg(int f, int n)
 {
     term->t_beep();
-    if (kbdmode == RECORD) {
+    if kbdmode == RECORD {
         kbdmode = STOP;
         mlwrite("(Macro aborted)");
         return TRUE;

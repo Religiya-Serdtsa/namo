@@ -29,9 +29,9 @@ static int erase_prev_glyph(char *buf, int *cpos)
     unicode_t uc = 0;
     int width;
 
-    if (!buf || !cpos)
+    if !buf || !cpos
         return 0;
-    if (*cpos <= 0)
+    if *cpos <= 0
         return 0;
 
     start = *cpos;
@@ -71,7 +71,7 @@ int mlyesno(char *prompt)
     /* get one command safely (consumes escape/function-key sequences) */
     c = getcmd();
 
-    if (c == 'y' || c == 'Y')
+    if c == 'y' || c == 'Y'
         return TRUE;
 
     return FALSE; /* implicit 'n' for all non-'y' input */
@@ -145,9 +145,9 @@ fn_t getname(void)
     cpos = 0;
 
     /* if we are executing a command line get the next arg and match it */
-    if (clexec) {
+    if clexec {
         if (macarg(buf) != TRUE)
-            return NULL;
+            return null;
         return fncmatch(&buf[0]);
     }
 
@@ -156,21 +156,21 @@ fn_t getname(void)
         c = tgetc();
 
         /* if we are at the end, just match it */
-        if (c == 0x0d) {
+        if c == 0x0d {
             buf[cpos] = 0;
 
             /* and match it off */
             return fncmatch(&buf[0]);
-        } else if (c == 0x7F || c == 0x08) {    /* rubout/erase */
+        } else if c == 0x7F || c == 0x08 {    /* rubout/erase */
             if (erase_prev_glyph(buf, &cpos))
                 TTflush();
 
-        } else if (c == 0x15) {     /* C-U, kill */
+        } else if c == 0x15 {     /* C-U, kill */
             while (erase_prev_glyph(buf, &cpos))
                 ;
             TTflush();
 
-        } else if (c == ' ' || c == 0x1b || c == 0x09) {
+        } else if c == ' ' || c == 0x1b || c == 0x09 {
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
             /* attempt a completion */
             buf[cpos] = 0;      /* terminate it for us */
@@ -205,7 +205,7 @@ fn_t getname(void)
                         while (TRUE) {
                             /* add the next char in */
                             buf[cpos] = ffp->n_name[cpos];
-                            if (buf[cpos] == '\0' || cpos >= NSTRING - 1)
+                            if buf[cpos] == '\0' || cpos >= NSTRING - 1
                                 goto onward;
 
                             /* scan through the candidates */
@@ -232,7 +232,7 @@ fn_t getname(void)
             TTflush();
 /* <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< */
         } else {
-            if (cpos < NSTRING - 1 && c > ' ') {
+            if cpos < NSTRING - 1 && c > ' ' {
                 buf[cpos++] = c;
                 TTputc(c);
             }
@@ -251,14 +251,14 @@ int tgetc(void)
     int c;                  /* fetched character */
 
     /* if we are playing a keyboard macro back, */
-    if (kbdmode == PLAY) {
+    if kbdmode == PLAY {
 
         /* if there is some left... */
-        if (kbdptr < kbdend)
+        if kbdptr < kbdend
             return (int)*kbdptr++;
 
         /* at the end of last repitition? */
-        if (--kbdrep < 1) {
+        if --kbdrep < 1 {
             kbdmode = STOP;
             /* force a screen update after all is done */
             update(FALSE);
@@ -277,12 +277,12 @@ int tgetc(void)
     lastkey = c;
 
     /* save it if we need to */
-    if (kbdmode == RECORD) {
+    if kbdmode == RECORD {
         *kbdptr++ = c;
         kbdend = kbdptr;
 
         /* don't overrun the buffer */
-        if (kbdptr == &kbdm[NKBDM - 1]) {
+        if kbdptr == &kbdm[NKBDM - 1] {
             kbdmode = STOP;
             TTbeep();
         }
@@ -376,12 +376,12 @@ static int decode_csi_sequence(int cmask)
 
     while (1) {
         ch = get1key();
-        if (ch >= '0' && ch <= '9') {
+        if ch >= '0' && ch <= '9' {
             value = value * 10 + (ch - '0');
             have_value = 1;
             continue;
         }
-        if (ch == ';') {
+        if ch == ';' {
             if (count < 3)
                 params[count++] = have_value ? value : 0;
             value = 0;
@@ -393,29 +393,29 @@ static int decode_csi_sequence(int cmask)
     if (have_value && count < 3)
         params[count++] = value;
 
-    if (ch == '~') {
+    if ch == '~' {
         int modifier = 1;
         int spec;
-        if (count == 0)
+        if count == 0
             return 0;
         if (count > 1)
             modifier = params[1];
         spec = map_csi_function(params[0]);
-        if (!spec)
+        if !spec
             return 0;
         return SPEC | spec | apply_modifier_bits(modifier, cmask);
     }
 
-    if (ch >= 'A' && ch <= 'D') {
+    if ch >= 'A' && ch <= 'D' {
         int modifier = (count > 0) ? params[count - 1] : 1;
         return SPEC | ch | apply_modifier_bits(modifier, cmask);
     }
 
-    if (ch >= 'E' && ch <= 'z' && ch != 'i' && ch != 'c') {
+    if ch >= 'E' && ch <= 'z' && ch != 'i' && ch != 'c' {
         int modifier = (count > 0) ? params[count - 1] : 1;
-        if (ch == 'u') {
+        if ch == 'u' {
             int key = params[0];
-            if (key < 128) {
+            if key < 128 {
                 int code = key;
                 if (code >= 'a' && code <= 'z')
                     code -= 0x20;
@@ -438,7 +438,7 @@ int getcmd(void)
     /* get initial character */
     c = get1key();
 
-    if (c == 128 + 27) {            /* CSI (Single byte) */
+    if c == 128 + 27 {            /* CSI (Single byte) */
         int code = decode_csi_sequence(cmask);
         return code;
     }
@@ -452,11 +452,11 @@ int getcmd(void)
                 return c; /* Standalone ESC */
         }
         c = get1key();
-        if (c == '[') {
+        if c == '[' {
             int code = decode_csi_sequence(cmask);
             return code;
         }
-        if (c == 'O') {
+        if c == 'O' {
             int code = get1key();
             return SPEC | code;
         }
@@ -483,7 +483,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
     int ffile, ocpos, nskip = 0, didtry = 0;
 
     static char tmp[] = "/tmp/meXXXXXX";
-    FILE *tmpf = NULL;
+    FILE *tmpf = null;
 
     ffile = (strcmp(prompt, "Find file: ") == 0
          || strcmp(prompt, "View file: ") == 0
@@ -504,7 +504,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
         c_int = get1key();
 
         /* Ignore SPEC keys (function keys, arrows, etc.) in the minibuffer */
-        if (c_int & SPEC) {
+        if c_int & SPEC {
             TTbeep();
             continue;
         }
@@ -514,7 +514,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
             c = CONTROL | 0x40 | '\n';
 
         /* if they hit the line terminate, wrap it up */
-        if (c == eolchar && quotef == FALSE) {
+        if c == eolchar && quotef == FALSE {
             buf[cpos++] = 0;
 
             /* clear the message line */
@@ -522,7 +522,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
             TTflush();
 
             /* if we default the buffer, return FALSE */
-            if (buf[0] == 0)
+            if buf[0] == 0
                 return FALSE;
 
             return TRUE;
@@ -547,7 +547,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
         if ((c == 0x7F || c == 0x08) && quotef == FALSE) {
             if (erase_prev_glyph(buf, &cpos))
                 TTflush();
-        } else if (c == 0x15 && quotef == FALSE) {
+        } else if c == 0x15 && quotef == FALSE {
             /* C-U, kill */
             while (erase_prev_glyph(buf, &cpos))
                 ;
@@ -564,11 +564,11 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
                 outstring("\b \b");
                 --ttcol;
 
-                if (buf[--cpos] < 0x20) {
+                if buf[--cpos] < 0x20 {
                     outstring("\b \b");
                     --ttcol;
                 }
-                if (buf[cpos] == '\n') {
+                if buf[cpos] == '\n' {
                     outstring("\b\b  \b\b");
                     ttcol -= 2;
                 }
@@ -576,7 +576,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
                     iswild = 1;
             }
             TTflush();
-            if (nskip < 0) {
+            if nskip < 0 {
                 buf[ocpos] = 0;
                 if (tmpf != NULL)
                     fclose(tmpf);
@@ -598,7 +598,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
                 while ((c = getc(tmpf)) != EOF && c != ' ') ;
             nskip++;
 
-            if (c != ' ') {
+            if c != ' ' {
                 TTbeep();
                 nskip = 0;
             }
@@ -611,7 +611,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
             if (c == '*')
                 TTbeep();
 
-            for (n = 0; n < cpos; n++) {
+            for n = 0; < cpos; ++ {
                 c = buf[n];
                 if ((c < ' ') && (c != '\n')) {
                     outstring("^");
@@ -619,7 +619,7 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
                     c ^= 0x40;
                 }
 
-                if (c != '\n') {
+                if c != '\n' {
                     if (disinp)
                         TTputc(c);
                 } else {    /* put out <NL> for <ret> */
@@ -636,17 +636,17 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
             quotef = TRUE;
         } else { // Normal character input
             quotef = FALSE;
-            if (cpos < nbuf - 1) {
+            if cpos < nbuf - 1 {
                 if (((unsigned)c >= 0x80 && (unsigned)c < 0xD800) ||
                     ((unsigned)c > 0xDFFF && (unsigned)c <= 0x10FFFF)) {
                     /* Handle multi-byte Unicode characters */
                     char utf8_buf[6];
                     int len = unicode_to_utf8((unsigned)c, (unsigned char *)utf8_buf);
-                    if (cpos + len < nbuf) {
-                        for (int i = 0; i < len; i++) {
+                    if cpos + len < nbuf {
+                        for i = 0; < len; ++ {
                             buf[cpos++] = utf8_buf[i];
                         }
-                        if (disinp) {
+                        if disinp {
                             TTputc(c);
                             ttcol += mystrnlen_raw_w(c);
                         }
@@ -657,12 +657,12 @@ int getstring(char *prompt, char *buf, int nbuf, int eolchar)
                     /* Handle ASCII character */
                     unsigned char c_byte = (unsigned char)c;
                     buf[cpos++] = c_byte;
-                    if (disinp) {
-                        if (c_byte < 0x20 && c_byte != '\n') {
+                    if disinp {
+                        if c_byte < 0x20 && c_byte != '\n' {
                             outstring("^");
                             TTputc(c_byte + '@');
                             ttcol += 2;
-                        } else if (c_byte == '\n') {
+                        } else if c_byte == '\n' {
                             outstring("<NL>");
                             ttcol += 3;
                         } else {

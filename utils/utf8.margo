@@ -19,13 +19,13 @@
  */
 unsigned utf8_to_unicode(const unsigned char *line, unsigned index, unsigned len, unicode_t *res)
 {
-    if (!line || !res || index >= len)
+    if !line || !res || index >= len
         return 0;
 
     unsigned char c = line[index];
     *res = c;
 
-    if (c < 0x80)
+    if c < 0x80
         return 1;
 
     /* Reject stray continuation */
@@ -34,7 +34,7 @@ unsigned utf8_to_unicode(const unsigned char *line, unsigned index, unsigned len
 
     unsigned available = len - index;
     if ((c & 0xE0) == 0xC0) { /* 2-byte */
-        if (available < 2)
+        if available < 2
             goto invalid;
         unsigned char c1 = line[index + 1];
         if ((c1 & 0xC0) != 0x80)
@@ -47,7 +47,7 @@ unsigned utf8_to_unicode(const unsigned char *line, unsigned index, unsigned len
     }
 
     if ((c & 0xF0) == 0xE0) { /* 3-byte */
-        if (available < 3)
+        if available < 3
             goto invalid;
         unsigned char c1 = line[index + 1];
         unsigned char c2 = line[index + 2];
@@ -65,7 +65,7 @@ unsigned utf8_to_unicode(const unsigned char *line, unsigned index, unsigned len
     }
 
     if ((c & 0xF8) == 0xF0) { /* 4-byte */
-        if (available < 4)
+        if available < 4
             goto invalid;
         unsigned char c1 = line[index + 1];
         unsigned char c2 = line[index + 2];
@@ -76,7 +76,7 @@ unsigned utf8_to_unicode(const unsigned char *line, unsigned index, unsigned len
                          ((unsigned)(c1 & 0x3F) << 12) |
                          ((unsigned)(c2 & 0x3F) << 6) |
                          (unsigned)(c3 & 0x3F);
-        if (value < 0x10000 || value > 0x10FFFF)
+        if value < 0x10000 || value > 0x10FFFF
             goto invalid;
         *res = value;
         return 4;
@@ -114,7 +114,7 @@ unsigned unicode_to_utf8(unsigned int c, unsigned char *utf8)
     int bytes = 1;
 
     *utf8 = c;
-    if (c > 0x7f) {
+    if c > 0x7f {
         int prefix = 0x40;
         char *p = utf8;
         do {
@@ -141,17 +141,17 @@ int unicode_width(unicode_t c)
     int width;
     
     /* Handle special control characters */
-    if (c < 0x20 || c == 0x7F)
+    if c < 0x20 || c == 0x7F
         return 2;  /* Control chars displayed as ^X */
     
-    if (c >= 0x80 && c <= 0xA0)
+    if c >= 0x80 && c <= 0xA0
         return 3;  /* Displayed as \xx */
     
     /* Use wcwidth for proper Unicode width calculation */
     width = wcwidth((wchar_t)c);
     
     /* wcwidth returns -1 for non-printable chars, treat as 1 */
-    if (width < 0)
+    if width < 0
         return 1;
     
     return width;

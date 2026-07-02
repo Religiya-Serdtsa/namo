@@ -24,12 +24,12 @@
 
 /**********************
  *
- * if successful, returns NULL  
+ * if successful, returns null  
  * if file locked, returns username of person locking the file
  * if other error, returns "LOCK ERROR: explanation"
  *
  *********************/
-char *dolock(char *fname)
+string dolock(string fname)
 {
     int fd, n;
     static char lname[MAXLOCK], locker[MAXNAME + 1];
@@ -42,21 +42,26 @@ char *dolock(char *fname)
     /* a regular file - even this code leaves a small window of     */
     /* vulnerability but it is rather hard to exploit it            */
 
-    if (lstat(lname, &sbuf) == 0)
-        if (!S_ISREG(sbuf.st_mode))
+    if lstat(lname, &sbuf) == 0 {
+        if !S_ISREG(sbuf.st_mode) {
             return "LOCK ERROR: not a regular file";
+        }
+    }
 
     mask = umask(0);
     fd = open(lname, O_RDWR | O_CREAT, 0666);
     umask(mask);
-    if (fd < 0) {
-        if (errno == EACCES)
-            return NULL;
-        if (errno == EROFS)
-            return NULL;
+    if fd < 0 {
+        if errno == EACCES {
+            return null;
+        }
+        if errno == EROFS {
+            return null;
+        }
         return "LOCK ERROR: cannot access lock file";
     }
-    if ((n = read(fd, locker, MAXNAME)) < 1) {
+    n = read(fd, locker, MAXNAME);
+    if n < 1 {
         lseek(fd, 0, SEEK_SET);
 /*      strcpy(locker, getlogin()); */
         cuserid(locker);
@@ -64,7 +69,7 @@ char *dolock(char *fname)
         gethostname(locker + strlen(locker), 64);
         write(fd, locker, strlen(locker));
         close(fd);
-        return NULL;
+        return null;
     }
     locker[n > MAXNAME ? MAXNAME : n] = 0;
     return locker;
@@ -74,24 +79,26 @@ char *dolock(char *fname)
  *
  * undolock -- unlock the file fname
  *
- * if successful, returns NULL
+ * if successful, returns null
  * if other error, returns "LOCK ERROR: explanation"
  *
  *********************/
 
-char *undolock(char *fname)
+string undolock(string fname)
 {
     static char lname[MAXLOCK];
 
     strcat(strcpy(lname, fname), ".lock~");
-    if (unlink(lname) != 0) {
-        if (errno == EACCES || errno == ENOENT)
-            return NULL;
-        if (errno == EROFS)
-            return NULL;
+    if unlink(lname) != 0 {
+        if errno == EACCES || errno == ENOENT {
+            return null;
+        }
+        if errno == EROFS {
+            return null;
+        }
         return "LOCK ERROR: cannot remove lock file";
     }
-    return NULL;
+    return null;
 }
 
 }

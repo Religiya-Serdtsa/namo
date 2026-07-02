@@ -69,7 +69,7 @@ int bindtokey(int f, int n)
 
     /* get the function name to bind it to */
     kfunc = getname();
-    if (kfunc == NULL) {
+    if kfunc == NULL {
         mlwrite("(No such function)");
         return FALSE;
     }
@@ -85,7 +85,7 @@ int bindtokey(int f, int n)
     ostring(outseq);
 
     /* if the function is a prefix key */
-    if (kfunc == metafn || kfunc == cex || kfunc == unarg || kfunc == ctrlg) {
+    if kfunc == metafn || kfunc == cex || kfunc == unarg || kfunc == ctrlg {
 
         /* search for an existing binding for the prefix key */
         ktp = &keytab[0];
@@ -111,18 +111,18 @@ int bindtokey(int f, int n)
     ktp = &keytab[0];
     found = FALSE;
     while (ktp->k_fp != NULL) {
-        if (ktp->k_code == c) {
+        if ktp->k_code == c {
             found = TRUE;
             break;
         }
         ++ktp;
     }
 
-    if (found) {                /* it exists, just change it then */
+    if found {                /* it exists, just change it then */
         ktp->k_fp = kfunc;
     } else {                /* otherwise we need to add it to the end */
         /* if we run out of binding room, bitch */
-        if (ktp >= &keytab[NBINDS]) {
+        if ktp >= &keytab[NBINDS] {
             mlwrite("Binding table FULL!");
             return FALSE;
         }
@@ -131,7 +131,7 @@ int bindtokey(int f, int n)
         ktp->k_fp = kfunc;      /* and the function pointer */
         ++ktp;              /* and make sure the next is null */
         ktp->k_code = 0;
-        ktp->k_fp = NULL;
+        ktp->k_fp = null;
     }
     return TRUE;
 }
@@ -182,7 +182,7 @@ int unbindchar(int c)
     ktp = &keytab[0];
     found = FALSE;
     while (ktp->k_fp != NULL) {
-        if (ktp->k_code == c) {
+        if ktp->k_code == c {
             found = TRUE;
             break;
         }
@@ -190,7 +190,7 @@ int unbindchar(int c)
     }
 
     /* if it isn't bound, bitch */
-    if (!found)
+    if !found
         return FALSE;
 
     /* save the pointer and scan to the end of the table */
@@ -205,7 +205,7 @@ int unbindchar(int c)
 
     /* null out the last one */
     ktp->k_code = 0;
-    ktp->k_fp = NULL;
+    ktp->k_fp = null;
     return TRUE;
 }
 
@@ -229,14 +229,14 @@ int strinc(char *source, char *sub)
 
         /* is the substring here? */
         while (*tp) {
-            if (*nxtsp++ != *tp)
+            if *nxtsp++ != *tp
                 break;
             else
                 tp++;
         }
 
         /* yes, return a success */
-        if (*tp == 0)
+        if *tp == 0
             return TRUE;
 
         /* no, onward */
@@ -256,7 +256,7 @@ unsigned int getckey(int mflag)
     char tok[NSTRING];          /* command incoming */
 
     /* check to see if we are executing a command line */
-    if (clexec) {
+    if clexec {
         macarg(tok);            /* get the next token */
         return stock(tok);
     }
@@ -272,7 +272,7 @@ unsigned int getckey(int mflag)
 /*
  * execute the startup file
  *
- * char *sfname;    name of startup file (null if default)
+ * char *sfname;    name of startup file (NULL if default)
  */
 int startup(char *sfname)
 {
@@ -285,7 +285,7 @@ int startup(char *sfname)
         fname = flook(pathname[0], TRUE);
 
     /* if it isn't around, don't sweat it */
-    if (fname == NULL)
+    if fname == NULL
         return TRUE;
 
     /* otherwise, execute the sucker */
@@ -308,9 +308,9 @@ char *flook(char *fname, int hflag)
     int i;                  /* index */
     static char fspec[NSTRING];     /* full path spec to search */
 
-    if (hflag) {
+    if hflag {
         home = getenv("HOME");
-        if (home != NULL) {
+        if home != NULL {
             snprintf(fspec, sizeof(fspec), "%s/%s", home, fname);
 
             /* and try it out */
@@ -360,7 +360,7 @@ char *flook(char *fname, int hflag)
         }
 
     /* look it up via the old table method */
-    for (i = 2; i < ARRAY_SIZE(pathname); i++) {
+    for i = 2; < ARRAY_SIZE(pathname); ++ {
         strncpy(fspec, pathname[i], sizeof(fspec) - 1);
         fspec[sizeof(fspec) - 1] = '\0';
         strncat(fspec, fname, sizeof(fspec) - strlen(fspec) - 1);
@@ -373,7 +373,7 @@ char *flook(char *fname, int hflag)
         }
     }
 
-    return NULL;                /* no such luck */
+    return null;                /* no such luck */
 }
 
 /*
@@ -389,25 +389,25 @@ void cmdstr(int c, char *seq)
     ptr = seq;
 
     /* apply meta sequence if needed */
-    if (c & META) {
+    if c & META {
         *ptr++ = 'M';
         *ptr++ = '-';
     }
 
     /* apply ^X sequence if needed */
-    if (c & CTLX) {
+    if c & CTLX {
         *ptr++ = '^';
         *ptr++ = 'X';
     }
 
     /* apply SPEC sequence if needed */
-    if (c & SPEC) {
+    if c & SPEC {
         *ptr++ = 'F';
         *ptr++ = 'N';
     }
 
     /* apply control sequence if needed */
-    if (c & CONTROL) {
+    if c & CONTROL {
         *ptr++ = '^';
     }
 
@@ -428,13 +428,13 @@ int (*getbind(int c))(int, int) {
 
     ktp = &keytab[0];           /* Look in key table. */
     while (ktp->k_fp != NULL) {
-        if (ktp->k_code == c)
+        if ktp->k_code == c
             return ktp->k_fp;
         ++ktp;
     }
 
     /* no such binding */
-    return NULL;
+    return null;
 }
 
 /*
@@ -449,11 +449,11 @@ char *getfname(fn_t func)
     /* skim through the table, looking for a match */
     nptr = &names[0];
     while (nptr->n_func != NULL) {
-        if (nptr->n_func == func)
+        if nptr->n_func == func
             return nptr->n_name;
         ++nptr;
     }
-    return NULL;
+    return null;
 }
 
 /*
@@ -472,7 +472,7 @@ int (*fncmatch(char *fname))(int, int) {
             return ffp->n_func;
         ++ffp;
     }
-    return NULL;
+    return null;
 }
 
 /*
@@ -511,7 +511,7 @@ unsigned int stock(char *keyname)
         c |= CONTROL;
         ++keyname;
     }
-    if (*keyname < 32) {
+    if *keyname < 32 {
         c |= CONTROL;
         *keyname += 'A';
     }

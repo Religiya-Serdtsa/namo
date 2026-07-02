@@ -20,7 +20,7 @@ extern int command_mode_swap_ranges(int start1, int end1, int start2, int end2);
 
 static BlockMode block_mode = BLOCK_MODE_NONE;
 static int block_set_nr_reverse = 0;
-static struct line *block_anchor_line = NULL;
+static struct line *block_anchor_line = null;
 static int block_anchor_offset = 0;
 
 static int block_visual_column(struct line *lp, int offset) {
@@ -29,7 +29,7 @@ static int block_visual_column(struct line *lp, int offset) {
     while (lp && idx < offset && idx < len) {
         unicode_t c;
         int bytes = utf8_to_unicode(ltext(lp), idx, len, &c);
-        if (bytes <= 0) break;
+        if bytes <= 0 break;
         col = next_column(col, c, tab_width);
         idx += bytes;
     }
@@ -58,7 +58,7 @@ static int block_apply_text(const char *text, int replace_mode) {
     lp = lforw(curbp->b_linep);
     while (lp != curbp->b_linep && idx <= bottom) {
         struct line *next = lforw(lp);
-        if (idx >= top) {
+        if idx >= top {
             int actual_col = 0, start_offset;
             curwp->w_dotp = lp; curwp->w_doto = 0;
             start_offset = line_offset_for_column(lp, left, &actual_col);
@@ -68,7 +68,7 @@ static int block_apply_text(const char *text, int replace_mode) {
                 actual_col++;
             }
             start_offset = curwp->w_doto;
-            if (replace_mode) {
+            if replace_mode {
                 int actual_end_col = 0, end_offset;
                 end_offset = line_offset_for_column(lp, right, &actual_end_col);
                 curwp->w_doto = end_offset;
@@ -81,7 +81,7 @@ static int block_apply_text(const char *text, int replace_mode) {
                 if (ldelete((long)(end_offset - start_offset), FALSE) != TRUE) return FALSE;
             }
             curwp->w_doto = start_offset;
-            if (text && *text) {
+            if text && *text {
                 if (linsert_block(text, (int)strlen(text)) != TRUE) return FALSE;
             }
         }
@@ -113,7 +113,7 @@ static void strategy_replace_render(int top, int bottom, int left, int right, in
 static int strategy_setnr_apply(const char *input) {
     int top, bottom;
     (void)input;
-    block_bounds(&top, &bottom, NULL, NULL);
+    block_bounds(&top, &bottom, null, null);
     return command_mode_apply_numbering_range(top + 1, bottom + 1, block_set_nr_reverse);
 }
 static void strategy_setnr_render(int top, int bottom, int left, int right, int reverse) {
@@ -126,7 +126,7 @@ static ViblockStrategy edit_strategy    = { "viblock-edit",    strategy_edit_app
 static ViblockStrategy replace_strategy = { "viblock-replace", strategy_replace_apply, strategy_replace_render };
 static ViblockStrategy setnr_strategy   = { "viblock-set-nr",  strategy_setnr_apply,   strategy_setnr_render };
 
-static ViblockStrategy *current_strategy = NULL;
+static ViblockStrategy *current_strategy = null;
 
 void viblock_start(BlockMode mode, int reverse_flag) {
     block_mode = mode;
@@ -136,22 +136,22 @@ void viblock_start(BlockMode mode, int reverse_flag) {
     if (mode == BLOCK_MODE_EDIT) current_strategy = &edit_strategy;
     else if (mode == BLOCK_MODE_REPLACE) current_strategy = &replace_strategy;
     else if (mode == BLOCK_MODE_SET_NR) current_strategy = &setnr_strategy;
-    else current_strategy = NULL;
+    else current_strategy = null;
     curwp->w_flag |= WFHARD | WFMODE;
     viblock_render_status();
 }
 
 void viblock_reset(void) {
     block_mode = BLOCK_MODE_NONE;
-    current_strategy = NULL;
+    current_strategy = null;
     block_set_nr_reverse = 0;
-    block_anchor_line = NULL;
+    block_anchor_line = null;
     block_anchor_offset = 0;
 }
 
 void viblock_render_status(void) {
     int top, bottom, left, right;
-    if (!current_strategy) return;
+    if !current_strategy return;
     block_bounds(&top, &bottom, &left, &right);
     current_strategy->render_status(top, bottom, left, right, block_set_nr_reverse);
 }
@@ -162,10 +162,10 @@ int viblock_is_active(void) {
 
 int viblock_selection_contains(struct line *lp, int col_start, int col_end) {
     int top, bottom, left, right, line_idx;
-    if (block_mode == BLOCK_MODE_NONE || !lp) return FALSE;
+    if block_mode == BLOCK_MODE_NONE || !lp return FALSE;
     block_bounds(&top, &bottom, &left, &right);
     line_idx = line_index_from_top(lp);
-    if (line_idx < top || line_idx > bottom) return FALSE;
+    if line_idx < top || line_idx > bottom return FALSE;
     return col_start < right && col_end > left;
 }
 
@@ -186,14 +186,14 @@ static void viblock_expand_shortcuts(char *text, size_t size) {
 
     while (*p && d < end) {
         if (strncmp(p, "<tab>", 5) == 0) {
-            if (d < end) {
+            if d < end {
                 *d++ = '\t';
                 p += 5;
             } else break;
         } else if (strncmp(p, "<tab-", 5) == 0) {
             char *next;
             int count = (int)strtol(p + 5, &next, 10);
-            if (*next == '>') {
+            if *next == '>' {
                 p = next + 1;
                 while (count-- > 0 && d < end) {
                     *d++ = '\t';
@@ -215,17 +215,17 @@ int viblock_handle_key(int c, int f, int n) {
     fn_t func;
     int status;
 
-    if (!current_strategy) return FALSE;
+    if !current_strategy return FALSE;
 
     switch (c) {
     case 0x0D: case 0x0A: case CONTROL | 'M':
-        if (block_mode == BLOCK_MODE_SET_NR) {
-            current_strategy->apply(NULL);
+        if block_mode == BLOCK_MODE_SET_NR {
+            current_strategy->apply(null);
             viblock_reset();
             return TRUE;
         }
         status = minibuf_input("viblock input: ", text, sizeof(text));
-        if (status == TRUE) {
+        if status == TRUE {
             viblock_expand_shortcuts(text, sizeof(text));
             if (!current_strategy->apply(text)) return FALSE;
             mlwrite("%s applied", current_strategy->name);

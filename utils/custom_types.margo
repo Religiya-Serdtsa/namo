@@ -13,7 +13,7 @@
 
 static char custom_type_names[MAX_CUSTOM_TYPES][MAX_TOKEN_LEN];
 static int custom_type_count = 0;
-static struct buffer *tracked_buffer = NULL;
+static struct buffer *tracked_buffer = null;
 static bool tracked_dirty = true;
 
 static bool is_ident_start(unsigned char c)
@@ -33,7 +33,7 @@ static bool token_equals(const char *token, const char *keyword)
 
 static bool token_in_list(const char *token, const char *const *list, size_t count)
 {
-    if (!token)
+    if !token
         return false;
     for (size_t i = 0; i < count; i++) {
         if (list[i] && strcmp(token, list[i]) == 0)
@@ -51,11 +51,11 @@ static void custom_types_clear(void)
 
 static void custom_types_add(const char *name)
 {
-    if (!name || !*name)
+    if !name || !*name
         return;
-    if (custom_type_count >= MAX_CUSTOM_TYPES)
+    if custom_type_count >= MAX_CUSTOM_TYPES
         return;
-    for (int i = 0; i < custom_type_count; i++) {
+    for i = 0; < custom_type_count; ++ {
         if (strcmp(custom_type_names[i], name) == 0)
             return;
     }
@@ -68,17 +68,17 @@ static void handle_identifier_token(const char *token,
                                     bool *typedef_pending,
                                     char *typedef_candidate)
 {
-    if (!token || !*token)
+    if !token || !*token
         return;
 
-    if (*expect_direct_name) {
+    if *expect_direct_name {
         custom_types_add(token);
         *expect_direct_name = false;
         *using_alias_pending = false;
         return;
     }
 
-    if (*using_alias_pending) {
+    if *using_alias_pending {
         custom_types_add(token);
         *using_alias_pending = false;
         return;
@@ -108,7 +108,7 @@ static void rebuild_custom_types(struct buffer *bp)
     };
 
     custom_types_clear();
-    if (!bp)
+    if !bp
         return;
 
     enum {
@@ -138,27 +138,27 @@ static void rebuild_custom_types(struct buffer *bp)
 
             switch (state) {
             case CT_STATE_CODE:
-                if (c == '/' && i + 1 < len && text[i + 1] == '/') {
+                if c == '/' && i + 1 < len && text[i + 1] == '/' {
                     state = CT_STATE_LINE_COMMENT;
                     i = len;
                     break;
                 }
-                if (c == '/' && i + 1 < len && text[i + 1] == '*') {
+                if c == '/' && i + 1 < len && text[i + 1] == '*' {
                     state = CT_STATE_BLOCK_COMMENT;
                     i += 2;
                     continue;
                 }
-                if (c == '"') {
+                if c == '"' {
                     state = CT_STATE_STRING_DQ;
                     i++;
                     continue;
                 }
-                if (c == '\'') {
+                if c == '\'' {
                     state = CT_STATE_CHAR;
                     i++;
                     continue;
                 }
-                if (c == '`') {
+                if c == '`' {
                     state = CT_STATE_STRING_SQ;
                     i++;
                     continue;
@@ -214,7 +214,7 @@ static void rebuild_custom_types(struct buffer *bp)
                 i = len;
                 break;
             case CT_STATE_BLOCK_COMMENT:
-                if (c == '*' && i + 1 < len && text[i + 1] == '/') {
+                if c == '*' && i + 1 < len && text[i + 1] == '/' {
                     state = CT_STATE_CODE;
                     i += 2;
                 } else {
@@ -224,7 +224,7 @@ static void rebuild_custom_types(struct buffer *bp)
             case CT_STATE_STRING_DQ:
                 if (c == '\\' && i + 1 < len)
                     i += 2;
-                else if (c == '"') {
+                else if c == '"' {
                     state = CT_STATE_CODE;
                     i++;
                 } else {
@@ -234,7 +234,7 @@ static void rebuild_custom_types(struct buffer *bp)
             case CT_STATE_STRING_SQ:
                 if (c == '\\' && i + 1 < len)
                     i += 2;
-                else if (c == '`') {
+                else if c == '`' {
                     state = CT_STATE_CODE;
                     i++;
                 } else {
@@ -244,7 +244,7 @@ static void rebuild_custom_types(struct buffer *bp)
             case CT_STATE_CHAR:
                 if (c == '\\' && i + 1 < len)
                     i += 2;
-                else if (c == '\'') {
+                else if c == '\'' {
                     state = CT_STATE_CODE;
                     i++;
                 } else {
@@ -265,7 +265,7 @@ static void rebuild_custom_types(struct buffer *bp)
 
 void custom_types_mark_dirty(struct buffer *bp)
 {
-    if (!bp)
+    if !bp
         return;
     if (tracked_buffer == bp)
         tracked_dirty = true;
@@ -273,13 +273,13 @@ void custom_types_mark_dirty(struct buffer *bp)
 
 void custom_types_ensure(struct buffer *bp)
 {
-    if (!bp)
+    if !bp
         return;
-    if (tracked_buffer != bp) {
+    if tracked_buffer != bp {
         tracked_buffer = bp;
         tracked_dirty = true;
     }
-    if (!tracked_dirty)
+    if !tracked_dirty
         return;
     rebuild_custom_types(bp);
     tracked_dirty = false;
@@ -292,16 +292,16 @@ int custom_types_count(void)
 
 const char *custom_types_get(int index)
 {
-    if (index < 0 || index >= custom_type_count)
-        return NULL;
+    if index < 0 || index >= custom_type_count
+        return null;
     return custom_type_names[index];
 }
 
 int custom_types_contains(const char *word)
 {
-    if (!word || !*word)
+    if !word || !*word
         return 0;
-    for (int i = 0; i < custom_type_count; i++) {
+    for i = 0; < custom_type_count; ++ {
         if (strcmp(custom_type_names[i], word) == 0)
             return 1;
     }

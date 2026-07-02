@@ -27,7 +27,7 @@ extern void vtputc(int c);
 extern struct video **vscreen;
 
 /* Paste slot buffer */
-static char *paste_slot_buffer = NULL;
+static char *paste_slot_buffer = null;
 static int paste_slot_size = 0;
 static int paste_slot_capacity = 0;
 static int paste_slot_active = 0;
@@ -37,11 +37,11 @@ static int paste_slot_decode(const char *content, int byte_pos, int content_len,
 {
     int bytes;
 
-    if (!content || !uc || byte_pos < 0 || byte_pos >= content_len)
+    if !content || !uc || byte_pos < 0 || byte_pos >= content_len
         return 0;
 
     bytes = utf8_to_unicode((const unsigned char *)content, byte_pos, content_len, uc);
-    if (bytes <= 0 || byte_pos + bytes > content_len) {
+    if bytes <= 0 || byte_pos + bytes > content_len {
         *uc = (unsigned char)content[byte_pos];
         return 1;
     }
@@ -66,14 +66,14 @@ static void paste_slot_puts(struct video *vp, int *col, int max_col,
     int idx = 0;
     int len;
 
-    if (!vp || !col || !text || max_col <= 0)
+    if !vp || !col || !text || max_col <= 0
         return;
 
     len = (int)strlen(text);
     while (idx < len && *col < max_col) {
         unicode_t uc;
         int bytes = paste_slot_decode(text, idx, len, &uc);
-        if (bytes <= 0)
+        if bytes <= 0
             break;
         paste_slot_set_cell(vp, *col, uc, style);
         (*col)++;
@@ -83,7 +83,7 @@ static void paste_slot_puts(struct video *vp, int *col, int max_col,
 
 static void paste_slot_clear_inline_row(int row, int start_col, HighlightStyle style)
 {
-    if (!term || !vscreen || row < 0 || row >= term->t_nrow || !vscreen[row])
+    if !term || !vscreen || row < 0 || row >= term->t_nrow || !vscreen[row]
         return;
     if (start_col < 0)
         start_col = 0;
@@ -100,9 +100,9 @@ static int paste_slot_draw_bytes(int row, int col, const char *content,
 {
     int pos = start;
 
-    if (!term || !vscreen || !content || row < 0 || row >= term->t_nrow)
+    if !term || !vscreen || !content || row < 0 || row >= term->t_nrow
         return col;
-    if (!vscreen[row])
+    if !vscreen[row]
         return col;
 
     while (pos < len && col < term->t_ncol) {
@@ -110,15 +110,15 @@ static int paste_slot_draw_bytes(int row, int col, const char *content,
         int bytes = paste_slot_decode(content, pos, len, &uc);
         int width;
 
-        if (bytes <= 0)
+        if bytes <= 0
             break;
-        if (uc == '\n' || uc == '\r')
+        if uc == '\n' || uc == '\r'
             break;
 
         width = mystrnlen_raw_w(uc);
         if (width <= 0)
             width = 1;
-        if (col + width > term->t_ncol)
+        if col + width > term->t_ncol
             break;
 
         paste_slot_set_cell(vscreen[row], col, uc, style);
@@ -136,9 +136,9 @@ void paste_slot_draw_inline_preview(int start_row, int start_col, int text_left_
 {
     if (!term || !vscreen || !curwp || !curwp->w_dotp || !highlight_is_enabled())
         return;
-    if (paste_slot_buffer == NULL || paste_slot_size <= 0 || !paste_slot_active)
+    if paste_slot_buffer == NULL || paste_slot_size <= 0 || !paste_slot_active
         return;
-    if (start_row < 0 || start_row >= term->t_nrow)
+    if start_row < 0 || start_row >= term->t_nrow
         return;
 
     HighlightStyle normal = colorscheme_get(HL_NORMAL);
@@ -167,14 +167,14 @@ void paste_slot_draw_inline_preview(int start_row, int start_col, int text_left_
         suffix_start = suffix_len;
 
     while (pos < content_len && row < term->t_nrow - 1) {
-        if (!cleared[row]) {
+        if !cleared[row] {
             paste_slot_clear_inline_row(row, (row == start_row) ? start_col : text_left_col, normal);
             cleared[row] = true;
         }
 
         while (pos < content_len && row < term->t_nrow - 1) {
             unsigned char ch = (unsigned char)content[pos];
-            if (ch == '\n' || ch == '\r')
+            if ch == '\n' || ch == '\r'
                 break;
             col = paste_slot_draw_bytes(row, col, content, pos, content_len, green);
             while (pos < content_len && content[pos] != '\n' && content[pos] != '\r')
@@ -191,13 +191,13 @@ void paste_slot_draw_inline_preview(int start_row, int start_col, int text_left_
         }
     }
 
-    if (row < term->t_nrow - 1) {
+    if row < term->t_nrow - 1 {
         if (!cleared[row])
             paste_slot_clear_inline_row(row, (row == start_row) ? start_col : text_left_col, normal);
         paste_slot_draw_bytes(row, col, suffix, suffix_start, suffix_len, normal);
     }
 
-    if (term->t_nrow > 0 && vscreen[term->t_nrow - 1]) {
+    if term->t_nrow > 0 && vscreen[term->t_nrow - 1] {
         int footer_col = 0;
         paste_slot_clear_inline_row(term->t_nrow - 1, 0, normal);
         paste_slot_puts(vscreen[term->t_nrow - 1], &footer_col, term->t_ncol,
@@ -210,10 +210,10 @@ void paste_slot_draw_inline_preview(int start_row, int start_col, int text_left_
 /* Initialize paste slot buffer */
 void paste_slot_init(void)
 {
-    if (paste_slot_buffer == NULL) {
+    if paste_slot_buffer == NULL {
         paste_slot_capacity = 16384;  /* Start with 16KB */
         paste_slot_buffer = malloc(paste_slot_capacity);
-        if (paste_slot_buffer) {
+        if paste_slot_buffer {
             paste_slot_size = 0;
             paste_slot_buffer[0] = '\0';
         }
@@ -226,19 +226,19 @@ int paste_slot_add_char(char c)
     if (paste_slot_buffer == NULL)
         paste_slot_init();
     
-    if (paste_slot_buffer == NULL)
+    if paste_slot_buffer == NULL
         return 0;
     
     /* Expand if needed */
-    if (paste_slot_size < 0 || paste_slot_capacity <= 0)
+    if paste_slot_size < 0 || paste_slot_capacity <= 0
         return 0;
 
-    if (paste_slot_size + 1 >= paste_slot_capacity) {
-        if (paste_slot_capacity > INT_MAX / 2)
+    if paste_slot_size + 1 >= paste_slot_capacity {
+        if paste_slot_capacity > INT_MAX / 2
             return 0;
         int new_capacity = paste_slot_capacity * 2;
         char *new_buffer = realloc(paste_slot_buffer, new_capacity);
-        if (new_buffer == NULL)
+        if new_buffer == NULL
             return 0;
         paste_slot_buffer = new_buffer;
         paste_slot_capacity = new_capacity;
@@ -252,7 +252,7 @@ int paste_slot_add_char(char c)
 /* Clear paste slot buffer */
 void paste_slot_clear(void)
 {
-    if (paste_slot_buffer) {
+    if paste_slot_buffer {
         paste_slot_size = 0;
         paste_slot_buffer[0] = '\0';
     }
@@ -261,9 +261,9 @@ void paste_slot_clear(void)
 /* Free paste slot buffer */
 void paste_slot_free(void)
 {
-    if (paste_slot_buffer) {
+    if paste_slot_buffer {
         free(paste_slot_buffer);
-        paste_slot_buffer = NULL;
+        paste_slot_buffer = null;
         paste_slot_size = 0;
         paste_slot_capacity = 0;
     }
@@ -317,15 +317,15 @@ void paste_slot_display(void)
         return;
     }
 
-    if (!term || !vscreen || term->t_nrow < 4 || term->t_ncol < 8)
+    if !term || !vscreen || term->t_nrow < 4 || term->t_ncol < 8
         return;
 
     if (content_len < 0)
         content_len = 0;
 
     /* Clear screen and set change flags for all rows */
-    for (int i = 0; i < term->t_nrow; i++) {
-        if (!vscreen[i])
+    for i = 0; < term->t_nrow; ++ {
+        if !vscreen[i]
             return;
         vscreen[i]->v_flag |= VFCHG;
         vtmove(i, 0);
@@ -367,7 +367,7 @@ void paste_slot_display(void)
         while (byte_pos < content_len && col < term->t_ncol - 1) {
             unsigned char c = (unsigned char)content[byte_pos];
 
-            if (c == '\n' || c == '\r') {
+            if c == '\n' || c == '\r' {
                 if (c == '\r' && byte_pos + 1 < content_len && content[byte_pos + 1] == '\n')
                     byte_pos++;
                 byte_pos++;
@@ -376,7 +376,7 @@ void paste_slot_display(void)
                 unicode_t uc;
                 int bytes = paste_slot_decode(content, byte_pos, content_len, &uc);
                 int width = mystrnlen_raw_w(uc);
-                if (bytes <= 0)
+                if bytes <= 0
                     break;
                 if (width <= 0)
                     width = 1;
@@ -431,7 +431,7 @@ int paste_slot_insert(void)
 {
     extern int linsert_block(const char *block, int len);
     
-    if (paste_slot_buffer == NULL || paste_slot_size <= 0)
+    if paste_slot_buffer == NULL || paste_slot_size <= 0
         return 1;
 
     mlwrite("Pasting...");

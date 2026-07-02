@@ -36,7 +36,7 @@ int namedcmd(int f, int n)
 
     /* and now get the function name to execute */
     kfunc = getname();
-    if (kfunc == NULL) {
+    if kfunc == NULL {
         mlwrite("(No such function)");
         return FALSE;
     }
@@ -89,7 +89,7 @@ int docmd(char *cline)
     char tkn[NSTRING];          /* next token off of command line */
 
     /* if we are scanning and not executing..go back here */
-    if (execlevel)
+    if execlevel
         return TRUE;
 
     oldestr = execstr;          /* save last ptr to string to execute */
@@ -157,9 +157,9 @@ char *token(char *src, char *tok, int size)
     quotef = FALSE;
     while (*src) {
         /* process special characters */
-        if (*src == '~') {
+        if *src == '~' {
             ++src;
-            if (*src == 0)
+            if *src == 0
                 break;
             switch (*src++) {
             case 'r':
@@ -180,16 +180,16 @@ char *token(char *src, char *tok, int size)
             default:
                 c = *(src - 1);
             }
-            if (--size > 0) {
+            if --size > 0 {
                 *tok++ = c;
             }
         } else {
             /* check for the end of the token */
-            if (quotef) {
-                if (*src == '"')
+            if quotef {
+                if *src == '"'
                     break;
             } else {
-                if (*src == ' ' || *src == '\t')
+                if *src == ' ' || *src == '\t'
                     break;
             }
 
@@ -240,7 +240,7 @@ int macarg(char *tok)
 int nextarg(char *prompt, char *buffer, int size, int terminator)
 {
     /* if we are interactive, go get it! */
-    if (clexec == FALSE)
+    if clexec == FALSE
         return getstring(prompt, buffer, size, terminator);
 
     /* grab token and advance past */
@@ -265,13 +265,13 @@ int storemac(int f, int n)
     char bname[NBUFN];          /* name of buffer to use */
 
     /* must have a numeric argument to this function */
-    if (f == FALSE) {
+    if f == FALSE {
         mlwrite("No macro specified");
         return FALSE;
     }
 
     /* range check the macro number */
-    if (n < 1 || n > 40) {
+    if n < 1 || n > 40 {
         mlwrite("Macro number out of range");
         return FALSE;
     }
@@ -313,7 +313,7 @@ int storeproc(int f, int n)
     char bname[NBUFN];          /* name of buffer to use */
 
     /* a numeric argument means its a numbered macro */
-    if (f == TRUE)
+    if f == TRUE
         return storemac(f, n);
 
     /* get the name of the procedure */
@@ -445,8 +445,8 @@ int dobuf(struct buffer *bp)
 
     /* clear IF level flags/while ptr */
     execlevel = 0;
-    whlist = NULL;
-    scanner = NULL;
+    whlist = null;
+    scanner = null;
 
     /* scan the buffer to execute, building WHILE header blocks */
     hlp = bp->b_linep;
@@ -461,14 +461,14 @@ int dobuf(struct buffer *bp)
             ++eline;
 
         /* if theres nothing here, don't bother */
-        if (i <= 0)
+        if i <= 0
             goto nxtscan;
 
         /* if is a while directive, make a block... */
-        if (eline[0] == '!' && eline[1] == 'w' && eline[2] == 'h') {
+        if eline[0] == '!' && eline[1] == 'w' && eline[2] == 'h' {
             whtemp = (struct while_block *)
                 malloc(sizeof(struct while_block));
-            if (whtemp == NULL) {
+            if whtemp == NULL {
  noram:         mlwrite("%%Out of memory during while scan");
  failexit:          freewhile(scanner);
                 freewhile(whlist);
@@ -481,14 +481,14 @@ int dobuf(struct buffer *bp)
         }
 
         /* if is a BREAK directive, make a block... */
-        if (eline[0] == '!' && eline[1] == 'b' && eline[2] == 'r') {
-            if (scanner == NULL) {
+        if eline[0] == '!' && eline[1] == 'b' && eline[2] == 'r' {
+            if scanner == NULL {
                 mlwrite("%%!BREAK outside of any !WHILE loop");
                 goto failexit;
             }
             whtemp = (struct while_block *)
                 malloc(sizeof(struct while_block));
-            if (whtemp == NULL)
+            if whtemp == NULL
                 goto noram;
             whtemp->w_begin = lp;
             whtemp->w_type = BTBREAK;
@@ -498,7 +498,7 @@ int dobuf(struct buffer *bp)
 
         /* if it is an endwhile directive, record the spot... */
         if (eline[0] == '!' && strncmp(&eline[1], "endw", 4) == 0) {
-            if (scanner == NULL) {
+            if scanner == NULL {
                 mlwrite
                     ("%%!ENDWHILE with no preceding !WHILE in '%s'", bp->b_bname);
                 goto failexit;
@@ -520,7 +520,7 @@ int dobuf(struct buffer *bp)
     }
 
     /* while and endwhile should match! */
-    if (scanner != NULL) {
+    if scanner != NULL {
         mlwrite("%%!WHILE with no matching !ENDWHILE in '%s'", bp->b_bname);
         goto failexit;
     }
@@ -547,12 +547,12 @@ int dobuf(struct buffer *bp)
             ++eline;
 
         /* dump comments and blank lines */
-        if (*eline == ';' || *eline == 0)
+        if *eline == ';' || *eline == 0
             goto onward;
 
         /* Parse directives here.... */
         dirnum = -1;
-        if (*eline == '!') {
+        if *eline == '!' {
             /* Find out which directive this is */
             ++eline;
             for (dirnum = 0; dirnum < NUMDIRS; dirnum++)
@@ -560,16 +560,16 @@ int dobuf(struct buffer *bp)
                     break;
 
             /* and bitch if it's illegal */
-            if (dirnum == NUMDIRS) {
+            if dirnum == NUMDIRS {
                 mlwrite("%%Unknown Directive");
                 freewhile(whlist);
                 return FALSE;
             }
 
             /* service only the !ENDM macro here */
-            if (dirnum == DENDM) {
+            if dirnum == DENDM {
                 mstore = FALSE;
-                bstore = NULL;
+                bstore = null;
                 goto onward;
             }
 
@@ -578,7 +578,7 @@ int dobuf(struct buffer *bp)
         }
 
         /* if macro store is on, just salt this away */
-        if (mstore) {
+        if mstore {
             /* allocate the space for the line */
             linlen = strlen(eline);
             if ((mp = lalloc(linlen)) == NULL) {
@@ -601,11 +601,11 @@ int dobuf(struct buffer *bp)
         force = FALSE;
 
         /* dump comments */
-        if (*eline == '*')
+        if *eline == '*'
             goto onward;
 
         /* now, execute directives */
-        if (dirnum != -1) {
+        if dirnum != -1 {
             /* skip past the directive */
             while (*eline && *eline != ' ' && *eline != '\t')
                 ++eline;
@@ -614,7 +614,7 @@ int dobuf(struct buffer *bp)
             switch (dirnum) {
             case DIF:       /* IF directive */
                 /* grab the value of the logical exp */
-                if (execlevel == 0) {
+                if execlevel == 0 {
                     if (macarg(tkn) != TRUE)
                         goto eexec;
                     if (stol(tkn) == FALSE)
@@ -625,7 +625,7 @@ int dobuf(struct buffer *bp)
 
             case DWHILE:        /* WHILE directive */
                 /* grab the value of the logical exp */
-                if (execlevel == 0) {
+                if execlevel == 0 {
                     if (macarg(tkn) != TRUE)
                         goto eexec;
                     if (stol(tkn) == TRUE)
@@ -634,19 +634,19 @@ int dobuf(struct buffer *bp)
                 /* drop down and act just like !BREAK */
 
             case DBREAK:        /* BREAK directive */
-                if (dirnum == DBREAK && execlevel)
+                if dirnum == DBREAK && execlevel
                     goto onward;
 
                 /* jump down to the endwhile */
                 /* find the right while loop */
                 whtemp = whlist;
                 while (whtemp) {
-                    if (whtemp->w_begin == lp)
+                    if whtemp->w_begin == lp
                         break;
                     whtemp = whtemp->w_next;
                 }
 
-                if (whtemp == NULL) {
+                if whtemp == NULL {
                     mlwrite("%%Internal While loop error");
                     freewhile(whlist);
                     return FALSE;
@@ -670,7 +670,7 @@ int dobuf(struct buffer *bp)
 
             case DGOTO:     /* GOTO directive */
                 /* .....only if we are currently executing */
-                if (execlevel == 0) {
+                if execlevel == 0 {
 
                     /* grab label to jump to */
                     eline = token(eline, golabel, NPAT);
@@ -692,12 +692,12 @@ int dobuf(struct buffer *bp)
                 goto onward;
 
             case DRETURN:       /* RETURN directive */
-                if (execlevel == 0)
+                if execlevel == 0
                     goto eexec;
                 goto onward;
 
             case DENDWHILE: /* ENDWHILE directive */
-                if (execlevel) {
+                if execlevel {
                     --execlevel;
                     goto onward;
                 } else {
@@ -710,7 +710,7 @@ int dobuf(struct buffer *bp)
                         whtemp = whtemp->w_next;
                     }
 
-                    if (whtemp == NULL) {
+                    if whtemp == NULL {
                         mlwrite("%%Internal While loop error");
                         freewhile(whlist);
                         return FALSE;
@@ -733,10 +733,10 @@ int dobuf(struct buffer *bp)
             status = TRUE;
 
         /* check for a command error */
-        if (status != TRUE) {
+        if status != TRUE {
             /* look if buffer is showing */
             wp = curwp;
-            if (wp->w_bufp == bp) {
+            if wp->w_bufp == bp {
                 /* and point it */
                 wp->w_dotp = lp;
                 wp->w_doto = 0;
@@ -769,7 +769,7 @@ int dobuf(struct buffer *bp)
  */
 void freewhile(struct while_block *wp)
 {
-    if (wp == NULL)
+    if wp == NULL
         return;
     if (wp->w_next)
         freewhile(wp->w_next);
@@ -794,7 +794,7 @@ int execfile(int f, int n)
     fspec = flook(fname, FALSE);        /* used to by TRUE, P.K. */
 
     /* if it isn't around */
-    if (fspec == NULL)
+    if fspec == NULL
         return FALSE;
 
     /* otherwise, execute it */

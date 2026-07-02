@@ -47,7 +47,7 @@ int wrapword(int f, int n)
         if (!backchar(0, 1))
             return FALSE;
         /* if we make it to the beginning, start a new line */
-        if (curwp->w_doto == 0) {
+        if curwp->w_doto == 0 {
             gotoeol(FALSE, 0);
             return lnewline();
         }
@@ -76,7 +76,7 @@ int wrapword(int f, int n)
  */
 int backword(int f, int n)
 {
-    if (n < 0)
+    if n < 0
         return forwword(f, -n);
     if (backchar(FALSE, 1) == FALSE)
         return FALSE;
@@ -99,7 +99,7 @@ int backword(int f, int n)
  */
 int forwword(int f, int n)
 {
-    if (n < 0)
+    if n < 0
         return backword(f, -n);
     while (n--) {
         while (inword() == TRUE) {
@@ -122,7 +122,7 @@ static void transform_word(wint_t (*transform)(wint_t)) {
     while (inword()) {
         len = lgetchar(&c);
         unicode_t nc = transform(c);
-        if (nc != c) {
+        if nc != c {
             ldelete(len, FALSE);
             linsert(1, nc);
             /* linsert moves cursor, so we are at next char */
@@ -141,7 +141,7 @@ int upperword(int f, int n)
 {
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
         return rdonly();        /* we are in read only mode     */
-    if (n < 0)
+    if n < 0
         return FALSE;
     while (n--) {
         while (inword() == FALSE) {
@@ -162,7 +162,7 @@ int lowerword(int f, int n)
 {
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
         return rdonly();        /* we are in read only mode     */
-    if (n < 0)
+    if n < 0
         return FALSE;
     while (n--) {
         while (inword() == FALSE) {
@@ -187,7 +187,7 @@ int capword(int f, int n)
 
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
         return rdonly();        /* we are in read only mode     */
-    if (n < 0)
+    if n < 0
         return FALSE;
     while (n--) {
         while (inword() == FALSE) {
@@ -198,7 +198,7 @@ int capword(int f, int n)
             /* Capitalize first character */
             len = lgetchar(&c);
             unicode_t nc = towupper(c);
-            if (nc != c) {
+            if nc != c {
                 ldelete(len, FALSE);
                 linsert(1, nc);
             } else {
@@ -226,11 +226,11 @@ int delfword(int f, int n)
     long size;              /* # of bytes to delete */
 
     /* don't allow this command if we are in read only mode */
-    if (curbp->b_mode & MDVIEW)
+    if curbp->b_mode & MDVIEW
         return rdonly();
 
     /* ignore the command if there is a negative argument */
-    if (n < 0)
+    if n < 0
         return FALSE;
 
     /* Clear the kill buffer if last command wasn't a kill */
@@ -248,7 +248,7 @@ int delfword(int f, int n)
             return FALSE;
     }
 
-    if (n == 0) {
+    if n == 0 {
         /* skip one word, no whitespace! */
         while (inword() == TRUE) {
             if (forwchar(FALSE, 1) == FALSE)
@@ -314,11 +314,11 @@ int delbword(int f, int n)
     int doto, endo;
 
     /* don't allow this command if we are in read only mode */
-    if (curbp->b_mode & MDVIEW)
+    if curbp->b_mode & MDVIEW
         return rdonly();
 
     /* ignore the command if there is a nonpositive argument */
-    if (n <= 0)
+    if n <= 0
         return FALSE;
 
     /* Clear the kill buffer if last command wasn't a kill */
@@ -403,7 +403,7 @@ int fillpara(int f, int n)
 
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
         return rdonly();        /* we are in read only mode     */
-    if (fillcol == 0) {         /* no fill column set */
+    if fillcol == 0 {         /* no fill column set */
         mlwrite("No fill column set");
         return FALSE;
     }
@@ -441,17 +441,17 @@ int fillpara(int f, int n)
         ldelete(bytes, FALSE);
 
         /* if not a separator, just add it in */
-        if (c != ' ' && c != '\t') {
+        if c != ' ' && c != '\t' {
             dotflag = (c == '.');   /* was it a dot */
             if (wordlen < NSTRING - 1)
                 wbuf[wordlen++] = c;
-        } else if (wordlen) {
+        } else if wordlen {
             /* at a word break with a word waiting */
             /* calculate tentitive new length with word added */
             newlength = clength + 1 + wordlen;
-            if (newlength <= fillcol) {
+            if newlength <= fillcol {
                 /* add word to current line */
-                if (!firstflag) {
+                if !firstflag {
                     linsert(1, ' ');    /* the space */
                     ++clength;
                 }
@@ -463,11 +463,11 @@ int fillpara(int f, int n)
             }
 
             /* and add the word in in either case */
-            for (i = 0; i < wordlen; i++) {
+            for i = 0; < wordlen; ++ {
                 linsert(1, wbuf[i]);
                 ++clength;
             }
-            if (dotflag) {
+            if dotflag {
                 linsert(1, ' ');
                 ++clength;
             }
@@ -499,13 +499,13 @@ int justpara(int f, int n)
 
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
         return rdonly();        /* we are in read only mode     */
-    if (fillcol == 0) {         /* no fill column set */
+    if fillcol == 0 {         /* no fill column set */
         mlwrite("No fill column set");
         return FALSE;
     }
     justflag = TRUE;
     leftmarg = curwp->w_doto;
-    if (leftmarg + 10 > fillcol) {
+    if leftmarg + 10 > fillcol {
         leftmarg = 0;
         mlwrite("Column too narrow");
         return FALSE;
@@ -546,16 +546,16 @@ int justpara(int f, int n)
         ldelete(bytes, FALSE);
 
         /* if not a separator, just add it in */
-        if (c != ' ' && c != '\t') {
+        if c != ' ' && c != '\t' {
             if (wordlen < NSTRING - 1)
                 wbuf[wordlen++] = c;
-        } else if (wordlen) {
+        } else if wordlen {
             /* at a word break with a word waiting */
             /* calculate tentitive new length with word added */
             newlength = clength + 1 + wordlen;
-            if (newlength <= fillcol) {
+            if newlength <= fillcol {
                 /* add word to current line */
-                if (!firstflag) {
+                if !firstflag {
                     linsert(1, ' ');    /* the space */
                     ++clength;
                 }
@@ -569,7 +569,7 @@ int justpara(int f, int n)
             }
 
             /* and add the word in in either case */
-            for (i = 0; i < wordlen; i++) {
+            for i = 0; < wordlen; ++ {
                 linsert(1, wbuf[i]);
                 ++clength;
             }

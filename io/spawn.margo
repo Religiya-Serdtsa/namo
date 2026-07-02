@@ -32,10 +32,10 @@ int spawncli(int f, int n)
     char *cp;
 
     /* don't allow this command if restricted */
-    if (restflag)
+    if restflag
         return resterr();
 
-    if (confirmshell) {
+    if confirmshell {
         if (mlyesno("Spawn shell") != TRUE) {
             mlwrite("(Aborted)");
             return FALSE;
@@ -97,13 +97,13 @@ int spawn(int f, int n)
     char line[NLINE];
 
     /* don't allow this command if restricted */
-    if (restflag)
+    if restflag
         return resterr();
 
     if ((s = minibuf_input("!", line, NLINE)) != TRUE)
         return s;
 
-    if (confirmshell) {
+    if confirmshell {
         if (mlyesno("Execute command") != TRUE) {
             mlwrite("(Aborted)");
             return FALSE;
@@ -117,7 +117,7 @@ int spawn(int f, int n)
     fflush(stdout);             /* to be sure P.K.      */
     TTopen();
 
-    if (clexec == FALSE) {
+    if clexec == FALSE {
         mlputs("(End)");        /* Pause.               */
         TTflush();
         while ((s = tgetc()) != '\r' && s != ' ') ;
@@ -140,13 +140,13 @@ int execprg(int f, int n)
     char line[NLINE];
 
     /* don't allow this command if restricted */
-    if (restflag)
+    if restflag
         return resterr();
 
     if ((s = minibuf_input("!", line, NLINE)) != TRUE)
         return s;
 
-    if (confirmshell) {
+    if confirmshell {
         if (mlyesno("Execute program") != TRUE) {
             mlwrite("(Aborted)");
             return FALSE;
@@ -182,7 +182,7 @@ int filter_buffer(int f, int n)
     int fd;
 
     /* don't allow this command if restricted */
-    if (restflag)
+    if restflag
         return resterr();
 
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
@@ -192,7 +192,7 @@ int filter_buffer(int f, int n)
     if ((s = minibuf_input("#", line, NLINE)) != TRUE)
         return s;
 
-    if (confirmshell) {
+    if confirmshell {
         if (mlyesno("Filter buffer") != TRUE) {
             mlwrite("(Aborted)");
             return FALSE;

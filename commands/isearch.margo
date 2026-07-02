@@ -30,27 +30,27 @@
  * ==================================================================== */
 
 /* Minibuffer dedicated structures */
-struct window *minibuf_wp = NULL;    /* Minibuffer window */
-struct buffer *minibuf_bp = NULL;    /* Minibuffer buffer */
+struct window *minibuf_wp = null;    /* Minibuffer window */
+struct buffer *minibuf_bp = null;    /* Minibuffer buffer */
 
 /* Initialize the minibuffer window and buffer system */
 void minibuf_init(void)
 {
     struct line *lp;
     
-    if (minibuf_bp != NULL)
+    if minibuf_bp != NULL
         return;  /* Already initialized */
     
     /* Create minibuffer buffer */
     minibuf_bp = (struct buffer *)malloc(sizeof(struct buffer));
-    if (minibuf_bp == NULL)
+    if minibuf_bp == NULL
         return;
     
     /* Initialize buffer header line */
     lp = lalloc(0);
-    if (lp == NULL) {
+    if lp == NULL {
         free(minibuf_bp);
-        minibuf_bp = NULL;
+        minibuf_bp = null;
         return;
     }
     
@@ -59,7 +59,7 @@ void minibuf_init(void)
     lp->prev = lp;
     
     /* Initialize buffer structure */
-    minibuf_bp->b_bufp = NULL;
+    minibuf_bp->b_bufp = null;
     minibuf_bp->b_dotp = lp;
     minibuf_bp->b_doto = 0;
     minibuf_bp->b_markp = lp;
@@ -74,10 +74,10 @@ void minibuf_init(void)
     
     /* Create minibuffer window */
     minibuf_wp = (struct window *)malloc(sizeof(struct window));
-    if (minibuf_wp == NULL) {
+    if minibuf_wp == NULL {
         lfree(lp);
         free(minibuf_bp);
-        minibuf_bp = NULL;
+        minibuf_bp = null;
         return;
     }
     
@@ -95,7 +95,7 @@ void minibuf_init(void)
 /* Clear minibuffer content */
 void minibuf_clear(void)
 {
-    if (minibuf_bp == NULL || minibuf_wp == NULL)
+    if minibuf_bp == NULL || minibuf_wp == NULL
         return;
     
     /* Reset to empty first line */
@@ -146,11 +146,11 @@ int minibuf_delete_char(long n)
     struct buffer *save_bp = curbp;
     int result;
     
-    if (minibuf_wp->w_doto == 0 && minibuf_wp->w_dotp == minibuf_bp->b_linep)
+    if minibuf_wp->w_doto == 0 && minibuf_wp->w_dotp == minibuf_bp->b_linep
         return FALSE;  /* At beginning */
     
     /* Move back one UTF-8 character */
-    if (minibuf_wp->w_doto > 0) {
+    if minibuf_wp->w_doto > 0 {
         int byte_offset = minibuf_wp->w_doto - 1;
         unsigned char *text = ltext(minibuf_wp->w_dotp);
         
@@ -189,21 +189,21 @@ void minibuf_update(const char *prompt)
     unsigned char *text;
     struct line *lp;
     
-    if (minibuf_wp == NULL || minibuf_bp == NULL)
+    if minibuf_wp == NULL || minibuf_bp == NULL
         return;
     
     /* Move to bottom line */
     movecursor(term->t_nrow, 0);
     
     /* Output prompt - each byte with proper UTF-8 handling */
-    if (prompt) {
+    if prompt {
         const unsigned char *p = (const unsigned char *)prompt;
         int plen = strlen(prompt);
         int pi = 0;
         while (pi < plen) {
             unicode_t uc;
             int bytes = utf8_to_unicode(p, pi, plen, &uc);
-            if (bytes <= 0) break;
+            if bytes <= 0 break;
             TTputc(uc);
             col += mystrnlen_raw_w(uc);
             pi += bytes;
@@ -212,7 +212,7 @@ void minibuf_update(const char *prompt)
     
     /* Get minibuffer line */
     lp = minibuf_wp->w_dotp;
-    if (lp == minibuf_bp->b_linep) {
+    if lp == minibuf_bp->b_linep {
         /* Empty buffer, just clear to EOL */
         TTeeol();
         TTflush();
@@ -230,13 +230,13 @@ void minibuf_update(const char *prompt)
         /* Convert UTF-8 bytes to Unicode code point */
         int bytes = utf8_to_unicode(text, i, len, &c);
         
-        if (bytes <= 0)
+        if bytes <= 0
             break;
         
         /* Check display width using mystrnlen_raw_w for CJK */
         int char_width = mystrnlen_raw_w(c);
         
-        if (col + char_width >= term->t_ncol - 1)
+        if col + char_width >= term->t_ncol - 1
             break;
         
         /* CRITICAL: Pass Unicode code point to TTputc, NOT raw bytes!
@@ -252,7 +252,7 @@ void minibuf_update(const char *prompt)
     
     /* Position cursor at correct column accounting for wide chars */
     int cursor_col = 0;
-    if (prompt) {
+    if prompt {
         cursor_col = strlen(prompt);
     }
     
@@ -262,7 +262,7 @@ void minibuf_update(const char *prompt)
     
     while (i < byte_pos && i < len) {
         int bytes = utf8_to_unicode(text, i, len, &c);
-        if (bytes <= 0)
+        if bytes <= 0
             break;
         cursor_col += mystrnlen_raw_w(c);
         i += bytes;
@@ -285,7 +285,7 @@ void minibuf_show(const char *msg)
     /* Move to bottom line */
     movecursor(term->t_nrow, 0);
     
-    if (msg == NULL || *msg == '\0') {
+    if msg == NULL || *msg == '\0' {
         TTeeol();
         TTflush();
         return;
@@ -300,7 +300,7 @@ void minibuf_show(const char *msg)
         /* Convert UTF-8 bytes to Unicode code point */
         int bytes = utf8_to_unicode(text, i, len, &c);
         
-        if (bytes <= 0) {
+        if bytes <= 0 {
             /* Invalid UTF-8 - output as raw byte */
             TTputc(text[i] & 0xFF);
             col++;
@@ -311,7 +311,7 @@ void minibuf_show(const char *msg)
         /* Check display width using mystrnlen_raw_w for CJK */
         int char_width = mystrnlen_raw_w(c);
         
-        if (col + char_width >= term->t_ncol - 1)
+        if col + char_width >= term->t_ncol - 1
             break;
         
         /* CRITICAL: Pass Unicode code point to TTputc, NOT raw bytes!
@@ -336,15 +336,15 @@ void minibuf_get_text(char *dest, int max_len)
     
     dest[0] = '\0';
     
-    if (minibuf_bp == NULL || minibuf_wp == NULL)
+    if minibuf_bp == NULL || minibuf_wp == NULL
         return;
     
     lp = minibuf_wp->w_dotp;
-    if (lp == minibuf_bp->b_linep)
+    if lp == minibuf_bp->b_linep
         return;
     
     /* Copy content */
-    for (i = 0; i < lp->used && i < max_len - 1; i++) {
+    for i = 0; < lp->used && i < max_len - 1; ++ {
         dest[i] = ltext(lp)[i];
     }
     dest[i] = '\0';
@@ -359,7 +359,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
     /* Initialize minibuffer system */
     minibuf_init();
     completion_init();
-    if (minibuf_bp == NULL || minibuf_wp == NULL) {
+    if minibuf_bp == NULL || minibuf_wp == NULL {
         mlwrite("? Cannot initialize minibuffer");
         return FALSE;
     }
@@ -395,7 +395,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
             completion_hide();
             sgarbf = TRUE;
             nanox_request_underbar_redraw();
-            if (dest[0] == '\0')
+            if dest[0] == '\0'
                 return FALSE;
             return TRUE;
             
@@ -427,7 +427,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
         case (CONTROL | SHIFT | 'A'): /* Ctrl+Shift+A - Accept completion */
             {
                 const char *selected = completion_get_selected();
-                if (selected) {
+                if selected {
                     minibuf_clear();
                     /* Insert selected word - decode UTF-8 to Unicode before inserting */
                     int i = 0;
@@ -435,7 +435,7 @@ int minibuf_input(const char *prompt, char *dest, int max_len)
                     while (i < sel_len) {
                         unicode_t uc;
                         int bytes = utf8_to_unicode((const unsigned char *)selected, i, sel_len, &uc);
-                        if (bytes <= 0) break;
+                        if bytes <= 0 break;
                         minibuf_insert_char(uc);
                         i += bytes;
                     }
@@ -482,7 +482,7 @@ int uneat(void)
 
 void reeat(int c)
 {
-    if (eaten_char != -1)
+    if eaten_char != -1
         return;
     eaten_char = c;
     saved_get_char = term->t_getchar;
@@ -495,7 +495,7 @@ int get_char(void)
     int c;
     
     /* Re-executing? */
-    if (cmd_reexecute >= 0) {
+    if cmd_reexecute >= 0 {
         if ((c = cmd_buff[cmd_reexecute++]) != 0)
             return c;
     }
@@ -504,7 +504,7 @@ int get_char(void)
     cmd_reexecute = -1;
     update(FALSE);
     
-    if (cmd_offset >= CMDBUFLEN - 1) {
+    if cmd_offset >= CMDBUFLEN - 1 {
         mlwrite("? command too long");
         return metac;
     }
@@ -583,7 +583,7 @@ int isearch(int f, int n)
     
     /* Initialize minibuffer system */
     minibuf_init();
-    if (minibuf_bp == NULL || minibuf_wp == NULL) {
+    if minibuf_bp == NULL || minibuf_wp == NULL {
         mlwrite("? Cannot initialize minibuffer");
         return FALSE;
     }
@@ -617,13 +617,13 @@ start_over:
         while (i < pat_len) {
             unicode_t uc;
             int bytes = utf8_to_unicode((unsigned char *)pat, i, pat_len, &uc);
-            if (bytes <= 0) break;
+            if bytes <= 0 break;
             minibuf_insert_char(uc);
             i += bytes;
         }
         minibuf_update(prompt);
         
-        if (c == IS_REVERSE) {
+        if c == IS_REVERSE {
             n = -1;
             backchar(TRUE, 1);
         } else {
@@ -636,7 +636,7 @@ start_over:
     
     /* Main search loop */
     for (;;) {
-        if (expc == metac) {
+        if expc == metac {
             status = scanmore(pat, n);
             update(FALSE);
             expc = get_char();
@@ -674,7 +674,7 @@ start_over:
             
         case IS_BACKSP:
         case IS_RUBOUT:
-            if (cmd_offset <= 1)
+            if cmd_offset <= 1
                 return TRUE;
             
             --cmd_offset;
@@ -693,7 +693,7 @@ start_over:
             goto start_over;
             
         default:
-            if (c < ' ') {
+            if c < ' ' {
                 reeat(c);
                 minibuf_get_text(pat, NPAT);
                 return TRUE;
@@ -705,7 +705,7 @@ start_over:
         if ((c >= 0x20 && c <= 0x7E) || (c >= 0xA0 && c <= 0x10FFFF)) {
             /* Direct insert for printable characters and UTF-8 extended */
             minibuf_insert_char(c);
-        } else if (c >= ' ' && c < 0x7F) {
+        } else if c >= ' ' && c < 0x7F {
             /* ASCII printable - should not reach here */
             minibuf_insert_char(c);
         }
@@ -722,7 +722,7 @@ start_over:
         }
         
         /* Attempt search */
-        if (!status) {
+        if !status {
             /* Bell disabled */
         } else if (strlen(pat) > 0 && !(status = checknext(pat[strlen(pat) - 1], pat, n))) {
             status = scanmore(pat, n);
@@ -743,10 +743,10 @@ int checknext(char chr, char *patrn, int dir)
     curline = curwp->w_dotp;
     curoff = curwp->w_doto;
     
-    if (dir > 0) {
+    if dir > 0 {
         if (curoff == llength(curline)) {
             curline = lforw(curline);
-            if (curline == curbp->b_linep)
+            if curline == curbp->b_linep
                 return FALSE;
             curoff = 0;
             buffchar = '\n';
@@ -770,14 +770,14 @@ int scanmore(char *patrn, int dir)
 {
     int sts;
     
-    if (dir < 0) {
+    if dir < 0 {
         rvstrscpy(tap, patrn, NPAT);
         sts = scanner(tap, REVERSE, PTBEG);
     } else {
         sts = scanner(patrn, FORWARD, PTEND);
     }
     
-    if (!sts) {
+    if !sts {
         /* Bell disabled */
     }
     
@@ -795,11 +795,11 @@ int match_pat(char *patrn)
     curline = curwp->w_dotp;
     curoff = curwp->w_doto;
     
-    for (i = 0; i < strlen(patrn); i++) {
+    for i = 0; < strlen(patrn); ++ {
         if (curoff == llength(curline)) {
             curline = lforw(curline);
             curoff = 0;
-            if (curline == curbp->b_linep)
+            if curline == curbp->b_linep
                 return FALSE;
             buffchar = '\n';
         } else {
@@ -823,7 +823,7 @@ int promptpattern(char *prompt)
     expandp(pat, &tpat[strlen(tpat)], NPAT / 2);
     strcat(tpat, ")<Meta>: ");
     
-    if (!clexec) {
+    if !clexec {
         mlwrite(tpat);
     }
     

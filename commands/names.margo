@@ -172,7 +172,7 @@ struct name_bind names[] = {
     { "write-message", writemsg },
     { "yank", yank },
 
-    { "", NULL }
+    { "", null }
 };
 
 }

@@ -25,7 +25,7 @@
 #define ESC     0x1B
 
 /* Internal Buffer for Termcap Data */
-static const char *current_tcap_ptr = NULL;
+static const char *current_tcap_ptr = null;
 #define TCAPSLEN 315
 static char tcapbuf[TCAPSLEN];
 static char *UP, PC, *CM, *CE, *CL, *SO, *SE, *ZH, *ZR;
@@ -72,7 +72,7 @@ int tgetent(char *bp, const char *name) {
     static const char *default_ansi =
         "ansi:co#80:li#24:am:cl=\\E[H\\E[J:cm=\\E[%i%d;%dH:nd=\\E[C:up=\\E[A:ce=\\E[K:ho=\\E[H:so=\\E[7m:se=\\E[m:";
 
-    if (!bp) return -1;
+    if !bp return -1;
 
     /* Force use our default ANSI string for maximum compatibility */
     strcpy(bp, default_ansi);
@@ -85,13 +85,13 @@ int tgetent(char *bp, const char *name) {
  * tgetnum - Retrieves numeric capabilities (co, li).
  */
 int tgetnum(const char *id) {
-    if (!current_tcap_ptr || !id) return -1;
+    if !current_tcap_ptr || !id return -1;
     const char *ptr = current_tcap_ptr;
     size_t id_len = strlen(id);
 
     while (*ptr) {
         ptr = strchr(ptr, ':');
-        if (!ptr) break;
+        if !ptr break;
         ptr++;
         if (strncmp(ptr, id, id_len) == 0 && ptr[id_len] == '#') {
             return atoi(ptr + id_len + 1);
@@ -105,13 +105,13 @@ int tgetnum(const char *id) {
  * Handles \E escape sequences.
  */
 char *tgetstr(const char *id, char **area) {
-    if (!current_tcap_ptr || !id) return NULL;
+    if !current_tcap_ptr || !id return NULL;
     const char *ptr = current_tcap_ptr;
     size_t id_len = strlen(id);
 
     while (*ptr) {
         ptr = strchr(ptr, ':');
-        if (!ptr) break;
+        if !ptr break;
         ptr++;
         if (strncmp(ptr, id, id_len) == 0 && ptr[id_len] == '=') {
             char *ret = *area;
@@ -128,7 +128,7 @@ char *tgetstr(const char *id, char **area) {
             return ret;
         }
     }
-    return NULL;
+    return null;
 }
 
 /**
@@ -146,7 +146,7 @@ char *tgoto(const char *cap, int col, int row) {
  * tputs - Outputs a string to the terminal using the provided function.
  */
 int tputs(const char *str, int affcnt, int (*putc_func)(int)) {
-    if (!str) return 0;
+    if !str return 0;
     while (*str) {
         putc_func((unsigned char)*str++);
     }
@@ -206,20 +206,20 @@ void tcapopen(void) {
     if (SO != NULL) revexist = TRUE;
     if (tgetnum("sg") > 0) {
         revexist = FALSE;
-        SE = SO = NULL;
+        SE = SO = null;
     }
 
     TI = tgetstr("ti", &p);
     TE = tgetstr("te", &p);
 
     /* Critical capability check */
-    if (CL == NULL || CM == NULL || UP == NULL) {
+    if CL == NULL || CM == NULL || UP == NULL {
         puts("Incomplete internal termcap configuration!\n");
         exit(1);
     }
 
     if (CE == NULL) eolexist = FALSE;
-    if (p >= &tcapbuf[TCAPSLEN]) {
+    if p >= &tcapbuf[TCAPSLEN] {
         puts("Terminal description too big!\n");
         exit(1);
     }
@@ -261,15 +261,15 @@ void tcapeeop(void) {
 }
 
 void tcaprev(int state) {
-    if (state) {
+    if state {
         if (SO != NULL) putpad(SO);
-    } else if (SE != NULL) {
+    } else if SE != NULL {
         putpad(SE);
     }
 }
 
 static void tcapitalic(int state) {
-    if (state) {
+    if state {
         if (ZH != NULL) putpad(ZH);
         else putpad("\033[3m");
     } else {
@@ -284,16 +284,16 @@ int tcapcres(char *res) {
 
 static void tcap_set_colors(int fg, int bg) {
     char buf[64];
-    if (fg == -1) {
+    if fg == -1 {
         ttputc(ESC); ttputc('['); ttputc('3'); ttputc('9'); ttputc('m');
-    } else if (fg & 0x01000000) {
+    } else if fg & 0x01000000 {
         snprintf(buf, sizeof(buf), "\033[38;2;%d;%d;%dm",
             (fg >> 16) & 0xFF, (fg >> 8) & 0xFF, fg & 0xFF);
         putpad(buf);
-    } else if (fg >= 8 && fg < 16) {
+    } else if fg >= 8 && fg < 16 {
         snprintf(buf, sizeof(buf), "\033[%dm", 90 + (fg - 8));
         putpad(buf);
-    } else if (fg >= 16 && fg <= 255) {
+    } else if fg >= 16 && fg <= 255 {
         snprintf(buf, sizeof(buf), "\033[38;5;%dm", fg);
         putpad(buf);
     } else {
@@ -301,16 +301,16 @@ static void tcap_set_colors(int fg, int bg) {
         putpad(buf);
     }
 
-    if (bg == -1) {
+    if bg == -1 {
         ttputc(ESC); ttputc('['); ttputc('4'); ttputc('9'); ttputc('m');
-    } else if (bg & 0x01000000) {
+    } else if bg & 0x01000000 {
         snprintf(buf, sizeof(buf), "\033[48;2;%d;%d;%dm",
             (bg >> 16) & 0xFF, (bg >> 8) & 0xFF, bg & 0xFF);
         putpad(buf);
-    } else if (bg >= 8 && bg < 16) {
+    } else if bg >= 8 && bg < 16 {
         snprintf(buf, sizeof(buf), "\033[%dm", 100 + (bg - 8));
         putpad(buf);
-    } else if (bg >= 16 && bg <= 255) {
+    } else if bg >= 16 && bg <= 255 {
         snprintf(buf, sizeof(buf), "\033[48;5;%dm", bg);
         putpad(buf);
     } else {
@@ -320,10 +320,10 @@ static void tcap_set_colors(int fg, int bg) {
 }
 
 static void tcap_set_attrs(int bold, int underline, int italic) {
-    if (bold) { ttputc(ESC); ttputc('['); ttputc('1'); ttputc('m'); }
+    if bold { ttputc(ESC); ttputc('['); ttputc('1'); ttputc('m'); }
     else { ttputc(ESC); ttputc('['); ttputc('2'); ttputc('2'); ttputc('m'); }
 
-    if (underline) { ttputc(ESC); ttputc('['); ttputc('4'); ttputc('m'); }
+    if underline { ttputc(ESC); ttputc('['); ttputc('4'); ttputc('m'); }
     else { ttputc(ESC); ttputc('['); ttputc('2'); ttputc('4'); ttputc('m'); }
 
     tcapitalic(italic);

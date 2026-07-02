@@ -98,7 +98,7 @@ int viewfile(int f, int n)
     if ((s = minibuf_input("View file: ", fname, NFILEN)) != TRUE)
         return s;
     s = getfile(fname, FALSE);
-    if (s) {                /* if we succeed, put it in view mode */
+    if s {                /* if we succeed, put it in view mode */
         curwp->w_bufp->b_mode |= MDVIEW;
         curwp->w_flag = WFMODE;
     }
@@ -138,7 +138,7 @@ int getfile(char *fname, int lockfl)
         s = minibuf_input("Buffer name: ", bname, NBUFN);
         if (s == ABORT)         /* ^G to just quit      */
             return s;
-        if (s == FALSE) {       /* CR to clobber it     */
+        if s == FALSE {       /* CR to clobber it     */
             makename(bname, fname);
             break;
         }
@@ -147,7 +147,7 @@ int getfile(char *fname, int lockfl)
         mlwrite("Cannot create buffer");
         return FALSE;
     }
-    if (--curbp->b_nwnd == 0) {     /* Undisplay.           */
+    if --curbp->b_nwnd == 0 {     /* Undisplay.           */
         curbp->b_dotp = curwp->w_dotp;
         curbp->b_doto = curwp->w_doto;
         curbp->b_markp = curwp->w_markp;
@@ -223,7 +223,7 @@ int readin(char *fname, int lockfl)
     int use_swap = FALSE;
     char swapname[NFILEN];
     char *slash = strrchr(fname, '/');
-    if (slash) {
+    if slash {
         strncpy(swapname, fname, slash - fname + 1);
         swapname[slash - fname + 1] = '\0';
         strcat(swapname, ".");
@@ -236,10 +236,10 @@ int readin(char *fname, int lockfl)
     }
 
     FILE *swp_chk = fopen(swapname, "r");
-    if (swp_chk) {
+    if swp_chk {
         fclose(swp_chk);
         int ans = mlyesno("Swap file found. Restore unsaved changes");
-        if (ans == TRUE) {
+        if ans == TRUE {
             use_swap = TRUE;
         } else {
             unlink(swapname);
@@ -247,8 +247,8 @@ int readin(char *fname, int lockfl)
     }
 
     FILE *fp = fopen(use_swap ? swapname : fname, "rb");
-    if (!fp) {
-        if (!use_swap) {
+    if !fp {
+        if !use_swap {
             mlwrite("(New file)");
             s = FIOFNF;
         } else {
@@ -261,11 +261,11 @@ int readin(char *fname, int lockfl)
     mlwrite("(Reading file...)");
     
     char *buffer = malloc(128 * 1024);
-    if (!buffer) { fclose(fp); s = FIOMEM; goto msg_out; }
+    if !buffer { fclose(fp); s = FIOMEM; goto msg_out; }
 
     #define COMPRESS_LINES 128
     char *chunk_buf = malloc(1024 * 1024 * 16); // up to 16MB per 128 lines just in case
-    if (!chunk_buf) { free(buffer); fclose(fp); s = FIOMEM; goto msg_out; }
+    if !chunk_buf { free(buffer); fclose(fp); s = FIOMEM; goto msg_out; }
     
     int chunk_lines = 0;
     size_t chunk_bytes = 0;
@@ -278,8 +278,8 @@ int readin(char *fname, int lockfl)
         size_t offset = 0;
         while (offset < bytes_read) {
             char c = buffer[offset++];
-            if (c == '\n' || c == '\r') {
-                if (offset < bytes_read) {
+            if c == '\n' || c == '\r' {
+                if offset < bytes_read {
                     if ((c == '\r' && buffer[offset] == '\n') || (c == '\n' && buffer[offset] == '\r')) {
                         offset++;
                     }
@@ -287,7 +287,7 @@ int readin(char *fname, int lockfl)
                     int next_c = fgetc(fp);
                     if ((c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r')) {
                         // consumed
-                    } else if (next_c != EOF) {
+                    } else if next_c != EOF {
                         ungetc(next_c, fp);
                     }
                 }
@@ -296,14 +296,14 @@ int readin(char *fname, int lockfl)
                 line_lengths[chunk_lines] = chunk_bytes - current_line_start;
                 chunk_lines++;
 
-                if (chunk_lines == COMPRESS_LINES) {
+                if chunk_lines == COMPRESS_LINES {
                     MemoryHandle hChunk = my_handle_alloc(chunk_bytes);
-                    if (!hChunk) { s = FIOMEM; break; }
+                    if !hChunk { s = FIOMEM; break; }
                     if (chunk_bytes > 0) memcpy(handle_deref(hChunk), chunk_buf, chunk_bytes);
                     
-                    for (int i = 0; i < COMPRESS_LINES; i++) {
+                    for i = 0; < COMPRESS_LINES; ++ {
                         lp1 = (struct line *)malloc(sizeof(struct line));
-                        if (!lp1) { s = FIOMEM; break; }
+                        if !lp1 { s = FIOMEM; break; }
                         lp1->l_handle = hChunk;
                         my_handle_ref(hChunk);
                         lp1->l_offset = (uint32_t)line_offsets[i];
@@ -320,7 +320,7 @@ int readin(char *fname, int lockfl)
                         curbp->b_linep->prev = lp1;
                         nline++;
                     }
-                    if (s == FIOMEM) break;
+                    if s == FIOMEM break;
                     
                     mymemory_freeze(hChunk);
                     my_handle_free(hChunk); // release initial alloc ref
@@ -335,23 +335,23 @@ int readin(char *fname, int lockfl)
                 chunk_buf[chunk_bytes++] = c;
             }
         }
-        if (s == FIOMEM) break;
+        if s == FIOMEM break;
     }
     
     if (s != FIOMEM && (chunk_bytes > current_line_start || chunk_lines > 0)) {
-        if (chunk_bytes > current_line_start) {
+        if chunk_bytes > current_line_start {
             line_offsets[chunk_lines] = current_line_start;
             line_lengths[chunk_lines] = chunk_bytes - current_line_start;
             chunk_lines++;
         }
-        if (chunk_lines > 0) {
+        if chunk_lines > 0 {
             MemoryHandle hChunk = my_handle_alloc(chunk_bytes);
-            if (!hChunk) { s = FIOMEM; }
+            if !hChunk { s = FIOMEM; }
             else {
                 if (chunk_bytes > 0) memcpy(handle_deref(hChunk), chunk_buf, chunk_bytes);
-                for (int i = 0; i < chunk_lines; i++) {
+                for i = 0; < chunk_lines; ++ {
                     lp1 = (struct line *)malloc(sizeof(struct line));
-                    if (!lp1) { s = FIOMEM; break; }
+                    if !lp1 { s = FIOMEM; break; }
                     lp1->l_handle = hChunk;
                     my_handle_ref(hChunk);
                     lp1->l_offset = (uint32_t)line_offsets[i];
@@ -378,7 +378,7 @@ int readin(char *fname, int lockfl)
     free(buffer);
     fclose(fp);
 
-    if (use_swap) {
+    if use_swap {
         bp->b_flag |= BFCHG;
         unlink(swapname);
     }
@@ -386,11 +386,11 @@ int readin(char *fname, int lockfl)
 
  msg_out:
     strcpy(mesg, "(");
-    if (s == FIOERR) {
+    if s == FIOERR {
         strcat(mesg, "I/O ERROR, ");
         curbp->b_flag |= BFTRUNC;
     }
-    if (s == FIOMEM) {
+    if s == FIOMEM {
         strcat(mesg, "OUT OF MEMORY, ");
         curbp->b_flag |= BFTRUNC;
     }
@@ -406,11 +406,11 @@ int readin(char *fname, int lockfl)
 
  out:
     wp = curwp;
-    if (wp->w_bufp == curbp) {
+    if wp->w_bufp == curbp {
         wp->w_linep = lforw(curbp->b_linep);
         wp->w_dotp = lforw(curbp->b_linep);
         wp->w_doto = 0;
-        wp->w_markp = NULL;
+        wp->w_markp = null;
         wp->w_marko = 0;
         wp->w_flag |= WFMODE | WFHARD;
     }
@@ -515,7 +515,7 @@ void normalize_whitespace(struct buffer *bp)
         while (i >= 0 && (ltext(lp)[i] == ' ' || ltext(lp)[i] == '\t')) {
             i--;
         }
-        if (i + 1 < len) {
+        if i + 1 < len {
             lp->used = i + 1;
             bp->b_flag |= BFCHG;
         }
@@ -542,7 +542,7 @@ int filesave(int f, int n)
 
     if ((curbp->b_flag & BFCHG) == 0)   /* Return, no changes.  */
         return TRUE;
-    if (curbp->b_fname[0] == 0) {       /* Must have a name.    */
+    if curbp->b_fname[0] == 0 {       /* Must have a name.    */
         mlwrite("No file name");
         nanox_set_lamp(NANOX_LAMP_WARN);
         return FALSE;
@@ -557,7 +557,7 @@ int filesave(int f, int n)
     }
 
     s = writeout(curbp->b_fname);
-    if (s == TRUE) {
+    if s == TRUE {
         curbp->b_flag &= ~BFCHG;
         curwp->w_flag |= WFMODE;    /* Update mode line.    */
         nanox_set_lamp(NANOX_LAMP_OFF);
@@ -592,11 +592,11 @@ int is_effectively_same(char *fname, struct buffer *bp)
         /* Skip blank lines in file */
         while (!f_eof) {
             s = ffgetline();
-            if (s == FIOEOF) {
+            if s == FIOEOF {
                 f_eof = 1;
                 break;
             }
-            if (s != FIOSUC) {
+            if s != FIOSUC {
                 ffclose();
                 return FALSE;
             }
@@ -604,11 +604,11 @@ int is_effectively_same(char *fname, struct buffer *bp)
                 break;
         }
 
-        if (f_eof && b_eof) {
+        if f_eof && b_eof {
             ffclose();
             return TRUE;
         }
-        if (f_eof || b_eof) {
+        if f_eof || b_eof {
             ffclose();
             return FALSE;
         }
@@ -649,7 +649,7 @@ int writeout(char *fname)
         }
         
         /* Secure backup feature */
-        if (makebackup) {
+        if makebackup {
             if (strlen(fname) + 2 < NFILEN) {
                  strcpy(backupName, fname);
                  strcat(backupName, "~");
@@ -678,10 +678,10 @@ int writeout(char *fname)
         int clean_idx = 0;
 
         /* Normalize line: 1. Filter non-essential control codes. 2. Remove trailing whitespace. */
-        for (int i = 0; i < len && clean_idx < (NLINE - 1); i++) {
+        for i = 0; < len && clean_idx < (NLINE - 1); ++ {
             unsigned char c = ltext(lp)[i];
             /* Drop dangerous control codes but preserve UTF-8 and tabs/newlines */
-            if (c >= 32 || c == '\t' || c >= 0x80) {
+            if c >= 32 || c == '\t' || c >= 0x80 {
                 clean_buf[clean_idx++] = c;
             }
         }
@@ -691,14 +691,14 @@ int writeout(char *fname)
             clean_idx--;
         }
 
-        if ((s = ffputline((char *)clean_buf, clean_idx)) != FIOSUC)
+        if ((s = ffputline((string)clean_buf, clean_idx)) != FIOSUC)
             break;
         ++nline;
         lp = lforw(lp);
     }
-    if (s == FIOSUC) {          /* No write error.      */
+    if s == FIOSUC {          /* No write error.      */
         s = ffclose();
-        if (s == FIOSUC) {      /* No close error.      */
+        if s == FIOSUC {      /* No close error.      */
             /* Restore or set permissions */
             chmod(fname, file_mode);
             
@@ -714,7 +714,7 @@ int writeout(char *fname)
         }
     } else                  /* Ignore close error   */
         ffclose();          /* if a write error.    */
-    if (s != FIOSUC) {          /* Some sort of error.  */
+    if s != FIOSUC {          /* Some sort of error.  */
         nanox_set_lamp(NANOX_LAMP_ERROR);
         return FALSE;
     }
@@ -770,7 +770,7 @@ int ifile(char *fname)
     bp->b_flag &= ~BFINVS;          /* and are not temporary */
     if ((s = ffropen(fname)) == FIOERR) /* Hard file open.      */
         goto out;
-    if (s == FIOFNF) {          /* File not found.      */
+    if s == FIOFNF {          /* File not found.      */
         mlwrite("(No such file)");
         nanox_set_lamp(NANOX_LAMP_ERROR);
         return FALSE;
@@ -808,11 +808,11 @@ int ifile(char *fname)
     ffclose();              /* Ignore errors.       */
     curwp->w_markp = lforw(curwp->w_markp);
     strcpy(mesg, "(");
-    if (s == FIOERR) {
+    if s == FIOERR {
         strcat(mesg, "I/O ERROR, ");
         curbp->b_flag |= BFTRUNC;
     }
-    if (s == FIOMEM) {
+    if s == FIOMEM {
         strcat(mesg, "OUT OF MEMORY, ");
         curbp->b_flag |= BFTRUNC;
     }

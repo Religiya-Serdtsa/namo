@@ -62,7 +62,7 @@ int newsize(int f, int n)
         n = term->t_mrow + 1;
 
     /* make sure it's in range */
-    if (n < 3) {
+    if n < 3 {
         mlwrite("%%Screen size out of range");
         return FALSE;
     }
@@ -71,7 +71,7 @@ int newsize(int f, int n)
     if (n > term->t_mrow + 1)
         n = term->t_mrow + 1;
 
-    if (term->t_nrow == n - 1)
+    if term->t_nrow == n - 1
         return TRUE;
 
     /* Update the current window as needed */
@@ -97,7 +97,7 @@ int newwidth(int f, int n)
         n = term->t_mcol;
 
     /* make sure it's in range */
-    if (n < 10) {
+    if n < 10 {
         mlwrite("%%Screen width out of range");
         return FALSE;
     }

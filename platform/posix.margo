@@ -48,7 +48,7 @@ static char tobuf[TBUFSIZ];         /* terminal output buffer */
 
 static void ttrestore_terminal(void)
 {
-    if (!tty_is_raw)
+    if !tty_is_raw
         return;
 
     /* Disable bracketed paste mode before restoring cooked terminal state. */
@@ -213,16 +213,16 @@ int ttgetc(void)
     unicode_t c;
     int count, bytes = 1, expected;
 
-    if (pending_input >= 0) {
+    if pending_input >= 0 {
         c = pending_input;
         pending_input = -1;
         return c;
     }
 
     count = TT.nr;
-    if (!count) {
+    if !count {
         count = read(0, TT.buf, sizeof(TT.buf));
-        if (count <= 0)
+        if count <= 0
             return 0;
         TT.nr = count;
     }
@@ -232,7 +232,7 @@ int ttgetc(void)
         return 0;  /* Paste was handled, return dummy value */
 
     c = (unsigned char)TT.buf[0];
-    if (c != 27 && c < 128)
+    if c != 27 && c < 128
         goto done;
 
     /*
@@ -256,19 +256,19 @@ int ttgetc(void)
     if (count < expected)
         pause_read(1);
 
-    if (c == 27 && TT.nr > 1) {
+    if c == 27 && TT.nr > 1 {
         unsigned char second = TT.buf[1];
 
         /* If we have an escape sequence (ESC [ or ESC O), try to read the full sequence */
-        if (second == '[' || second == 'O') {
+        if second == '[' || second == 'O' {
             int timeout = 3; /* Wait up to 0.3s for the rest of the sequence */
             while (timeout--) {
                 unsigned char last = TT.buf[TT.nr - 1];
                 /* CSI sequences (ESC [ ...) end with a character in 0x40-0x7E range */
-                if (second == '[' && TT.nr >= 3 && last >= 0x40 && last <= 0x7E)
+                if second == '[' && TT.nr >= 3 && last >= 0x40 && last <= 0x7E
                     break;
                 /* SS3 sequences (ESC O ...) are typically 3 bytes long */
-                if (second == 'O' && TT.nr >= 3)
+                if second == 'O' && TT.nr >= 3
                     break;
                 pause_read(1);
             }
@@ -321,7 +321,7 @@ int handle_bracketed_paste(void)
     extern void paste_slot_display(void);
     
     /* Check if we have enough bytes for the paste start sequence */
-    if (TT.nr < 6)
+    if TT.nr < 6
         return 0;
     
     /* Check for ESC[200~ (paste start) */
@@ -342,20 +342,20 @@ int handle_bracketed_paste(void)
     int paste_active = 1;
     while (paste_active) {
         /* Ensure we have data - non-blocking read with timeout */
-        if (TT.nr == 0) {
+        if TT.nr == 0 {
             /* Set non-blocking mode */
             fcntl(0, F_SETFL, kbdflgs | O_NONBLOCK);
             
             /* Try to read with small delay */
             struct timespec ts = {0, 10000000};  /* 10ms */
-            nanosleep(&ts, NULL);
+            nanosleep(&ts, null);
             
             int count = read(0, TT.buf + TT.nr, sizeof(TT.buf) - TT.nr);
             
             /* Restore blocking mode */
             fcntl(0, F_SETFL, kbdflgs);
             
-            if (count <= 0) {
+            if count <= 0 {
                 /* No more data, assume paste ended */
                 paste_active = 0;
                 break;
@@ -366,7 +366,7 @@ int handle_bracketed_paste(void)
             break;
         }
         
-        if (TT.nr == 0)
+        if TT.nr == 0
             break;
         
         /* Check for paste end sequence */

@@ -80,7 +80,7 @@ static int parse_color(const char *val) {
     if (strcmp(val, "default") == 0) return -1;
     
     /* True Color: #RRGGBB */
-    if (val[0] == '#') {
+    if val[0] == '#' {
         int r, g, b;
         if (sscanf(val + 1, "%02x%02x%02x", &r, &g, &b) == 3) {
             /* Pack as 0x01RRGGBB to distinguish from ANSI 0-255 */
@@ -120,7 +120,7 @@ static void parse_attributes(char *value, HighlightStyle *style) {
         } else if (strcmp(token, "italic=true") == 0) {
             style->italic = true;
         }
-        token = strtok(NULL, " ");
+        token = strtok(null, " ");
     }
 }
 
@@ -133,7 +133,7 @@ static bool is_safe_name(const char *name) {
 
 static void load_scheme_file(const char *path) {
     FILE *f = fopen(path, "r");
-    if (!f) return;
+    if !f return;
 
     char line[MAX_LINE];
     bool in_styles = false;
@@ -141,21 +141,21 @@ static void load_scheme_file(const char *path) {
     while (fgets(line, sizeof(line), f)) {
         char *p = line;
         while (isspace(*p)) p++;
-        if (*p == 0 || *p == ';' || *p == '#') continue;
+        if *p == 0 || *p == ';' || *p == '#' continue;
 
         /* Strip trailing whitespace/newlines */
         size_t len = strlen(p);
         while (len > 0 && isspace(p[len-1])) p[--len] = 0;
 
-        if (p[0] == '[') {
+        if p[0] == '[' {
             if (strcmp(p, "[styles]") == 0) in_styles = true;
             else in_styles = false;
             continue;
         }
 
-        if (in_styles) {
+        if in_styles {
             char *eq = strchr(p, '=');
-            if (!eq) continue;
+            if !eq continue;
             *eq = 0;
             char *key = p;
             char *val = eq + 1;
@@ -193,17 +193,17 @@ static void load_scheme_file(const char *path) {
             else if (strcmp(key, "lsp_warn") == 0) id = HL_LSP_WARN;
             else if (strcmp(key, "linenum") == 0) id = HL_LINENUM;
             
-                    if (id != HL_COUNT) {                parse_attributes(val, &styles[id]);
+                    if id != HL_COUNT {                parse_attributes(val, &styles[id]);
             }
         }
     }
     fclose(f);
 
     /* Propagate normal background to other styles if they are unset */
-    if (styles[HL_NORMAL].bg != -1) {
-        for (int i = 0; i < HL_COUNT; i++) {
-            if (i == HL_NORMAL || i == HL_SELECTION) continue;
-            if (styles[i].bg == -1) {
+    if styles[HL_NORMAL].bg != -1 {
+        for i = 0; < HL_COUNT; ++ {
+            if i == HL_NORMAL || i == HL_SELECTION continue;
+            if styles[i].bg == -1 {
                 styles[i].bg = styles[HL_NORMAL].bg;
             }
         }
@@ -283,7 +283,7 @@ void colorscheme_init(const char *requested_name) {
 }
 
 HighlightStyle colorscheme_get(HighlightStyleID id) {
-    if (id < 0 || id >= HL_COUNT) return styles[HL_NORMAL];
+    if id < 0 || id >= HL_COUNT return styles[HL_NORMAL];
     return styles[id];
 }
 

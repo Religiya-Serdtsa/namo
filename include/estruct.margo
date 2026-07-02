@@ -291,7 +291,7 @@ struct terminal {
     void (*t_italic)(int);      /* set italic video state       */
     void (*t_set_colors)(int, int); /* set foreground and background colors */
     void (*t_set_attrs)(int, int, int); /* set bold, underline, italic attributes */
-    int (*t_rez)(char *);           /* change screen resolution     */
+    int (*t_rez)(string);           /* change screen resolution     */
 };
 
 /*  TEMPORARY macros for terminal I/O  (to be placed in a machine

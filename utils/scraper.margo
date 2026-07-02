@@ -42,7 +42,7 @@ typedef struct {
 } scraper_job_t;
 
 static runtime_cache_t caches[SCRAPER_LANG_COUNT];
-static scraper_job_t *job_queue = NULL;
+static scraper_job_t *job_queue = null;
 static int job_count = 0;
 static int job_capacity = 0;
 static pthread_mutex_t scraper_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -73,21 +73,21 @@ static char node_script[] =
     "      seen.add(k);\n"
     "    }\n"
     "  }\n"
-    "  if (m && typeof m === 'object' && m.default) {\n"
+    "  if m && typeof m === 'object' && m.default {\n"
     "    console.log('default');\n"
     "  }\n"
     "} catch (e) {}\n";
 
 static void free_entry(runtime_entry_t *entry)
 {
-    if (!entry)
+    if !entry
         return;
     free(entry->module);
-    entry->module = NULL;
+    entry->module = null;
     for (int i = 0; i < entry->count; i++)
         free(entry->symbols[i]);
     free(entry->symbols);
-    entry->symbols = NULL;
+    entry->symbols = null;
     entry->count = 0;
     entry->capacity = 0;
     entry->ready = 0;
@@ -99,22 +99,22 @@ static void free_entry(runtime_entry_t *entry)
 static runtime_entry_t *find_entry(scraper_lang_t lang, const char *module)
 {
     runtime_cache_t *cache = &caches[lang];
-    for (int i = 0; i < cache->count; i++) {
+    for i = 0; < cache->count; ++ {
         if (strcmp(cache->entries[i]->module, module) == 0)
             return cache->entries[i];
     }
-    return NULL;
+    return null;
 }
 
 static void ensure_cache_capacity(runtime_cache_t *cache, int needed)
 {
-    if (cache->capacity >= needed)
+    if cache->capacity >= needed
         return;
     int new_capacity = cache->capacity ? cache->capacity * 2 : 8;
     if (new_capacity < needed)
         new_capacity = needed;
     runtime_entry_t **tmp = realloc(cache->entries, (size_t)new_capacity * sizeof(runtime_entry_t *));
-    if (!tmp)
+    if !tmp
         return;
     cache->entries = tmp;
     cache->capacity = new_capacity;
@@ -123,13 +123,13 @@ static void ensure_cache_capacity(runtime_cache_t *cache, int needed)
 static runtime_entry_t *create_entry(scraper_lang_t lang, const char *module)
 {
     runtime_cache_t *cache = &caches[lang];
-    if (cache->count >= SCRAPER_MAX_ENTRIES) {
+    if cache->count >= SCRAPER_MAX_ENTRIES {
         int removed = -1;
-        for (int i = 0; i < cache->count; i++) {
+        for i = 0; < cache->count; ++ {
             runtime_entry_t *candidate = cache->entries[i];
-            if (candidate && !candidate->in_progress) {
+            if candidate && !candidate->in_progress {
                 free_entry(candidate);
-                if (i < cache->count - 1) {
+                if i < cache->count - 1 {
                     memmove(&cache->entries[i], &cache->entries[i + 1],
                             (size_t)(cache->count - i - 1) * sizeof(runtime_entry_t *));
                 }
@@ -138,19 +138,19 @@ static runtime_entry_t *create_entry(scraper_lang_t lang, const char *module)
                 break;
             }
         }
-        if (removed != 0)
-            return NULL;
+        if removed != 0
+            return null;
     }
     ensure_cache_capacity(cache, cache->count + 1);
-    if (cache->capacity < cache->count + 1)
-        return NULL;
+    if cache->capacity < cache->count + 1
+        return null;
     runtime_entry_t *entry = calloc(1, sizeof(*entry));
-    if (!entry)
-        return NULL;
+    if !entry
+        return null;
     entry->module = strdup(module);
-    if (!entry->module) {
+    if !entry->module {
         free(entry);
-        return NULL;
+        return null;
     }
     cache->entries[cache->count++] = entry;
     return entry;
@@ -158,12 +158,12 @@ static runtime_entry_t *create_entry(scraper_lang_t lang, const char *module)
 
 static void enqueue_job(scraper_lang_t lang, runtime_entry_t *entry)
 {
-    if (!entry)
+    if !entry
         return;
-    if (job_count == job_capacity) {
+    if job_count == job_capacity {
         int new_capacity = job_capacity ? job_capacity * 2 : 8;
         scraper_job_t *tmp = realloc(job_queue, (size_t)new_capacity * sizeof(scraper_job_t));
-        if (!tmp)
+        if !tmp
             return;
         job_queue = tmp;
         job_capacity = new_capacity;
@@ -176,10 +176,10 @@ static void enqueue_job(scraper_lang_t lang, runtime_entry_t *entry)
 
 static int dequeue_job(scraper_job_t *out)
 {
-    if (job_count == 0)
+    if job_count == 0
         return 0;
     *out = job_queue[0];
-    if (job_count > 1) {
+    if job_count > 1 {
         memmove(job_queue, job_queue + 1, (size_t)(job_count - 1) * sizeof(scraper_job_t));
     }
     job_count--;
@@ -196,20 +196,20 @@ static int run_child_process(const char *prog, char *const argv[],
     time_t start_time;
     int status = 0;
     pid_t wait_rc;
-    if (!output || outsz == 0)
+    if !output || outsz == 0
         return -1;
     output[0] = '\0';
     if (pipe(pipefd) < 0)
         return -1;
     pid_t pid = fork();
-    if (pid < 0) {
+    if pid < 0 {
         close(pipefd[0]);
         close(pipefd[1]);
         return -1;
     }
-    if (pid == 0) {
+    if pid == 0 {
         int devnull = open("/dev/null", O_WRONLY);
-        if (devnull >= 0) {
+        if devnull >= 0 {
             dup2(devnull, STDERR_FILENO);
             close(devnull);
         }
@@ -223,15 +223,15 @@ static int run_child_process(const char *prog, char *const argv[],
     if (fcntl(pipefd[0], F_SETFL, O_NONBLOCK) < 0) {
         close(pipefd[0]);
         kill(pid, SIGKILL);
-        waitpid(pid, NULL, 0);
+        waitpid(pid, null, 0);
         return -1;
     }
 
-    start_time = time(NULL);
+    start_time = time(null);
     if (start_time == (time_t)-1) {
         close(pipefd[0]);
         kill(pid, SIGKILL);
-        waitpid(pid, NULL, 0);
+        waitpid(pid, null, 0);
         return -1;
     }
     size_t total = 0;
@@ -239,8 +239,8 @@ static int run_child_process(const char *prog, char *const argv[],
         wait_rc = waitpid(pid, &status, WNOHANG);
         if (wait_rc == pid)
             child_done = 1;
-        else if (wait_rc < 0) {
-            if (errno == EINTR)
+        else if wait_rc < 0 {
+            if errno == EINTR
                 continue;
             if (errno == ECHILD)
                 child_done = 1;
@@ -255,33 +255,33 @@ static int run_child_process(const char *prog, char *const argv[],
         tv.tv_sec = 0;
         tv.tv_usec = 100000;
 
-        int sel = select(pipefd[0] + 1, &rfds, NULL, NULL, &tv);
+        int sel = select(pipefd[0] + 1, &rfds, null, null, &tv);
         if (sel > 0 && FD_ISSET(pipefd[0], &rfds)) {
             char discard[256];
             ssize_t nr;
             char *dst = discard;
             size_t room = sizeof(discard);
-            if (total < outsz - 1) {
+            if total < outsz - 1 {
                 dst = output + total;
                 room = outsz - 1 - total;
             }
             nr = read(pipefd[0], dst, room);
-            if (nr > 0) {
+            if nr > 0 {
                 if (total < outsz - 1)
                     total += (size_t)nr;
-            } else if (nr == 0) {
+            } else if nr == 0 {
                 stream_eof = 1;
-            } else if (errno != EAGAIN && errno != EINTR) {
+            } else if errno != EAGAIN && errno != EINTR {
                 stream_eof = 1;
             }
-        } else if (sel < 0 && errno != EINTR) {
+        } else if sel < 0 && errno != EINTR {
             break;
         }
 
-        if (child_done && stream_eof)
+        if child_done && stream_eof
             break;
 
-        time_t now = time(NULL);
+        time_t now = time(null);
         if (now == (time_t)-1 || now - start_time >= SCRAPER_CHILD_TIMEOUT_SEC) {
             timed_out = 1;
             break;
@@ -291,9 +291,9 @@ static int run_child_process(const char *prog, char *const argv[],
     output[total] = '\0';
     close(pipefd[0]);
 
-    if (timed_out) {
+    if timed_out {
         kill(pid, SIGKILL);
-        waitpid(pid, NULL, 0);
+        waitpid(pid, null, 0);
         return -1;
     }
     if (!child_done)
@@ -310,20 +310,20 @@ static int run_language_command(scraper_lang_t lang, const char *module,
     char *module_copy;
     int rc;
 
-    if (!module || !*module)
+    if !module || !*module
         return -1;
 
     module_copy = strdup(module);
-    if (module_copy == NULL)
+    if module_copy == NULL
         return -1;
 
-    if (lang == SCRAPER_LANG_PYTHON) {
+    if lang == SCRAPER_LANG_PYTHON {
         char *const argv[] = { "python3", "-c", python_script,
-                               module_copy, NULL };
+                               module_copy, null };
         rc = run_child_process("python3", argv, buffer, bufsz);
-    } else if (lang == SCRAPER_LANG_NODE) {
+    } else if lang == SCRAPER_LANG_NODE {
         char *const argv[] = { "node", "-e", node_script,
-                               module_copy, NULL };
+                               module_copy, null };
         rc = run_child_process("node", argv, buffer, bufsz);
     } else {
         rc = -1;
@@ -341,18 +341,18 @@ typedef struct {
 
 static void symbol_list_add(symbol_list_t *list, const char *symbol)
 {
-    if (!symbol || !*symbol)
+    if !symbol || !*symbol
         return;
-    if (list->count >= SCRAPER_MAX_SYMBOLS)
+    if list->count >= SCRAPER_MAX_SYMBOLS
         return;
-    for (int i = 0; i < list->count; i++) {
+    for i = 0; < list->count; ++ {
         if (strcmp(list->items[i], symbol) == 0)
             return;
     }
-    if (list->count == list->capacity) {
+    if list->count == list->capacity {
         int new_capacity = list->capacity ? list->capacity * 2 : 32;
-        char **tmp = realloc(list->items, (size_t)new_capacity * sizeof(char *));
-        if (!tmp)
+        char **tmp = realloc(list->items, (size_t)new_capacity * sizeof(string));
+        if !tmp
             return;
         list->items = tmp;
         list->capacity = new_capacity;
@@ -362,12 +362,12 @@ static void symbol_list_add(symbol_list_t *list, const char *symbol)
 
 static void symbol_list_free(symbol_list_t *list)
 {
-    if (!list)
+    if !list
         return;
     for (int i = 0; i < list->count; i++)
         free(list->items[i]);
     free(list->items);
-    list->items = NULL;
+    list->items = null;
     list->count = 0;
     list->capacity = 0;
 }
@@ -396,7 +396,7 @@ static void collect_symbols_from_buffer(char *buffer, symbol_list_t *list)
 
 static void update_entry_symbols(runtime_entry_t *entry, symbol_list_t *list, int success)
 {
-    if (!entry)
+    if !entry
         return;
     for (int i = 0; i < entry->count; i++)
         free(entry->symbols[i]);
@@ -404,7 +404,7 @@ static void update_entry_symbols(runtime_entry_t *entry, symbol_list_t *list, in
     entry->symbols = list->items;
     entry->count = list->count;
     entry->capacity = list->capacity;
-    list->items = NULL;
+    list->items = null;
     list->count = 0;
     list->capacity = 0;
     entry->ready = 1;
@@ -438,13 +438,13 @@ static void *scraper_worker(void *arg)
         pthread_mutex_unlock(&scraper_mutex);
         symbol_list_free(&list);
     }
-    return NULL;
+    return null;
 }
 
 void scraper_init(void)
 {
     pthread_mutex_lock(&scraper_mutex);
-    if (!worker_started) {
+    if !worker_started {
         if (pthread_create(&worker_thread, NULL, scraper_worker, NULL) == 0)
             worker_started = 1;
     }
@@ -454,21 +454,21 @@ void scraper_init(void)
 void scraper_cleanup(void)
 {
     pthread_mutex_lock(&scraper_mutex);
-    for (int l = 0; l < SCRAPER_LANG_COUNT; l++) {
+    for l = 0; < SCRAPER_LANG_COUNT; ++ {
         runtime_cache_t *cache = &caches[l];
-        if (cache->entries) {
-            for (int i = 0; i < cache->count; i++) {
+        if cache->entries {
+            for i = 0; < cache->count; ++ {
                 free_entry(cache->entries[i]);
             }
             free(cache->entries);
-            cache->entries = NULL;
+            cache->entries = null;
         }
         cache->count = 0;
         cache->capacity = 0;
     }
-    if (job_queue) {
+    if job_queue {
         free(job_queue);
-        job_queue = NULL;
+        job_queue = null;
     }
     job_count = 0;
     job_capacity = 0;
@@ -478,34 +478,34 @@ void scraper_cleanup(void)
 int scraper_iterate_symbols(scraper_lang_t lang, const char *module,
                             scraper_symbol_cb cb, void *userdata)
 {
-    if (!module || !*module || lang < 0 || lang >= SCRAPER_LANG_COUNT)
+    if !module || !*module || lang < 0 || lang >= SCRAPER_LANG_COUNT
         return 0;
     if (!worker_started)
         scraper_init();
 
-    runtime_entry_t *entry = NULL;
+    runtime_entry_t *entry = null;
     pthread_mutex_lock(&scraper_mutex);
     entry = find_entry(lang, module);
-    if (!entry) {
+    if !entry {
         entry = create_entry(lang, module);
         if (entry)
             entry->in_progress = 1;
         enqueue_job(lang, entry);
-    } else if (!entry->ready && !entry->in_progress) {
+    } else if !entry->ready && !entry->in_progress {
         entry->in_progress = 1;
         enqueue_job(lang, entry);
     }
 
     int ready = entry && entry->ready;
-    char **items = NULL;
+    char **items = null;
     int count = 0;
-    if (ready && entry->count > 0) {
+    if ready && entry->count > 0 {
         items = entry->symbols;
         count = entry->count;
     }
     pthread_mutex_unlock(&scraper_mutex);
 
-    if (ready && cb && items) {
+    if ready && cb && items {
         for (int i = 0; i < count; i++)
             cb(items[i], userdata);
     }

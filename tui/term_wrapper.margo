@@ -33,8 +33,8 @@ static int terminal_is_sane(void) {
     tv.tv_sec = 0;
     tv.tv_usec = 50000;
     
-    int retval = select(1, &rfds, NULL, NULL, &tv);
-    if (retval > 0) {
+    int retval = select(1, &rfds, null, null, &tv);
+    if retval > 0 {
         /* Terminal responded! Consume the response. */
         char buf[32];
         read(0, buf, sizeof(buf));
@@ -49,7 +49,7 @@ void vttopen(void) {
     /* Validation loop with timeout */
     int retries = 3;
     while (retries-- > 0) {
-        if (term->t_nrow > 0 && term->t_ncol > 0) {
+        if term->t_nrow > 0 && term->t_ncol > 0 {
             /* Basic sanity check: dimensions must be positive */
             break;
         }
@@ -60,12 +60,12 @@ void vttopen(void) {
         if (term->t_rez) term->t_rez(NULL);
     }
     
-    if (term->t_nrow <= 0 || term->t_ncol <= 0) {
+    if term->t_nrow <= 0 || term->t_ncol <= 0 {
         /* Dimensions still invalid. Fallback. */
         driver_failed = 1;
     }
 
-    if (driver_failed) {
+    if driver_failed {
         /* If current term failed, try falling back to tcap */
         if (term->t_close) term->t_close();
         term = &tcap_term;
@@ -86,12 +86,12 @@ void vttkclose(void) {
 }
 
 int vttgetc(void) {
-    if (term->t_getchar) return term->t_getchar();
+    if term->t_getchar return term->t_getchar();
     return 0;
 }
 
 int vttputc(int c) {
-    if (term->t_putchar) return term->t_putchar(c);
+    if term->t_putchar return term->t_putchar(c);
     return 0;
 }
 
@@ -132,7 +132,7 @@ void vttsetattrs(int bold, int underline, int italic) {
 }
 
 int vttrez(char *res) {
-    if (term->t_rez) return term->t_rez(res);
+    if term->t_rez return term->t_rez(res);
     return TRUE;
 }
 

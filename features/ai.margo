@@ -36,7 +36,7 @@ static bool parse_url(const char *url, char *host, int *port, char *path)
 
     const char *slash = strchr(p, '/');
     char host_port[256];
-    if (slash) {
+    if slash {
         size_t len = (size_t)(slash - p);
         if (len >= sizeof(host_port)) len = sizeof(host_port) - 1;
         memcpy(host_port, p, len);
@@ -47,7 +47,7 @@ static bool parse_url(const char *url, char *host, int *port, char *path)
     }
 
     char *colon = strchr(host_port, ':');
-    if (colon) {
+    if colon {
         *colon = '\0';
         *port = atoi(colon + 1);
     }
@@ -77,7 +77,7 @@ static int http_post(const char *url, const char *json_body, char *response_buf,
     }
 
     int sock = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
-    if (sock < 0) {
+    if sock < 0 {
         freeaddrinfo(res);
         return -1;
     }
@@ -113,11 +113,11 @@ static int http_post(const char *url, const char *json_body, char *response_buf,
     size_t total_received = 0;
     while (total_received < response_cap - 1) {
         ssize_t n = recv(sock, response_buf + total_received, response_cap - 1 - total_received, 0);
-        if (n < 0) {
+        if n < 0 {
             close(sock);
             return -1;
         }
-        if (n == 0) {
+        if n == 0 {
             break;
         }
         total_received += (size_t)n;
@@ -164,7 +164,7 @@ int ai_complete(int f, int n)
     (void)f;
     (void)n;
 
-    if (!nanox_cfg.ai_enabled) {
+    if !nanox_cfg.ai_enabled {
         mlwrite("AI Copilot is disabled in config. Enable it under [ai] section.");
         return FALSE;
     }
@@ -192,7 +192,7 @@ int ai_complete(int f, int n)
     update(TRUE);
 
     char *response_buf = malloc(65536);
-    if (!response_buf) {
+    if !response_buf {
         free(json_body);
         mlwrite("AI Error: Out of memory.");
         return FALSE;
@@ -202,21 +202,21 @@ int ai_complete(int f, int n)
     int res = http_post(nanox_cfg.ai_endpoint, json_body, response_buf, 65536);
     free(json_body);
 
-    if (res < 0) {
+    if res < 0 {
         mlwrite("AI Error: Failed to connect or receive from Ollama.");
         free(response_buf);
         return FALSE;
     }
 
     char *body = strstr(response_buf, "\r\n\r\n");
-    if (body) {
+    if body {
         body += 4;
     } else {
         body = response_buf;
     }
 
     cJSON *resp_root = cJSON_Parse(body);
-    if (!resp_root) {
+    if !resp_root {
         mlwrite("AI Error: Failed to parse response JSON.");
         free(response_buf);
         return FALSE;
@@ -231,7 +231,7 @@ int ai_complete(int f, int n)
     }
 
     char *suggestion = resp_item->valuestring;
-    if (!suggestion || !*suggestion) {
+    if !suggestion || !*suggestion {
         mlwrite("AI: No suggestion returned.");
         cJSON_Delete(resp_root);
         free(response_buf);
@@ -240,7 +240,7 @@ int ai_complete(int f, int n)
 
     // Normalize \r\n to \n in suggestion
     char *normalized = malloc(strlen(suggestion) + 1);
-    if (!normalized) {
+    if !normalized {
         cJSON_Delete(resp_root);
         free(response_buf);
         return FALSE;
@@ -251,7 +251,7 @@ int ai_complete(int f, int n)
         if (*src == '\r' && *(src + 1) == '\n') {
             *dst++ = '\n';
             src += 2;
-        } else if (*src == '\r') {
+        } else if *src == '\r' {
             *dst++ = '\n';
             src++;
         } else {
@@ -265,7 +265,7 @@ int ai_complete(int f, int n)
 
     // Insert suggestion
     int insert_status = linstr(normalized);
-    if (insert_status != TRUE) {
+    if insert_status != TRUE {
         mlwrite("AI Error: Failed to insert suggestion.");
         free(normalized);
         cJSON_Delete(resp_root);

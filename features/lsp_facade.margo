@@ -31,7 +31,7 @@ int lsp_facade_is_active(void) {
 void lsp_facade_provide_completions(struct line *line, int prefix_start, const char *prefix) {
     char owner[256];
     if (get_owner_symbol_near_cursor(line, prefix_start, owner, sizeof(owner))) {
-        const char *fname = curbp ? curbp->b_fname : NULL;
+        const char *fname = curbp ? curbp->b_fname : null;
         if (is_java_file(fname)) {
             char resolved[256];
             if (resolve_java_class_name(owner, resolved, sizeof(resolved))) {

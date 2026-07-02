@@ -32,19 +32,19 @@ static struct user_variable uv[MAXVARS + 1];
 void varinit(void)
 {
     int i;
-    for (i = 0; i < MAXVARS; i++) {
+    for i = 0; < MAXVARS; ++ {
         uv[i].u_name[0] = 0;
-        uv[i].u_value = NULL;
+        uv[i].u_value = null;
     }
 }
 
 void varcleanup(void)
 {
     int i;
-    for (i = 0; i < MAXVARS; i++) {
-        if (uv[i].u_value != NULL) {
+    for i = 0; < MAXVARS; ++ {
+        if uv[i].u_value != NULL {
             free(uv[i].u_value);
-            uv[i].u_value = NULL;
+            uv[i].u_value = null;
         }
     }
 }
@@ -76,12 +76,12 @@ char *gtfun(char *fname)
         return errorm;
 
     /* if needed, retrieve the first argument */
-    if (funcs[fnum].f_type >= MONAMIC) {
+    if funcs[fnum].f_type >= MONAMIC {
         if ((status = macarg(arg1)) != TRUE)
             return errorm;
 
         /* if needed, retrieve the second argument */
-        if (funcs[fnum].f_type >= DYNAMIC) {
+        if funcs[fnum].f_type >= DYNAMIC {
             if ((status = macarg(arg2)) != TRUE)
                 return errorm;
 
@@ -161,14 +161,14 @@ char *gtfun(char *fname)
         return itoa(sindex(arg1, arg2));
     case UFENV:
         tsp = getenv(arg1);
-        return tsp == NULL ? "" : tsp;
+        return tsp == null ? "" : tsp;
     case UFBIND:
         return transbind(arg1);
     case UFEXIST:
         return ltos(fexist(arg1));
     case UFFIND:
         tsp = flook(arg1, TRUE);
-        return tsp == NULL ? "" : tsp;
+        return tsp == null ? "" : tsp;
     case UFBAND:
         return itoa(atoi(arg1) & atoi(arg2));
     case UFBOR:
@@ -195,8 +195,8 @@ char *gtusr(char *vname)
     int vnum;               /* ordinal number of user var */
 
     /* scan the list looking for the user var name */
-    for (vnum = 0; vnum < MAXVARS; vnum++) {
-        if (uv[vnum].u_name[0] == 0)
+    for vnum = 0; < MAXVARS; ++ {
+        if uv[vnum].u_name[0] == 0
             return errorm;
         if (strcmp(vname, uv[vnum].u_name) == 0)
             return uv[vnum].u_value;
@@ -226,7 +226,7 @@ char *gtenv(char *vname)
     if (vnum == ARRAY_SIZE(envars)) {
         char *ename = getenv(vname);
 
-        if (ename != NULL)
+        if ename != NULL
             return ename;
         else
             return errorm;
@@ -287,7 +287,7 @@ char *gtenv(char *vname)
     case EVREPLACE:
         return rpat;
     case EVMATCH:
-        return (patmatch == NULL) ? "" : patmatch;
+        return (patmatch == null) ? "" : patmatch;
     case EVKILL:
         return getkill();
     case EVCMODE:
@@ -339,7 +339,7 @@ static char *getkill(void)
         value[0] = 0;
     else {
         for (kp = kbufh; kp != NULL && out < NSTRING - 1; kp = kp->d_next) {
-            int chunk_used = (kp->d_next == NULL) ? kused : KBLOCK;
+            int chunk_used = (kp->d_next == null) ? kused : KBLOCK;
             if (chunk_used < 0)
                 chunk_used = 0;
             if (chunk_used > KBLOCK)
@@ -349,7 +349,7 @@ static char *getkill(void)
             if (size > (NSTRING - 1 - out))
                 size = NSTRING - 1 - out;
 
-            if (size > 0) {
+            if size > 0 {
                 memcpy(value + out, kp->d_chunk, (size_t)size);
                 out += size;
             }
@@ -375,9 +375,9 @@ int setvar(int f, int n)
     char value[NSTRING];            /* value to set variable to */
 
     /* first get the variable to set.. */
-    if (clexec == FALSE) {
+    if clexec == FALSE {
         status = minibuf_input("Variable to set: ", &var[0], NVSIZE);
-        if (status != TRUE)
+        if status != TRUE
             return status;
     } else {                /* macro line argument */
         /* grab token and skip it */
@@ -388,7 +388,7 @@ int setvar(int f, int n)
     findvar(var, &vd, NVSIZE + 1);
 
     /* if its not legal....bitch */
-    if (vd.v_type == -1) {
+    if vd.v_type == -1 {
         mlwrite("%%No such variable as '%s'", var);
         return FALSE;
     }
@@ -398,7 +398,7 @@ int setvar(int f, int n)
         strcpy(value, itoa(n));
     else {
         status = minibuf_input("Value: ", &value[0], NSTRING);
-        if (status != TRUE)
+        if status != TRUE
             return status;
     }
 
@@ -440,12 +440,12 @@ void findvar(char *var, struct variable_description *vd, int size)
                 vtype = TKVAR;
                 break;
             }
-        if (vnum < MAXVARS)
+        if vnum < MAXVARS
             break;
 
         /* create a new one??? */
         for (vnum = 0; vnum < MAXVARS; vnum++)
-            if (uv[vnum].u_name[0] == 0) {
+            if uv[vnum].u_name[0] == 0 {
                 vtype = TKVAR;
                 strcpy(uv[vnum].u_name, &var[1]);
                 break;
@@ -493,7 +493,7 @@ int svar(struct variable_description *var, char *value)
         if (uv[vnum].u_value != NULL)
             free(uv[vnum].u_value);
         sp = malloc(strlen(value) + 1);
-        if (sp == NULL)
+        if sp == NULL
             return FALSE;
         strcpy(sp, value);
         uv[vnum].u_value = sp;
@@ -651,7 +651,7 @@ char *itoa(int i)
 
     /* record the sign... */
     sign = 1;
-    if (i < 0) {
+    if i < 0 {
         sign = -1;
         i = -i;
     }
@@ -666,7 +666,7 @@ char *itoa(int i)
     } while (i);
 
     /* and fix the sign */
-    if (sign == -1) {
+    if sign == -1 {
         *(--sp) = '-';          /* and install the minus sign */
     }
 
@@ -686,11 +686,11 @@ int gettyp(char *token)
     c = *token;
 
     /* no blanks!!! */
-    if (c == 0)
+    if c == 0
         return TKNUL;
 
     /* a numeric literal? */
-    if (c >= '0' && c <= '9')
+    if c >= '0' && c <= '9'
         return TKLIT;
 
     switch (c) {
@@ -740,7 +740,7 @@ static char *internal_getval(char *token)
         discmd = TRUE;
         status = getstring(token, buf, NSTRING, ctoec('\n'));
         discmd = distmp;
-        if (status == ABORT)
+        if status == ABORT
             return errorm;
         return buf;
 
@@ -749,18 +749,18 @@ static char *internal_getval(char *token)
         /* grab the right buffer */
         getval(token + 1, token, -1);
         bp = bfind(token, FALSE, 0);
-        if (bp == NULL)
+        if bp == NULL
             return errorm;
 
         /* if the buffer is displayed, get the window
            vars instead of the buffer vars */
-        if (bp->b_nwnd > 0) {
+        if bp->b_nwnd > 0 {
             curbp->b_dotp = curwp->w_dotp;
             curbp->b_doto = curwp->w_doto;
         }
 
         /* make sure we are not at the end */
-        if (bp->b_linep == bp->b_dotp)
+        if bp->b_linep == bp->b_dotp
             return errorm;
 
         /* grab the line as an argument */
@@ -775,7 +775,7 @@ static char *internal_getval(char *token)
         bp->b_doto = 0;
 
         /* if displayed buffer, reset window ptr vars */
-        if (bp->b_nwnd > 0) {
+        if bp->b_nwnd > 0 {
             curwp->w_dotp = curbp->b_dotp;
             curwp->w_doto = 0;
             curwp->w_flag |= WFMOVE;
@@ -819,9 +819,9 @@ char *getval(char *token, char *dst, int size)
 int stol(char *val)
 {
     /* check for logical values */
-    if (val[0] == 'F')
+    if val[0] == 'F'
         return FALSE;
-    if (val[0] == 'T')
+    if val[0] == 'T'
         return TRUE;
 
     /* check for numeric truth (!= 0) */
@@ -835,7 +835,7 @@ int stol(char *val)
  */
 char *ltos(int val)
 {
-    if (val)
+    if val
         return truem;
     else
         return falsem;
@@ -921,7 +921,7 @@ int sindex(char *source, char *pattern)
         }
 
         /* was it a match? */
-        if (*cp == 0)
+        if *cp == 0
             return (int)(sp - source) + 1;
         ++sp;
     }
@@ -951,7 +951,7 @@ char *xlat(char *source, char *lookup, char *trans)
         /* scan lookup table for a match */
         lp = lookup;
         while (*lp) {
-            if (*sp == *lp) {
+            if *sp == *lp {
                 *rp++ = trans[lp - lookup];
                 goto xnext;
             }

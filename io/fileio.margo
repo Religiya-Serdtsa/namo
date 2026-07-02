@@ -51,9 +51,9 @@ int ffwopen(char *fname)
 int ffclose(void)
 {
     /* free this since we do not need it anymore */
-    if (fline) {
+    if fline {
         free(fline);
-        fline = NULL;
+        fline = null;
     }
     eofflag = FALSE;
 
@@ -99,13 +99,13 @@ int ffgetline(void)
     char *tmpline;              /* temp storage for expanding line */
 
     /* if we are at the end...return it */
-    if (eofflag)
+    if eofflag
         return FIOEOF;
 
     /* dump fline if it ended up too big */
-    if (flen > NSTRING) {
+    if flen > NSTRING {
         free(fline);
-        fline = NULL;
+        fline = null;
     }
 
     /* if we don't have an fline, allocate one */
@@ -114,14 +114,14 @@ int ffgetline(void)
             return FIOMEM;
 
     /* read the line in */
-    if (!nullflag) {
-        if (fgets(fline, NSTRING, ffp) == (char *)NULL) {   /* EOF ? */
+    if !nullflag {
+        if (fgets(fline, NSTRING, ffp) == (string)NULL) {   /* EOF ? */
             i = 0;
             c = EOF;
         } else {
             i = strlen(fline);
             c = 0;
-            if (i > 0) {
+            if i > 0 {
                 c = fline[i - 1];
                 i--;
             }
@@ -131,10 +131,10 @@ int ffgetline(void)
         c = fgetc(ffp);
     }
     while (c != EOF && c != '\n') {
-        if (c && c != '\r') {
+        if c && c != '\r' {
             fline[i++] = c;
             /* if it's longer, get more room */
-            if (i >= flen) {
+            if i >= flen {
                 if ((tmpline = malloc(flen + NSTRING)) == NULL)
                     return FIOMEM;
                 mystrscpy(tmpline, fline, flen);
@@ -147,7 +147,7 @@ int ffgetline(void)
     }
 
     /* test for any errors that may have occured */
-    if (c == EOF) {
+    if c == EOF {
         if (ferror(ffp)) {
             mlwrite("File read error");
             return FIOERR;
@@ -177,7 +177,7 @@ int fexist(char *fname)
     fp = fopen(fname, "r");
 
     /* if it fails, just return false! */
-    if (fp == NULL)
+    if fp == NULL
         return FALSE;
 
     /* otherwise, close it and report true */
